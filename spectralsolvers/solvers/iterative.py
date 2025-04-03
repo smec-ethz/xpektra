@@ -5,15 +5,13 @@ import functools
 
 
 @functools.partial(jax.jit, static_argnums=(0,))
-def conjugate_gradient(A, b, additional, atol=1e-5):
-
-    b, additional = jax.device_put((b, additional))
+def conjugate_gradient(A, b, atol=1e-8):
 
     iiter = 0
 
     def body_fun(state):
         b, p, r, rsold, x, iiter = state
-        Ap = A(p, additional)
+        Ap = A(p)
         alpha = rsold / jnp.vdot(p, Ap)
         x = x + jnp.dot(alpha, p)
         r = r - jnp.dot(alpha, Ap)
@@ -25,17 +23,21 @@ def conjugate_gradient(A, b, additional, atol=1e-5):
 
     def cond_fun(state):
         b, p, r, rsold, x, iiter = state
+        # jax.debug.print('iiter = {}', iiter)
+
         return jnp.logical_and(jnp.sqrt(rsold) > atol, iiter < 100)
 
-    x = jnp.zeros_like(b)
-    r = b - A(x, additional)
+    x = jnp.full_like(b, fill_value=0.0)
+    r = b - A(x)
     p = r
     rsold = jnp.vdot(r, r)
+    jax.debug.print("CG error = {}", rsold)
 
     b, p, r, rsold, x, iiter = jax.lax.while_loop(
         cond_fun, body_fun, (b, p, r, rsold, x, iiter)
     )
     return x, iiter
+
 
 
 @functools.partial(jax.jit, static_argnums=(0,))
