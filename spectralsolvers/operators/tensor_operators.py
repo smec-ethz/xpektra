@@ -15,17 +15,17 @@ jax.config.update("jax_platforms", "cpu")
 # e.g. ddot42 performs $C_ij = A_ijkl B_lk$ for the entire grid
 @jax.jit
 def trans2(A2):
-    return jnp.einsum("ijxy->jixy  ", A2)
+    return jnp.einsum("ij...->ji...  ", A2, optimize="optimal")
 
 
 @jax.jit
 def trace2(A2):
-    return jnp.einsum("iixy         ->xy    ", A2)
+    return jnp.einsum("ii...->...    ", A2, optimize="optimal")
 
 
 @jax.jit
 def dot(A, B):
-    return jnp.einsum("ij,ji->ij", A, B)
+    return jnp.einsum("ij,ji->ij", A, B, optimize="optimal")
 
 
 @jax.jit
@@ -35,44 +35,44 @@ def dot21(A, v):
 
 @jax.jit
 def ddot22(A2, B2):
-    return jnp.einsum("ijxy  ,jixy  ->xy    ", A2, B2)
+    return jnp.einsum("ij...  ,ji...  ->...    ", A2, B2, optimize="optimal")
 
 
 @jax.jit
 def ddot42(A4, B2):
-    return jnp.einsum("ijklxy,lkxy  ->ijxy  ", A4, B2)
+    return jnp.einsum("ijkl...,lk...  ->ij...  ", A4, B2, optimize="optimal")
 
 
 @jax.jit
 def ddot44(A4, B4):
-    return jnp.einsum("ijklxy,lkmnxy->ijmnxy", A4, B4)
+    return jnp.einsum("ijkl...,lkmn...->ijmn...", A4, B4, optimize="optimal")
 
 
 @jax.jit
 def dot11(A1, B1):
-    return jnp.einsum("ixy   ,ixy   ->xy    ", A1, B1)
+    return jnp.einsum("i...,i... ->...    ", A1, B1, optimize="optimal")
 
 
 @jax.jit
 def dot22(A2, B2):
-    return jnp.einsum("ijxy  ,jkxy  ->ikxy  ", A2, B2)
+    return jnp.einsum("ij...  ,jk...  ->ik...  ", A2, B2, optimize="optimal")
 
 
 @jax.jit
 def dot24(A2, B4):
-    return jnp.einsum("ijxy  ,jkmnxy->ikmnxy", A2, B4)
+    return jnp.einsum("ij...  ,jkmn...->ikmn...", A2, B4, optimize="optimal")
 
 
 @jax.jit
 def dot42(A4, B2):
-    return jnp.einsum("ijklxy,lmxy  ->ijkmxy", A4, B2)
+    return jnp.einsum("ijkl...,lm...  ->ijkm...", A4, B2, optimize="optimal")
 
 
 @jax.jit
 def dyad22(A2, B2):
-    return jnp.einsum("ijxy  ,klxy  ->ijklxy", A2, B2)
+    return jnp.einsum("ij...  ,kl...  ->ijkl...", A2, B2, optimize="optimal")
 
 
 @jax.jit
 def dyad11(A1, B1):
-    return jnp.einsum("ixy   ,jxy   ->ijxy  ", A1, B1)
+    return jnp.einsum("i...   ,j...   ->ij...  ", A1, B1, optimize="optimal")
