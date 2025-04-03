@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def gradient_operator(N, ndim, length=1.0, operator="fourier"):
     Δ = length / N
 
@@ -30,12 +31,11 @@ def gradient_operator(N, ndim, length=1.0, operator="fourier"):
         ξx, ξy, ξz = np.meshgrid(ξ, ξ, ξ)
         wavenumbers = [ξx, ξy, ξz]
 
-
         kmax_dealias = ξx.max() * 2.0 / 3.0  # The Nyquist mode
         dealias = np.array(
             (np.abs(wavenumbers[0]) < kmax_dealias)
-            * (np.abs(wavenumbers[1]) < kmax_dealias)*
-            (np.abs(wavenumbers[2]) < kmax_dealias),
+            * (np.abs(wavenumbers[1]) < kmax_dealias)
+            * (np.abs(wavenumbers[2]) < kmax_dealias),
             dtype=bool,
         )
 
@@ -43,16 +43,15 @@ def gradient_operator(N, ndim, length=1.0, operator="fourier"):
         N,
     ] * ndim  # number of voxels in all directions
 
-    factor = 1.
+    factor = 1.0
     ι = 1j
-    
+
     if ndim > 1:
         for j in range(ndim):
-            factor *=  0.5 * (1 + np.exp(ι * wavenumbers[j] * Δ))
+            factor *= 0.5 * (1 + np.exp(ι * wavenumbers[j] * Δ))
 
     for i in range(ndim):
         ξ = wavenumbers[i]
-
 
         if operator == "fourier":
             Dξ[i] = ι * ξ
@@ -66,14 +65,8 @@ def gradient_operator(N, ndim, length=1.0, operator="fourier"):
         elif operator == "backward-difference":
             Dξ[i] = (1 - np.exp(-ι * ξ * Δ)) / Δ
 
-        elif operator == "rotated-difference" and ndim > 1:            
-            Dξ[i] = (
-                2
-                * ι
-                * np.tan(ξ * Δ / 2)
-                * factor
-                / Δ
-            )
+        elif operator == "rotated-difference" and ndim > 1:
+            Dξ[i] = 2 * ι * np.tan(ξ * Δ / 2) * factor / Δ
 
         elif operator == "4-central-difference":
             Dξ[i] = ι * (8 * np.sin(ξ * Δ) / (6 * Δ) - np.sin(2 * ξ * Δ) / (6 * Δ))
@@ -100,4 +93,3 @@ def gradient_operator(N, ndim, length=1.0, operator="fourier"):
         return Dξ[0], dealias
     else:
         return Dξ, dealias
-

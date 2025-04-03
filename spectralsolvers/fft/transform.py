@@ -11,7 +11,6 @@ jax.config.update("jax_platforms", "cpu")
 
 
 def _fft(x, N, ndim):
-    ndim = len(x.shape)
     return jnp.fft.fftshift(
         jnp.fft.fftn(
             jnp.fft.ifftshift(x),
@@ -24,7 +23,6 @@ def _fft(x, N, ndim):
 
 
 def _ifft(x, N, ndim):
-    ndim = len(x.shape)
     return jnp.fft.fftshift(
         jnp.fft.ifftn(
             jnp.fft.ifftshift(x),
