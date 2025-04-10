@@ -1,10 +1,5 @@
 import numpy as np
-import tensor
 
-
-def laplacian_operator(N, ndim, length=1.0, operator="fourier"):
-    nabla, delias = gradient_operator(N=N, ndim=ndim, length=length, operator=operator)
-    return tensor.dot11(nabla, nabla), delias
 
 
 def gradient_operator(N, ndim, length=1.0, operator="fourier"):
