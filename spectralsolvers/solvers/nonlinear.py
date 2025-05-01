@@ -4,19 +4,19 @@ import numpy as np
 import functools
 
 
-@functools.partial(jax.jit, static_argnames=["A", "krylov_solver", "tol"])
-def newton_krylov_solver(state, A, krylov_solver, tol):
+@functools.partial(jax.jit, static_argnames=["A", "krylov_solver", "tol", "max_iter"])
+def newton_krylov_solver(state, A, krylov_solver, tol, max_iter):
 
     def newton_raphson(state, n):
         dF, b, F = state
         error = jnp.linalg.norm(b)
         # jnp.linalg.norm(dF) / jnp.linalg.norm(F)
-        jax.debug.print("residual={}", error)
+        # jax.debug.print("residual={}", error)
 
         def true_fun(state):
             dF, b, F = state
 
-            dF, iiter = krylov_solver(A=A, b=b, atol=1e-8)  # solve linear system
+            dF, iiter = krylov_solver(A=A, b=b)  # solve linear system
 
             dF = dF.reshape(F.shape)
             F = jax.lax.add(F, dF)
@@ -29,5 +29,19 @@ def newton_krylov_solver(state, A, krylov_solver, tol):
 
         return jax.lax.cond(error > tol, true_fun, false_fun, state), n
 
-    final_state, xs = jax.lax.scan(newton_raphson, init=state, xs=jnp.arange(0, 20))
+    final_state, xs = jax.lax.scan(
+        newton_raphson, init=state, xs=jnp.arange(0, max_iter)
+    )
+
+    def not_converged(residual):
+        jax.debug.print("Didnot converge, Residual value : {}", residual)
+        return residual
+
+    def converged(residual):
+        jax.debug.print("Converged, Residual value : {}", residual)
+        return residual
+
+    residual = jnp.linalg.norm(final_state[1])
+    jax.lax.cond(residual > tol, not_converged, converged, residual)
+
     return final_state
