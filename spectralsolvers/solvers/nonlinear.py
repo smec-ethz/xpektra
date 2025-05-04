@@ -1,11 +1,20 @@
 import jax
+
+jax.config.update("jax_enable_x64", True)  # use double-precision
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+import os
+
+if os.environ["JAX_PLATFORM"] == "cpu":
+    jax.config.update("jax_platforms", "cpu")
+
+
 import jax.numpy as jnp
 import numpy as np
 import functools
 
 
 @functools.partial(jax.jit, static_argnames=["A", "krylov_solver", "tol", "max_iter"])
-def newton_krylov_solver(state, A, krylov_solver, tol, max_iter):
+def newton_krylov_solver(state, A, additionals, krylov_solver, tol, max_iter):
 
     def newton_raphson(state, n):
         dF, b, F = state
@@ -16,11 +25,13 @@ def newton_krylov_solver(state, A, krylov_solver, tol, max_iter):
         def true_fun(state):
             dF, b, F = state
 
-            dF, iiter = krylov_solver(A=A, b=b)  # solve linear system
+            dF, iiter = krylov_solver(
+                A=A, b=b, additionals=additionals
+            )  # solve linear system
 
             dF = dF.reshape(F.shape)
             F = jax.lax.add(F, dF)
-            b = -A(F)  # compute residual
+            b = -A(F, additionals)  # compute residual
 
             return (dF, b, F)
 

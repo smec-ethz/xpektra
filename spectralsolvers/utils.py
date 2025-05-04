@@ -1,4 +1,10 @@
 import jax
+jax.config.update("jax_enable_x64", True)  # use double-precision
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+import os
+if os.environ["JAX_PLATFORM"] == "cpu":
+    jax.config.update("jax_platforms", "cpu")
+
 import functools
 
 def vmap(use_vmap=True, *vmap_args, **vmap_kwargs):

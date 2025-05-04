@@ -1,17 +1,26 @@
 import jax
+
+jax.config.update("jax_enable_x64", True)  # use double-precision
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+import os
+
+if os.environ["JAX_PLATFORM"] == "cpu":
+    jax.config.update("jax_platforms", "cpu")
+
+
 import jax.numpy as jnp
 import numpy as np
 import functools
 
 
 @functools.partial(jax.jit, static_argnums=(0,))
-def conjugate_gradient(A, b, atol=1e-8, max_iter=100):
+def conjugate_gradient(A, b, additionals, atol=1e-8, max_iter=100):
 
     iiter = 0
 
     def body_fun(state):
         b, p, r, rsold, x, iiter = state
-        Ap = A(p)
+        Ap = A(p, additionals)
         alpha = rsold / jnp.vdot(p, Ap)
         x = x + jnp.dot(alpha, p)
         r = r - jnp.dot(alpha, Ap)
@@ -26,7 +35,7 @@ def conjugate_gradient(A, b, atol=1e-8, max_iter=100):
         return jnp.logical_and(jnp.sqrt(rsold) > atol, iiter < max_iter)
 
     x = jnp.full_like(b, fill_value=0.0)
-    r = b - A(x)
+    r = b - A(x, additionals)
     p = r
     rsold = jnp.vdot(r, r)
     # jax.debug.print("CG error = {}", rsold)
