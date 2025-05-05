@@ -13,8 +13,20 @@ import numpy as np
 import functools
 
 
-@functools.partial(jax.jit, static_argnames=["A", "krylov_solver", "tol", "max_iter"])
-def newton_krylov_solver(state, A, additionals, krylov_solver, tol, max_iter):
+@functools.partial(
+    jax.jit,
+    static_argnames=[
+        "A",
+        "krylov_solver",
+        "tol",
+        "max_iter",
+        "krylov_tol",
+        "krylov_max_iter",
+    ],
+)
+def newton_krylov_solver(
+    state, A, additionals, krylov_solver, tol, max_iter, krylov_tol, krylov_max_iter
+):
 
     def newton_raphson(state, n):
         dF, b, F = state
@@ -26,7 +38,11 @@ def newton_krylov_solver(state, A, additionals, krylov_solver, tol, max_iter):
             dF, b, F = state
 
             dF, iiter = krylov_solver(
-                A=A, b=b, additionals=additionals
+                A=A,
+                b=b,
+                atol=krylov_tol,
+                max_iter=krylov_max_iter,
+                additionals=additionals,
             )  # solve linear system
 
             dF = dF.reshape(F.shape)
