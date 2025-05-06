@@ -18,7 +18,6 @@ import jax.numpy as jnp
 import itertools
 import functools
 
-from numba import njit, prange
 
 
 # ----------------------------
@@ -80,10 +79,45 @@ def compute_differential_operator(ind, freq, operator, ndim, dx):
     return Dξ
 
 
+def optimized_projection_fill(G, Dξs, grid_size):
+    ndim = len(grid_size)
+    shape = grid_size
+    N = np.prod(shape)
+
+    # Flatten Dξs into shape (N, ndim)
+    Dξs = Dξs.reshape(N, ndim)
+    norm_sq = np.einsum("ni,ni->n", Dξs, np.conj(Dξs))  # shape (N,)
+
+    # Avoid division by zero
+    valid_mask = norm_sq != 0
+    Dξ_inv = np.zeros_like(Dξs, dtype=np.complex128)
+    Dξ_inv[valid_mask] = np.conj(Dξs[valid_mask]) / norm_sq[valid_mask, None]
+
+    # Precompute grid indices
+    grid_indices = list(itertools.product(*[range(n) for n in shape]))
+
+    δ = lambda i, j: float(i == j)
+
+    for i, j, l, m in itertools.product(range(ndim), repeat=4):
+        if δ(i, m) == 0:
+            continue  # skip computation entirely
+
+        term = Dξs[:, j] * Dξ_inv[:, l]  # shape (N,)
+        term[~valid_mask] = 0.0
+
+        # Assign into G
+        for index, ind in enumerate(grid_indices):
+            G[i, j, l, m][ind] = δ(i, m) * term[index]
+
+    return G
+
+
 def compute_projection_operator_modified(grid_size, length=1, operator="fourier"):
     ndim = len(grid_size)
     dx = length / grid_size[0]
-    𝔾 = np.zeros((ndim, ndim, ndim, ndim) + grid_size, dtype="complex")
+
+    G = np.zeros((ndim, ndim, ndim, ndim) + grid_size, dtype="complex")
+
     freq = jnp.array(
         [
             np.arange(
@@ -93,22 +127,19 @@ def compute_projection_operator_modified(grid_size, length=1, operator="fourier"
             for ii in range(ndim)
         ]
     )
-    δ = lambda i, j: float(i == j)
-    # ι = 1j
 
-    indexes = np.array(list(itertools.product(*[range(n) for n in grid_size])))
+    grid_indices = np.array(list(itertools.product(*[range(n) for n in grid_size])))
 
     _map = jax.vmap(compute_differential_operator, in_axes=(0, None, None, None, None))
-    Dξs = _map(jnp.array(indexes), freq, operator, ndim, dx)
-    Dξs = np.array(Dξs)
+    Dξs = _map(jnp.array(grid_indices), freq, operator, ndim, dx)
+    Dξs = jnp.array(Dξs)
 
-    for i, j, l, m in itertools.product(range(ndim), repeat=4):
-        for index, ind in enumerate(itertools.product(*[range(n) for n in grid_size])):
-            Dξ = Dξs[index]
-            if not Dξ.dot(np.conjugate(Dξ)) == 0:
-                Dξ_inverse = np.conjugate(Dξ) / (Dξ.dot(np.conjugate(Dξ)))
-                𝔾[i, j, l, m][ind] = δ(i, m) * Dξ[j] * Dξ_inverse[l]
-    return 𝔾
+    G = optimized_projection_fill(G, Dξs, grid_size)
+
+    # should try distirbuted layout for cpu and gpus
+    # https://colab.research.google.com/github/phlippe/uvadlc_notebooks/blob/master/docs/tutorial_notebooks/scaling/JAX/data_parallel_intro.ipynb
+
+    return G
 
 
 # ----------------------------

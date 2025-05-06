@@ -95,7 +95,7 @@ laplace = tensor.dot11(nabla, nabla)
 
 start_time = timeit.default_timer()
 
-Ghat = fourier_galerkin.compute_projection_operator(
+Ghat = fourier_galerkin.compute_projection_operator_legacy(
     grid_size=grid_size, operator="rotated-difference", length=length
 )
 

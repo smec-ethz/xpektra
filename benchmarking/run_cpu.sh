@@ -15,4 +15,4 @@ export JAX_CACHE_DIR="$SCRATCH/jax-cache"
 export JAX_PLATFORM="cpu"
 export SPECTRAL_LIB_PATH="/cluster/home/mpundir/dev/spectralsolvers/"
 
-python $SPECTRAL_LIB_PATH/benchmarking/benchmark_projection_operator.py
+python $SPECTRAL_LIB_PATH/benchmarking/script.py

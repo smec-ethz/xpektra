@@ -1,4 +1,5 @@
 import jax  # type: ignore
+
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import jax.numpy as jnp  # type: ignore
@@ -9,8 +10,126 @@ import functools
 import itertools
 
 
+def compute_differential_operator(ind, freq, operator, ndim, dx):
+    Δ = dx
+
+    ι = 1j
+
+    ξ = jnp.empty(ndim, dtype="complex")
+    Dξ = jnp.empty(ndim, dtype="complex")
+    factor = 1.0
+    for jj in range(ndim):
+        index = ind.at[jj].get()
+        freq_jj = freq.at[jj].get()
+
+        factor *= 0.5 * (1 + jnp.exp(ι * 2 * jnp.pi * freq_jj.at[index].get() * Δ))
+    for ii in range(ndim):
+        index = ind.at[ii].get()
+        freq_ii = freq.at[ii].get()
+        ξ = ξ.at[ii].set(2 * jnp.pi * freq_ii.at[index].get())
+        if operator == "fourier":
+            Dξ = Dξ.at[ii].set(ι * ξ.at[ii].get())
+        elif operator == "forward-difference":
+            Dξ = Dξ.at[ii].set((jnp.exp(ι * ξ.at[ii].get() * Δ) - 1) / Δ)
+        elif operator == "central-difference":
+            Dξ = Dξ.at[ii].set(ι * jnp.sin(ξ.at[ii].get() * Δ) / Δ)
+        elif operator == "4-central-difference":
+            Dξ = Dξ.at[ii].set(
+                ι
+                * (
+                    8 * jnp.sin(ξ[ii] * Δ) / (6 * Δ)
+                    - jnp.sin(2 * ξ.at[ii].get() * Δ) / (6 * Δ)
+                )
+            )
+        elif operator == "6-central-difference":
+            Dξ = Dξ.at[ii].set(
+                ι
+                * (
+                    9 * jnp.sin(ξ.at[ii].get() * Δ) / (6 * Δ)
+                    - 3 * jnp.sin(2 * ξ.at[ii].get() * Δ) / (10 * Δ)
+                    + jnp.sin(3 * ξ.at[ii].get() * Δ) / (30 * Δ)
+                )
+            )
+        elif operator == "8-central-difference":
+            Dξ = Dξ.at[ii].set(
+                ι
+                * (
+                    8 * jnp.sin(ξ.at[ii].get() * Δ) / (5 * Δ)
+                    - 2 * jnp.sin(2 * ξ.at[ii].get() * Δ) / (5 * Δ)
+                    + 8 * jnp.sin(3 * ξ.at[ii].get() * Δ) / (105 * Δ)
+                    - jnp.sin(4 * ξ.at[ii].get() * Δ) / (140 * Δ)
+                )
+            )
+        elif operator == "rotated-difference":
+            Dξ = Dξ.at[ii].set(2 * ι * jnp.tan(ξ.at[ii].get() * Δ / 2) * factor / Δ)
+
+    return Dξ
+
+
+def optimized_projection_fill(G, Dξs, grid_size):
+    ndim = len(grid_size)
+    shape = grid_size
+    N = np.prod(shape)
+
+    # Flatten Dξs into shape (N, ndim)
+    Dξs = Dξs.reshape(N, ndim)
+    norm_sq = np.einsum("ni,ni->n", Dξs, np.conj(Dξs))  # shape (N,)
+
+    # Avoid division by zero
+    valid_mask = norm_sq != 0
+    Dξ_inv = np.zeros_like(Dξs, dtype=np.complex128)
+    Dξ_inv[valid_mask] = np.conj(Dξs[valid_mask]) / norm_sq[valid_mask, None]
+
+    # Precompute grid indices
+    grid_indices = list(itertools.product(*[range(n) for n in shape]))
+
+    δ = lambda i, j: float(i == j)
+
+    for i, j, l, m in itertools.product(range(ndim), repeat=4):
+        if δ(i, m) == 0:
+            continue  # skip computation entirely
+
+        term = Dξs[:, j] * Dξ_inv[:, l]  # shape (N,)
+        term[~valid_mask] = 0.0
+
+        # Assign into G
+        for index, ind in enumerate(grid_indices):
+            G[i, j, l, m][ind] = δ(i, m) * term[index]
+
+    return G
+
+
+def compute_projection_operator(grid_size, length=1, operator="fourier"):
+    ndim = len(grid_size)
+    dx = length / grid_size[0]
+
+    G = np.zeros((ndim, ndim, ndim, ndim) + grid_size, dtype="complex")
+
+    freq = jnp.array(
+        [
+            np.arange(
+                -(grid_size[ii] - 1) / 2.0, +(grid_size[ii] + 1) / 2.0, dtype="int64"
+            )
+            / length
+            for ii in range(ndim)
+        ]
+    )
+
+    grid_indices = np.array(list(itertools.product(*[range(n) for n in grid_size])))
+
+    _map = jax.vmap(compute_differential_operator, in_axes=(0, None, None, None, None))
+    Dξs = _map(jnp.array(grid_indices), freq, operator, ndim, dx)
+    Dξs = np.array(Dξs)
+
+    G = optimized_projection_fill(G, Dξs, grid_size)
+
+    return G
+
+
 @functools.partial(jax.jit, static_argnames=["grid_size", "length", "operator"])
-def compute_projection_operator(grid_size, length=1, operator="forward-difference"):
+def compute_projection_operator_legacy(
+    grid_size, length=1, operator="forward-difference"
+):
     ndim = len(grid_size)
     Δ = length / grid_size[0]
 
