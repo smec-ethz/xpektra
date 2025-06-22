@@ -2,10 +2,6 @@ import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-import os
-
-if os.environ["JAX_PLATFORM"] == "cpu":
-    jax.config.update("jax_platforms", "cpu")
 
 
 import jax.numpy as jnp
@@ -31,8 +27,6 @@ def newton_krylov_solver(
     def newton_raphson(state, n):
         dF, b, F = state
         error = jnp.linalg.norm(b)
-        # jnp.linalg.norm(dF) / jnp.linalg.norm(F)
-        # jax.debug.print("residual={}", error)
 
         def true_fun(state):
             dF, b, F = state
@@ -44,7 +38,7 @@ def newton_krylov_solver(
                 max_iter=krylov_max_iter,
                 additionals=additionals,
             )  # solve linear system
-
+            
             dF = dF.reshape(F.shape)
             F = jax.lax.add(F, dF)
             b = -A(F, additionals)  # compute residual
@@ -57,7 +51,7 @@ def newton_krylov_solver(
         return jax.lax.cond(error > tol, true_fun, false_fun, state), n
 
     final_state, xs = jax.lax.scan(
-        newton_raphson, init=state, xs=jnp.arange(0, max_iter)
+        newton_raphson, init=state, xs=jnp.arange(0, max_iter),
     )
 
     def not_converged(residual):
@@ -69,6 +63,6 @@ def newton_krylov_solver(
         return residual
 
     residual = jnp.linalg.norm(final_state[1])
-    jax.lax.cond(residual > tol, not_converged, converged, residual)
+    _ = jax.lax.cond(residual > tol, not_converged, converged, residual)
 
     return final_state
