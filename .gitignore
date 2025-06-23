@@ -14,5 +14,6 @@ arguments-*
 *.pdf
 *.err 
 *.out
-*_venv*
+*venv*
 *jax-cache*
+*.egg-info*
