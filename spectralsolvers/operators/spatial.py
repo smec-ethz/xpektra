@@ -1,8 +1,16 @@
 import numpy as np
 
+class Operator:
+    fourier = "fourier"
+    forward_difference = "forward-difference"
+    central_difference = "central-difference"
+    backward_difference = "backward-difference"
+    rotated_difference = "rotated-difference"
+    four_central_difference = "4-central-difference"
+    six_central_difference = "6-central-difference"
+    eight_central_difference = "8-central-difference"
 
-
-def gradient_operator(N, ndim, length=1.0, operator="fourier"):
+def gradient_operator(N, ndim, length=1.0, operator=Operator.fourier):
     Δ = length / N
 
     freq = np.arange(-(N - 1) / 2, +(N + 1) / 2, dtype="int64") / length
@@ -54,32 +62,32 @@ def gradient_operator(N, ndim, length=1.0, operator="fourier"):
     for i in range(ndim):
         ξ = wavenumbers[i]
 
-        if operator == "fourier":
+        if operator == Operator.fourier:
             Dξ[i] = ι * ξ
 
-        elif operator == "forward-difference":
+        elif operator == Operator.forward_difference:
             Dξ[i] = (np.exp(ι * ξ * Δ) - 1) / Δ
 
-        elif operator == "central-difference":
+        elif operator == Operator.central_difference:
             Dξ[i] = ι * np.sin(ξ * Δ) / Δ
 
-        elif operator == "backward-difference":
+        elif operator == Operator.backward_difference:
             Dξ[i] = (1 - np.exp(-ι * ξ * Δ)) / Δ
 
-        elif operator == "rotated-difference" and ndim > 1:
+        elif operator == Operator.rotated_difference and ndim > 1:
             Dξ[i] = 2 * ι * np.tan(ξ * Δ / 2) * factor / Δ
 
-        elif operator == "4-central-difference":
+        elif operator == Operator.four_central_difference:
             Dξ[i] = ι * (8 * np.sin(ξ * Δ) / (6 * Δ) - np.sin(2 * ξ * Δ) / (6 * Δ))
 
-        elif operator == "6-central-difference":
+        elif operator == Operator.six_central_difference:
             Dξ[i] = ι * (
                 9 * np.sin(ξ * Δ) / (6 * Δ)
                 - 3 * np.sin(2 * ξ * Δ) / (10 * Δ)
                 + np.sin(3 * ξ * Δ) / (30 * Δ)
             )
 
-        elif operator == "8-central-difference":
+        elif operator == Operator.eight_central_difference:
             Dξ[i] = ι * (
                 8 * np.sin(ξ * Δ) / (5 * Δ)
                 - 2 * np.sin(2 * ξ * Δ) / (5 * Δ)
