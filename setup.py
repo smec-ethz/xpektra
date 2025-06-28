@@ -11,16 +11,6 @@ setup(
     url="https://github.com/mpundir/spectralsolvers",  # optional
     packages=find_packages(where="."),  # finds spectralsolvers/
     install_requires=[
-        "jax==0.6.1",
-        "equinox==0.12.1",
-        "numpy",
-        "sparsejac",
-        "matplotlib",
-        "cmcrameri",
-        "scipy",
-        "mpi4py",
-        "petsc",
-        "petsc4py",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
