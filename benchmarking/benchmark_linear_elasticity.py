@@ -12,6 +12,9 @@ if os.environ["JAX_PLATFORM"] == "cpu":
 
 print(jax.devices())
 
+print(jax.devices("gpu"))
+print(jax.devices("cpu"))
+
 import numpy as np
 from functools import partial
 
@@ -287,7 +290,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="benchmark simulations")
     
-    parser.add_argument("--N", type=int, default=99, help="pixel size")
+    parser.add_argument("--N", type=int, default=499, help="pixel size")
     parser.add_argument ("--ndim", type=int, default=2, help="dimension of rve")
     parser.add_argument ("--length", type=float, default=1, help="length of rve")
  
