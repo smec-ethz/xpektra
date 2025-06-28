@@ -7,8 +7,9 @@ jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import jax.numpy as jnp
 import numpy as np
 import functools
+import equinox as eqx
 
-
+"""
 @functools.partial(
     jax.jit,
     static_argnames=[
@@ -19,7 +20,8 @@ import functools
         "krylov_tol",
         "krylov_max_iter",
     ],
-)
+)"""
+@eqx.filter_jit
 def newton_krylov_solver(
     state, A, additionals, krylov_solver, tol, max_iter, krylov_tol, krylov_max_iter
 ):

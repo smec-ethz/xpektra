@@ -12,7 +12,6 @@ if os.environ["JAX_PLATFORM"] == "cpu":
 
 print(jax.devices())
 
-
 import numpy as np
 from functools import partial
 
@@ -23,8 +22,42 @@ from spectralsolvers.solvers.nonlinear import newton_krylov_solver
 
 from skimage.morphology import disk, rectangle, ellipse
 import timeit
+import equinox as eqx
+from typing import Callable
 
 import argparse
+
+
+class FourierGalerkinOperator(eqx.Module):
+    Ghat: jnp.ndarray
+    funcs: dict[str, Callable]
+    elasticity_dof_shape: tuple[int, ...]
+
+    def __call__(self, deps, args=None):
+        deps = deps.reshape(self.elasticity_dof_shape)
+        dsigma = self.funcs["compute_tangent_modulus"](deps, args)
+
+        return jnp.real(
+            self.funcs["ifft"](tensor.ddot42(self.Ghat, self.funcs["fft"](dsigma)))
+        ).reshape(-1)
+
+    def __init__(
+        self,
+        N,
+        ndim,
+        length,
+        compute_tangent_modulus,
+        gradient_operator=spatial.Operator.rotated_difference,
+    ):
+        self.Ghat = fourier_galerkin.compute_projection_operator_legacy(
+            grid_size=(N,) * ndim, operator=gradient_operator, length=length
+        )
+        self.funcs = {}
+        self.funcs["fft"] = jax.jit(partial(_fft, N=N, ndim=ndim))
+        self.funcs["ifft"] = jax.jit(partial(_ifft, N=N, ndim=ndim))
+        self.funcs["compute_tangent_modulus"] = compute_tangent_modulus
+        self.elasticity_dof_shape = (ndim, ndim) + (N,) * ndim
+
 
 def create_structure_3d(N):
     Hmid = int(N / 2)
@@ -76,20 +109,6 @@ def run(args):
 
     structure = jax.device_put(structure)
 
-
-    fft = jax.jit(partial(_fft, N=N, ndim=ndim))
-    ifft = jax.jit(partial(_ifft, N=N, ndim=ndim))
-
-    start_time = timeit.default_timer()
-
-    Ghat = fourier_galerkin.compute_projection_operator_legacy(
-        grid_size=grid_size, operator=spatial.Operator.rotated_difference, length=length
-    )
-
-    Ghat = jax.device_put(Ghat)
-
-    print('Ghat execution time : ', timeit.default_timer() - start_time )
-
     # material parameters
     elastic_modulus = {"solid": 1.0, "crack": 1e-3}  # N/mm2
     poisson_modulus = {"solid": 0.2, "crack": 0.2}
@@ -108,13 +127,16 @@ def run(args):
     )
 
     shear_modulus = {}
-    shear_modulus["solid"] = elastic_modulus["solid"] / (2 * (1 + poisson_modulus["solid"]))
-    shear_modulus["crack"] = elastic_modulus["crack"] / (2 * (1 + poisson_modulus["crack"]))
+    shear_modulus["solid"] = elastic_modulus["solid"] / (
+        2 * (1 + poisson_modulus["solid"])
+    )
+    shear_modulus["crack"] = elastic_modulus["crack"] / (
+        2 * (1 + poisson_modulus["crack"])
+    )
 
     bulk_modulus = {}
     bulk_modulus["solid"] = lambda_modulus["solid"] + 2 * shear_modulus["solid"] / 3
     bulk_modulus["crack"] = lambda_modulus["crack"] + 2 * shear_modulus["crack"] / 3
-
 
     λ0 = param(
         structure, crack=lambda_modulus["crack"], solid=lambda_modulus["solid"]
@@ -128,68 +150,30 @@ def run(args):
     λ0 = jax.device_put(λ0)
     K0 = jax.device_put(K0)
 
-
-    # identity tensors (grid)
-    if ndim == 2:
-        I2 = jnp.einsum(
-            "ij,xy",
-            jnp.eye(ndim),
-            jnp.ones(
-                [
-                    N,
-                ]
-                * ndim
-            ),
-        )
-    elif ndim == 3:
-        I2 = jnp.einsum(
-            "ij,xyz",
-            jnp.eye(ndim),
-            jnp.ones(
-                [
-                    N,
-                ]
-                * ndim
-            ),
-        )
-    else:
-        raise RuntimeError(f"Operations are not defined for dim {ndim}")
-
-
-
-
     @jax.jit
-    def strain_energy(eps, args=None):
+    def strain_energy(eps, _):
         eps_sym = 0.5 * (eps + tensor.trans2(eps))
         energy = 0.5 * jnp.multiply(λ0, tensor.trace2(eps_sym) ** 2) + jnp.multiply(
             μ0, tensor.trace2(tensor.dot22(eps_sym, eps_sym))
         )
         return energy.sum()
 
-
     sigma = jax.jit(jax.jacrev(strain_energy, argnums=0))
 
+    fourier_galerkin_op = FourierGalerkinOperator(
+        N,
+        ndim,
+        length,
+        gradient_operator=spatial.Operator.rotated_difference,
+        compute_tangent_modulus=sigma,
+    )
 
-    # functions for the projection 'G', and the product 'G : K : eps'
-    @jax.jit
-    def G(A2):
-        return jnp.real(ifft(tensor.ddot42(Ghat, fft(A2)))).reshape(-1)
-
-
-    @jax.jit
-    def G_K_deps(depsm, args=None):
-        depsm = depsm.reshape(elasticity_dof_shape)
-        return G(sigma(depsm, args))
-
-
-
-    applied_strains = np.diff(np.linspace(0, 2e-1, num=20))
+    applied_strains = jnp.diff(jnp.linspace(0, 2e-1, num=20))
     eps = jnp.zeros(elasticity_dof_shape)
     deps = jnp.zeros(elasticity_dof_shape)
 
     eps = jax.device_put(eps)
     deps = jax.device_put(deps)
-
 
     for_start_time = timeit.default_timer()
 
@@ -198,15 +182,14 @@ def run(args):
         # solving for elasticity
         deps = deps.at[0, 0].set(deps_avg)
 
-        b = -G_K_deps(deps, None)
+        b = -fourier_galerkin_op(deps)
         eps = jax.lax.add(eps, deps)
 
         start_time = timeit.default_timer()
 
-
         final_state = newton_krylov_solver(
             state=(deps, b, eps),
-            A=G_K_deps,
+            A=fourier_galerkin_op,
             tol=1e-8,
             max_iter=20,
             krylov_solver=conjugate_gradient_while,
@@ -216,7 +199,6 @@ def run(args):
         )
         print("execution time :", timeit.default_timer() - start_time)
 
-
         eps = final_state[2]
 
     print("execution time for :", timeit.default_timer() - for_start_time)
@@ -225,11 +207,11 @@ def run(args):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="benchmark simulations")
-    
+
     parser.add_argument("--N", type=int, default=499, help="pixel size")
-    parser.add_argument ("--ndim", type=int, default=2, help="dimension of rve")
-    parser.add_argument ("--length", type=float, default=1, help="length of rve")
- 
+    parser.add_argument("--ndim", type=int, default=2, help="dimension of rve")
+    parser.add_argument("--length", type=float, default=1, help="length of rve")
+
     args = parser.parse_args()
 
     run(args)

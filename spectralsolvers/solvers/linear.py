@@ -8,9 +8,10 @@ import os
 import jax.numpy as jnp
 import numpy as np
 import functools
+import equinox as eqx
 
-
-@functools.partial(jax.jit, static_argnums=(0,))
+#@functools.partial(jax.jit, static_argnums=(0,))
+@eqx.filter_jit
 def conjugate_gradient_while(A, b, additionals, atol=1e-8, max_iter=100):
 
     iiter = 0
@@ -43,7 +44,8 @@ def conjugate_gradient_while(A, b, additionals, atol=1e-8, max_iter=100):
     return x, iiter
 
 
-@functools.partial(jax.jit, static_argnames=["A", "max_iter"])
+#@functools.partial(jax.jit, static_argnames=["A", "max_iter"])
+@eqx.filter_jit
 def conjugate_gradient_scan(A, b, additionals, atol, max_iter):
     x = jnp.full_like(b, fill_value=0.0)
 
