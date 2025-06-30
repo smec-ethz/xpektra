@@ -9,8 +9,16 @@ import functools
 
 import itertools
 
+from spectralsolvers.operators.spatial import Operator
 
-def compute_differential_operator(ind, freq, operator, ndim, dx):
+
+def compute_differential_operator(
+    ind: jnp.ndarray,
+    freq: jnp.ndarray,
+    operator: Operator,
+    ndim: int,
+    dx: float,
+) -> jnp.ndarray:
     Δ = dx
 
     ι = 1j
@@ -27,13 +35,13 @@ def compute_differential_operator(ind, freq, operator, ndim, dx):
         index = ind.at[ii].get()
         freq_ii = freq.at[ii].get()
         ξ = ξ.at[ii].set(2 * jnp.pi * freq_ii.at[index].get())
-        if operator == "fourier":
+        if operator == Operator.fourier:
             Dξ = Dξ.at[ii].set(ι * ξ.at[ii].get())
-        elif operator == "forward-difference":
+        elif operator == Operator.forward_difference:
             Dξ = Dξ.at[ii].set((jnp.exp(ι * ξ.at[ii].get() * Δ) - 1) / Δ)
-        elif operator == "central-difference":
+        elif operator == Operator.central_difference:
             Dξ = Dξ.at[ii].set(ι * jnp.sin(ξ.at[ii].get() * Δ) / Δ)
-        elif operator == "4-central-difference":
+        elif operator == Operator.four_central_difference:
             Dξ = Dξ.at[ii].set(
                 ι
                 * (
@@ -41,7 +49,7 @@ def compute_differential_operator(ind, freq, operator, ndim, dx):
                     - jnp.sin(2 * ξ.at[ii].get() * Δ) / (6 * Δ)
                 )
             )
-        elif operator == "6-central-difference":
+        elif operator == Operator.six_central_difference:
             Dξ = Dξ.at[ii].set(
                 ι
                 * (
@@ -50,7 +58,7 @@ def compute_differential_operator(ind, freq, operator, ndim, dx):
                     + jnp.sin(3 * ξ.at[ii].get() * Δ) / (30 * Δ)
                 )
             )
-        elif operator == "8-central-difference":
+        elif operator == Operator.eight_central_difference:
             Dξ = Dξ.at[ii].set(
                 ι
                 * (
@@ -60,13 +68,15 @@ def compute_differential_operator(ind, freq, operator, ndim, dx):
                     - jnp.sin(4 * ξ.at[ii].get() * Δ) / (140 * Δ)
                 )
             )
-        elif operator == "rotated-difference":
+        elif operator == Operator.rotated_difference:
             Dξ = Dξ.at[ii].set(2 * ι * jnp.tan(ξ.at[ii].get() * Δ / 2) * factor / Δ)
 
     return Dξ
 
 
-def optimized_projection_fill(G, Dξs, grid_size):
+def optimized_projection_fill(
+    G: np.ndarray, Dξs: np.ndarray, grid_size: tuple[int, ...]
+) -> np.ndarray:
     ndim = len(grid_size)
     shape = grid_size
     N = np.prod(shape)
@@ -99,7 +109,11 @@ def optimized_projection_fill(G, Dξs, grid_size):
     return G
 
 
-def compute_projection_operator(grid_size, length=1, operator="fourier"):
+def compute_projection_operator(
+    grid_size: tuple[int, ...],
+    length: float = 1.0,
+    operator: Operator = Operator.fourier,
+) -> np.ndarray:
     ndim = len(grid_size)
     dx = length / grid_size[0]
 
@@ -128,7 +142,7 @@ def compute_projection_operator(grid_size, length=1, operator="fourier"):
 
 @functools.partial(jax.jit, static_argnames=["grid_size", "length", "operator"])
 def compute_projection_operator_legacy(
-    grid_size, length=1, operator="forward-difference"
+    grid_size, length=1, operator=Operator.forward_difference
 ):
     ndim = len(grid_size)
     Δ = length / grid_size[0]
@@ -164,31 +178,31 @@ def compute_projection_operator_legacy(
                     2 * np.pi * freq[ii][ind[ii]]
                 )  ## frequency vector # 2*pi*(n)/samplingspace/n https://arxiv.org/pdf/1412.8398
 
-                if operator == "fourier":
+                if operator == Operator.fourier:
                     Dξ[ii] = ι * ξ[ii]  ## fourier operator
-                elif operator == "forward-difference":
+                elif operator == Operator.forward_difference:
                     Dξ[ii] = (np.exp(ι * ξ[ii] * Δ) - 1) / Δ
-                elif operator == "central-difference":
+                elif operator == Operator.central_difference:
                     Dξ[ii] = ι * np.sin(ξ[ii] * Δ) / Δ
-                elif operator == "4-central-difference":
+                elif operator == Operator.four_central_difference:
                     Dξ[ii] = ι * (
                         8 * np.sin(ξ[ii] * Δ) / (6 * Δ)
                         - np.sin(2 * ξ[ii] * Δ) / (6 * Δ)
                     )
-                elif operator == "6-central-difference":
+                elif operator == Operator.six_central_difference:
                     Dξ[ii] = ι * (
                         9 * np.sin(ξ[ii] * Δ) / (6 * Δ)
                         - 3 * np.sin(2 * ξ[ii] * Δ) / (10 * Δ)
                         + np.sin(3 * ξ[ii] * Δ) / (30 * Δ)
                     )
-                elif operator == "8-central-difference":
+                elif operator == Operator.eight_central_difference:
                     Dξ[ii] = ι * (
                         8 * np.sin(ξ[ii] * Δ) / (5 * Δ)
                         - 2 * np.sin(2 * ξ[ii] * Δ) / (5 * Δ)
                         + 8 * np.sin(3 * ξ[ii] * Δ) / (105 * Δ)
                         - np.sin(4 * ξ[ii] * Δ) / (140 * Δ)
                     )
-                elif operator == "rotated-difference":
+                elif operator == Operator.rotated_difference:
                     Dξ[ii] = 2 * ι * np.tan(ξ[ii] * Δ / 2) * factor / Δ
 
             if not Dξ.dot(np.conjugate(Dξ)) == 0:  # zero freq. -> mean
@@ -198,7 +212,11 @@ def compute_projection_operator_legacy(
 
 
 @functools.partial(jax.jit, static_argnames=["N", "length", "operator"])
-def compute_Ghat_2_1(N, length=1, operator="forward-difference"):
+def compute_Ghat_2_1(N, length=1, operator=Operator.forward_difference):
+    """
+    Compute the projection operator for the 2nd order 1st derivative.
+    """
+    
     ndim = len(N)
     Δ = length / N[0]
 
@@ -214,23 +232,23 @@ def compute_Ghat_2_1(N, length=1, operator="forward-difference"):
             Dξ = np.empty(ndim, dtype="complex")
             for ii in range(ndim):
                 q[ii] = 2 * np.pi * freq[ii][ind[ii]]  ## frequency vector
-                if operator == "fourier":
+                if operator == Operator.fourier:
                     Dξ[ii] = 1j * q[ii]
-                elif operator == "central-difference":
+                elif operator == Operator.central_difference:
                     Dξ[ii] = 1j * np.sin(q[ii] * Δ) / Δ
-                elif operator == "4-order-cd":
+                elif operator == Operator.four_central_difference:
                     Dξ[ii] = 1j * (
                         8 * np.sin(q[ii] * Δ) / (6 * Δ)
                         - np.sin(2 * q[ii] * Δ) / (6 * Δ)
                     )
-                elif operator == "8-order-cd":
+                elif operator == Operator.eight_central_difference:
                     Dξ[ii] = 1j * (
                         8 * np.sin(q[ii] * Δ) / (5 * Δ)
                         - 2 * np.sin(2 * q[ii] * Δ) / (5 * Δ)
                         + 8 * np.sin(3 * q[ii] * Δ) / (105 * Δ)
                         - np.sin(4 * q[ii] * Δ) / (140 * Δ)
                     )
-                elif operator == "forward-difference":
+                elif operator == Operator.forward_difference:
                     Dξ[ii] = (np.exp(1j * q[ii] * Δ) - 1) / Δ
                 else:
                     raise RuntimeError("operator incorrectly defined")

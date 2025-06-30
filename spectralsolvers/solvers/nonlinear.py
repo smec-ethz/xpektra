@@ -21,9 +21,18 @@ import equinox as eqx
         "krylov_max_iter",
     ],
 )"""
+
+
 @eqx.filter_jit
 def newton_krylov_solver(
-    state, A, additionals, krylov_solver, tol, max_iter, krylov_tol, krylov_max_iter
+    state: tuple,
+    A: eqx.Module,
+    additionals: tuple,
+    krylov_solver,
+    tol: float,
+    max_iter: int,
+    krylov_tol: float,
+    krylov_max_iter: int,
 ):
 
     def newton_raphson(state, n):
@@ -40,10 +49,10 @@ def newton_krylov_solver(
                 max_iter=krylov_max_iter,
                 additionals=additionals,
             )  # solve linear system
-            
+
             dF = dF.reshape(F.shape)
             F = jax.lax.add(F, dF)
-            b = -A(F, additionals)  # compute residual
+            b = -A.residual(F, additionals)  # compute residual
 
             return (dF, b, F)
 
@@ -53,7 +62,9 @@ def newton_krylov_solver(
         return jax.lax.cond(error > tol, true_fun, false_fun, state), n
 
     final_state, xs = jax.lax.scan(
-        newton_raphson, init=state, xs=jnp.arange(0, max_iter),
+        newton_raphson,
+        init=state,
+        xs=jnp.arange(0, max_iter),
     )
 
     def not_converged(residual):

@@ -33,14 +33,6 @@ class FourierGalerkinOperator(eqx.Module):
     funcs: dict[str, Callable]
     elasticity_dof_shape: tuple[int, ...]
 
-    def __call__(self, deps, args=None):
-        deps = deps.reshape(self.elasticity_dof_shape)
-        dsigma = self.funcs["compute_tangent_modulus"](deps, args)
-
-        return jnp.real(
-            self.funcs["ifft"](tensor.ddot42(self.Ghat, self.funcs["fft"](dsigma)))
-        ).reshape(-1)
-
     def __init__(
         self,
         N,
@@ -49,7 +41,7 @@ class FourierGalerkinOperator(eqx.Module):
         compute_tangent_modulus,
         gradient_operator=spatial.Operator.rotated_difference,
     ):
-        self.Ghat = fourier_galerkin.compute_projection_operator_legacy(
+        self.Ghat = fourier_galerkin.compute_projection_operator(
             grid_size=(N,) * ndim, operator=gradient_operator, length=length
         )
         self.funcs = {}
@@ -57,6 +49,16 @@ class FourierGalerkinOperator(eqx.Module):
         self.funcs["ifft"] = jax.jit(partial(_ifft, N=N, ndim=ndim))
         self.funcs["compute_tangent_modulus"] = compute_tangent_modulus
         self.elasticity_dof_shape = (ndim, ndim) + (N,) * ndim
+
+
+    def __call__(self, deps, args=None):
+        deps = deps.reshape(self.elasticity_dof_shape)
+        dsigma = self.funcs["compute_tangent_modulus"](deps, args)
+
+        return jnp.real(
+            self.funcs["ifft"](tensor.ddot42(self.Ghat, self.funcs["fft"](dsigma)))
+        ).reshape(-1)
+
 
 
 def create_structure_3d(N):
