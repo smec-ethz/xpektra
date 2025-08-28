@@ -1,6 +1,3 @@
-from enum import Enum
-
-
 blue = '#009AF9'
 red =  '#E26F46'
 green = '#3DA44D'
