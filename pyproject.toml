@@ -1,0 +1,38 @@
+[project]
+name = "spectralsolver"
+version = "0.1.0"
+description = "Functional programming and differentiable framework for spectral methods"
+authors = [
+    { name = "Mohit Pundir", email = "mpundir@ethz.ch" },
+]
+license = "MIT"
+license-files = ["LICENSE.md",]
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "jax<=0.6.1",
+    "equinox",
+    "numpy",
+    "sparsejac",
+    "matplotlib",
+    "scipy",
+]
+
+[project.optional-dependencies]
+examples = [
+    # "petsc",
+    # "petsc4py",
+    "cmcrameri",
+    "ipykernel>=6.30.0",
+]
+
+[build-system]
+requires = [ "hatchling", ]
+build-backend = "hatchling.build"
+
+[project.urls]
+repository = "https://gitlab.ethz.ch/compmechmat/research/mohit-pundir/spectralsolver"
