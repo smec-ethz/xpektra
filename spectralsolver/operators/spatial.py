@@ -1,4 +1,8 @@
 import numpy as np
+import jax
+import equinox as eqx
+
+
 
 class Operator:
     fourier = "fourier"
