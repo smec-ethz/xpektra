@@ -11,6 +11,8 @@ from itertools import repeat
 import itertools
 
 
+from spectralsolver.transform import DifferentialMode, FourierSpace
+
 # --- Define the Kronecker delta function ---
 δ = lambda i, j: float(i == j)
 
@@ -43,53 +45,9 @@ TRANS_EINSUM_DISPATCH: Dict[int, str] = {
 }
 
 
-# --- Define the fft and ifft functions ---
-def _fft(x : Array, N : int, ndim : int) -> Array:
-    return jnp.fft.fftshift(
-        jnp.fft.fftn(
-            jnp.fft.ifftshift(x),
-            [
-                N,
-            ]
-            * ndim,
-        )
-    )
-
-
-def _ifft(x : Array, N : int, ndim : int) -> Array:
-    return jnp.fft.fftshift(
-        jnp.fft.ifftn(
-            jnp.fft.ifftshift(x),
-            [
-                N,
-            ]
-            * ndim,
-        )
-    )
-
-# --- Define the gradient modes ---
-class GradientMode:
-    fourier = "fourier"
-    forward_difference = "forward_difference"
-    central_difference = "central_difference"
-    backward_difference = "backward_difference"
-    rotated_difference = "rotated_difference"
-    four_central_difference = "four_central_difference"
-    six_central_difference = "six_central_difference"
-
-
 # --- Define the tensor operator ---
 class TensorOperator(eqx.Module):
     dim: int
-    size: int
-
-    @eqx.filter_jit
-    def fft(self, A: Array) -> Array:
-        return _fft(A, self.size, self.dim)
-
-    @eqx.filter_jit
-    def ifft(self, A: Array) -> Array:
-        return _ifft(A, self.size, self.dim)
 
     @eqx.filter_jit
     def dot(self, A: Array, B: Array) -> Array:
@@ -138,60 +96,53 @@ class TensorOperator(eqx.Module):
 
 # --- Define the operator ---
 class Operator(eqx.Module):
-    gradient_operator: Array
-    dim: int
-    size: int
-    length: float
-    mode: GradientMode
+    fspace: FourierSpace
+    diff_mode: DifferentialMode
     tensor: TensorOperator
     grad_op: Array
     lap_op: Array
     div_op: Array
 
-    def __init__(
-        self,
-        dim: int,
-        size: int,
-        length: float=1.0,
-        mode: GradientMode = GradientMode.fourier,
-    ):
-        self.mode = mode
-        self.dim = dim
-        self.size = size
-        self.length = length
-        self.mode = mode
-        self.tensor = TensorOperator(dim=dim, size=size)
+    def __init__(self, fspace: FourierSpace, diff_mode: DifferentialMode):
+        self.fspace = fspace
+        self.diff_mode = diff_mode
+        self.tensor = TensorOperator(dim=fspace.dim)
         self.grad_op = self.gradient_operator()
         self.lap_op = self.tensor.dot(self.grad_op, self.grad_op)
         self.div_op = self.divergence_operator()
 
     def divergence_operator(self):
         div_op = jnp.zeros(
-            (self.dim, self.dim, self.dim, self.size, self.size), dtype="complex"
+            (
+                self.fspace.dim,
+                self.fspace.dim,
+                self.fspace.dim,
+                self.fspace.size,
+                self.fspace.size,
+            ),
+            dtype="complex",
         )
-        for i, j, k in itertools.product(range(self.dim), repeat=3):
+        for i, j, k in itertools.product(range(self.fspace.dim), repeat=3):
             div_op = div_op.at[i, j, k, :, :].set(self.grad_op[k] * δ(i, j))
         return div_op
 
     def gradient_operator(self):
-        Δ = self.length / self.size
+        Δ = self.fspace.length / self.fspace.size
 
-        freq = (
-            np.arange(-(self.size - 1) / 2, +(self.size + 1) / 2, dtype="int64")
-            / self.length
-        )
-        ξ = 2 * np.pi * freq  # 2*pi*(n)/samplingspace/n https://arxiv.org/pdf/1412.8398
+        ξ = self.fspace.wavenumber_vector()
 
-        if self.dim == 1:
-            Dξ = np.zeros([self.dim, self.size], dtype="complex")  # frequency vectors
+        if self.fspace.dim == 1:
+            Dξ = np.zeros(
+                [self.fspace.dim, self.fspace.size], dtype="complex"
+            )  # frequency vectors
             wavenumbers = [ξ]
 
             kmax_dealias = ξ.max() * 2.0 / 3.0  # The Nyquist mode
             dealias = np.array(np.abs(wavenumbers[0]) < kmax_dealias, dtype=bool)
 
-        elif self.dim == 2:
+        elif self.fspace.dim == 2:
             Dξ = np.zeros(
-                [self.dim, self.size, self.size], dtype="complex"
+                [self.fspace.dim, self.fspace.size, self.fspace.size], dtype="complex"
             )  # frequency vectors
             ξx, ξy = np.meshgrid(ξ, ξ)
             wavenumbers = [ξx, ξy]
@@ -203,9 +154,10 @@ class Operator(eqx.Module):
                 dtype=bool,
             )
 
-        elif self.dim == 3:
+        elif self.fspace.dim == 3:
             Dξ = np.zeros(
-                [self.dim, self.size, self.size, self.size], dtype="complex"
+                [self.fspace.dim, self.fspace.size, self.fspace.size, self.fspace.size],
+                dtype="complex",
             )  # frequency vectors
             ξx, ξy, ξz = np.meshgrid(ξ, ξ, ξ)
             wavenumbers = [ξx, ξy, ξz]
@@ -218,21 +170,19 @@ class Operator(eqx.Module):
                 dtype=bool,
             )
 
-        shape = [
-            self.size,
-        ] * self.dim  # number of voxels in all directions
-
         factor = 1.0
-        ι = 1j
 
-        if self.dim > 1:
-            for j in range(self.dim):
-                factor *= 0.5 * (1 + np.exp(ι * wavenumbers[j] * Δ))
+        if self.fspace.dim > 1:
+            for j in range(self.fspace.dim):
+                factor *= 0.5 * (1 + np.exp(self.fspace.iota * wavenumbers[j] * Δ))
 
-        for i in range(self.dim):
+        for i in range(self.fspace.dim):
             ξ = wavenumbers[i]
+            Dξ[i] = self.fspace.differential_vector(
+                xi=ξ, diff_mode=self.diff_mode, factor=factor
+            )
 
-            if self.mode == GradientMode.fourier:
+            """if self.mode == GradientMode.fourier:
                 Dξ[i] = ι * ξ
 
             elif self.mode == GradientMode.forward_difference:
@@ -266,35 +216,30 @@ class Operator(eqx.Module):
                 )
 
             else:
-                raise RuntimeError("Gradient mode not defined")
+                raise RuntimeError("Gradient mode not defined")"""
 
-        if self.dim == 1:
+        if self.fspace.dim == 1:
             return Dξ[0]  # , dealias
         else:
             return Dξ  # , dealias
 
     @eqx.filter_jit
     def grad(self, A: Array) -> Array:
-        rank = len(A.shape[: -self.dim])
+        rank = len(A.shape[: -self.fspace.dim])
         if rank != 0:
             raise ValueError("Gradient is not defined for non-scalar fields")
-        return jnp.real(self.tensor.ifft(self.grad_op * self.tensor.fft(A)))
+        return jnp.real(self.fspace.ifft(self.grad_op * self.fspace.fft(A)))
 
     @eqx.filter_jit
     def laplace(self, A: Array) -> Array:
-        return jnp.real(self.tensor.ifft(self.tensor.ddot(self.lap_op, self.tensor.fft(A))))
+        return jnp.real(
+            self.fspace.ifft(self.tensor.ddot(self.lap_op, self.fspace.fft(A)))
+        )
 
     @eqx.filter_jit
     def div(self, A: Array) -> Array:
-        return self.tensor.fft(
+        return self.fspace.fft(
             jnp.einsum(
-                "ijkxy, jkxy->ixy", self.div_op, self.tensor.fft(A), optimize="optimal"
+                "ijkxy, jkxy->ixy", self.div_op, self.fspace.fft(A), optimize="optimal"
             )
         )
-    
-    def fft(self, A: Array) -> Array:
-        return self.tensor.fft(A)
-    
-    def ifft(self, A: Array) -> Array:
-        return jnp.real(self.tensor.ifft(A))
-    
