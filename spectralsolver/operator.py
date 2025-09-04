@@ -31,6 +31,12 @@ DDOT_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {
     (4, 4): "ijkl...,lkmn...->ijmn...",
 }
 
+# --- Define the einsum rules for dyad ---
+DYAD_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {
+    (2, 2): "ij...,kl...->ijkl...",
+    (1, 1): "i...,j...->ij...",
+}
+
 # --- Define the einsum rules for trace ---
 TRACE_EINSUM_DISPATCH: Dict[int, str] = {
     2: "ii...->...",
@@ -89,6 +95,17 @@ class TensorOperator(eqx.Module):
                 f"No transpose implemented for tensor rank ({rank_A}) derived from shape {A.shape}."
             )
         return jnp.einsum(einsum_str, A, optimize="optimal")
+
+    @eqx.filter_jit
+    def dyad(self, A: Array, B: Array) -> Array:
+        rank_A = len(A.shape[: -self.dim])
+        rank_B = len(B.shape[: -self.dim])
+        einsum_str = DYAD_EINSUM_DISPATCH.get((rank_A, rank_B))
+        if einsum_str is None:
+            raise NotImplementedError(
+                f"No dyad implemented for tensor ranks ({rank_A}, {rank_B}) derived from shapes {A.shape} and {B.shape}."
+            )
+        return jnp.einsum(einsum_str, A, B, optimize="optimal")
 
 
 # --- Define the operator ---
