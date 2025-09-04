@@ -9,6 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+
 def vmap(use_vmap=True, *vmap_args, **vmap_kwargs):
     """
     Decorator to optionally apply jax.vmap to a function.
@@ -31,9 +32,11 @@ def vmap(use_vmap=True, *vmap_args, **vmap_kwargs):
 
     return decorator
 
+
 # ----------------------------------------------------------------------
 # Below code is taken from https://github.com/mathisgerdes/jax-autovmap
 # ----------------------------------------------------------------------
+
 
 def _is_numeric(value):
     """True if input is a numpy/jax array or scalar value."""
@@ -49,9 +52,10 @@ def _vmap_count(arg, rank, name):
         return 0  # no vmap, rank matches expectation
     if ndim < rank:
         raise ValueError(
-            f'Rank of array passed to `{name}` too small. '
-            f'Got shape {jnp.shape(arg)} but expected '
-            f'at least rank {rank}.')
+            f"Rank of array passed to `{name}` too small. "
+            f"Got shape {jnp.shape(arg)} but expected "
+            f"at least rank {rank}."
+        )
     return ndim - rank
 
 
@@ -65,6 +69,7 @@ def _broadcast_vmap(fn, in_axes):
 
     Additionally assumes in_axes are all either 0 or None.
     """
+
     def _wrapped(*args):
         args_squeezed = []
         axes_squeezed = []
@@ -76,9 +81,11 @@ def _broadcast_vmap(fn, in_axes):
             else:
                 ax_leaves = treedef.flatten_up_to(ax)
 
-            for i, (arg_leaf, ax_leaf) in enumerate(zip(arg_leaves, ax_leaves, strict=True)):
+            for i, (arg_leaf, ax_leaf) in enumerate(
+                zip(arg_leaves, ax_leaves, strict=True)
+            ):
                 if jnp.shape(arg_leaf) == ():
-                    assert ax_leaf is None, 'cannot vmap over scalar value'
+                    assert ax_leaf is None, "cannot vmap over scalar value"
                 elif ax_leaf is not None:
                     if len(arg_leaf) == 1:
                         arg_leaves[i] = jnp.squeeze(arg_leaf, 0)
@@ -92,13 +99,13 @@ def _broadcast_vmap(fn, in_axes):
         if do_squeeze:
             return jax.vmap(fn, in_axes=axes_squeezed)(*args_squeezed)
         return jax.vmap(fn, in_axes=in_axes)(*args)
+
     return _wrapped
 
 
 def _collect_ranks(
-        fun: Callable,
-        rspec: Union[dict[str, Optional[int]], tuple[Optional[int], ...]]) \
-        -> tuple[inspect.Signature, dict]:
+    fun: Callable, rspec: Union[dict[str, Optional[int]], tuple[Optional[int], ...]]
+) -> tuple[inspect.Signature, dict]:
     """Parse user provided ranks specification given function."""
     sig = signature(fun)
     arg_list = list(sig.parameters.keys())
@@ -108,19 +115,19 @@ def _collect_ranks(
             if name not in arg_list:
                 raise RuntimeError(
                     f'function {fun} has no argument called "{name}" '
-                    f'to dynamically vmap over.')
+                    f"to dynamically vmap over."
+                )
             if rank is not None:
                 ranks[name] = rank
     else:
-        ranks = {arg_list[i]: rank
-                 for i, rank in enumerate(rspec)
-                 if rank is not None}
+        ranks = {arg_list[i]: rank for i, rank in enumerate(rspec) if rank is not None}
     for name in ranks:
         if name not in arg_list:
-            fun_name = fun.__name__ if hasattr(fun, '__name__') else fun
+            fun_name = fun.__name__ if hasattr(fun, "__name__") else fun
             raise RuntimeError(
                 f'Specified argument "{name}" does not appear as a '
-                f'parameter of the function "{fun_name}"')
+                f'parameter of the function "{fun_name}"'
+            )
 
     return sig, ranks
 
@@ -151,8 +158,7 @@ def _vmap_wrapped(fun, sig, vmap_count, *args):
     return wrapped(*args)
 
 
-def auto_vmap(*ranks_pos: Union[int, Any, None],
-              **ranks_kw: Union[int, Any, None]):
+def auto_vmap(*ranks_pos: Union[int, Any, None], **ranks_kw: Union[int, Any, None]):
     """Automatically vmap over arguments of a function.
 
     Given a function with some arguments that have known
@@ -205,10 +211,11 @@ def auto_vmap(*ranks_pos: Union[int, Any, None],
         True
     """
     if len(ranks_pos) > 0:
-        assert len(ranks_kw) == 0, \
-            f'ranks must either be given positionally or via ' \
-            f'keyword arguments, but got both positional arguments ' \
-            f'{ranks_pos} and keyword arguments {ranks_kw}'
+        assert len(ranks_kw) == 0, (
+            f"ranks must either be given positionally or via "
+            f"keyword arguments, but got both positional arguments "
+            f"{ranks_pos} and keyword arguments {ranks_kw}"
+        )
         arg_rank = ranks_pos
     elif len(ranks_kw) > 0:
         arg_rank = ranks_kw
@@ -240,14 +247,16 @@ def auto_vmap(*ranks_pos: Union[int, Any, None],
                 elif isinstance(rank, int):
                     leaves, treedef = jax.tree.flatten(arg)
                     vmap_count = tuple(
-                        _vmap_count(leave, rank, name) for leave in leaves)
+                        _vmap_count(leave, rank, name) for leave in leaves
+                    )
                     vmap_count = treedef.unflatten(vmap_count)
                 else:
                     leaves, treedef = jax.tree.flatten(arg)
                     rank_leaves = jax.tree.leaves(rank)
                     vmap_count = tuple(
                         _vmap_count(leave, r, name)
-                        for leave, r in zip(leaves, rank_leaves))
+                        for leave, r in zip(leaves, rank_leaves)
+                    )
                     vmap_count = treedef.unflatten(vmap_count)
 
                 vmap_counts.append(vmap_count)
@@ -260,4 +269,4 @@ def auto_vmap(*ranks_pos: Union[int, Any, None],
     return wrapper
 
 
-__all__ = ['auto_vmap', 'vmap']
+__all__ = ["auto_vmap", "vmap"]

@@ -1,44 +1,37 @@
 import jax  # type: ignore
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
 import jax.numpy as jnp  # type: ignore
-
 import numpy as np
 import functools
 
 import itertools
 
-from spectralsolver.operators.spatial import Operator
-from spectralsolver.transform import DifferentialMode, FourierSpace
+from spectralsolver.space import SpectralSpace, DifferentialMode
 
 
 def compute_differential_operator(
     ind: jnp.ndarray,
-    fspace: FourierSpace,
+    space: SpectralSpace,
     diff_mode: DifferentialMode,
 ) -> jnp.ndarray:
+    freq = jnp.array([space.frequency_vector() for ii in range(space.dim)])
+    Δ = space.length / space.size
 
-    freq = jnp.array([fspace.frequency_vector() for ii in range(fspace.dim)])
-    Δ = fspace.length / fspace.size
-
-    ξ = jnp.empty(fspace.dim, dtype="complex")
-    Dξ = jnp.empty(fspace.dim, dtype="complex")
+    ξ = jnp.empty(space.dim, dtype="complex")
+    Dξ = jnp.empty(space.dim, dtype="complex")
 
     factor = 1.0
-    for jj in range(fspace.dim):
+    for jj in range(space.dim):
         index = ind.at[jj].get()
         freq_jj = freq.at[jj].get()
 
         factor *= 0.5 * (
-            1 + jnp.exp(fspace.iota * 2 * jnp.pi * freq_jj.at[index].get() * Δ)
+            1 + jnp.exp(space.iota * 2 * jnp.pi * freq_jj.at[index].get() * Δ)
         )
-    for ii in range(fspace.dim):
+    for ii in range(space.dim):
         index = ind.at[ii].get()
         freq_ii = freq.at[ii].get()
         ξ = ξ.at[ii].set(2 * jnp.pi * freq_ii.at[index].get())
-        Dξ = Dξ.at[ii].set(
-            fspace.differential_vector(ξ.at[ii].get(), diff_mode, factor)
-        )
+        Dξ = Dξ.at[ii].set(space.differential_vector(ξ.at[ii].get(), diff_mode, factor))
 
     return Dξ
 
@@ -62,7 +55,7 @@ def optimized_projection_fill(
     # Precompute grid indices
     grid_indices = list(itertools.product(*[range(n) for n in shape]))
 
-    δ = lambda i, j: float(i == j)
+    δ = lambda i, j: float(i == j)  # noqa: E731
 
     for i, j, l, m in itertools.product(range(ndim), repeat=4):
         if δ(i, m) == 0:
@@ -79,26 +72,16 @@ def optimized_projection_fill(
 
 
 def compute_projection_operator(
-    fspace: FourierSpace,
+    space: SpectralSpace,
     diff_mode: DifferentialMode = DifferentialMode.fourier,
 ) -> np.ndarray:
-    ndim = fspace.dim
-    grid_size = (fspace.size,) * ndim
+    ndim = space.dim
+    grid_size = (space.size,) * ndim
     G = np.zeros((ndim, ndim, ndim, ndim) + grid_size, dtype="complex")
-
-    """freq = jnp.array(
-        [
-            np.arange(
-                -(grid_size[ii] - 1) / 2.0, +(grid_size[ii] + 1) / 2.0, dtype="int64"
-            )
-            / length
-            for ii in range(ndim)
-        ]
-    )"""
 
     grid_indices = np.array(list(itertools.product(*[range(n) for n in grid_size])))
     partial_compute_differential_operator = functools.partial(
-        compute_differential_operator, fspace=fspace, diff_mode=diff_mode
+        compute_differential_operator, space=space, diff_mode=diff_mode
     )
 
     _map = jax.vmap(partial_compute_differential_operator)
@@ -112,9 +95,9 @@ def compute_projection_operator(
     return G
 
 
-@functools.partial(jax.jit, static_argnames=["grid_size", "length", "operator"])
+@functools.partial(jax.jit, static_argnames=["grid_size", "length", "diff_mode"])
 def compute_projection_operator_legacy(
-    grid_size, length=1, operator=Operator.forward_difference
+    grid_size, length=1, diff_mode=DifferentialMode.forward_difference
 ):
     ndim = len(grid_size)
     Δ = length / grid_size[0]
@@ -132,9 +115,9 @@ def compute_projection_operator_legacy(
     ]
 
     # Dirac delta function
-    δ = lambda i, j: float(i == j)
+    δ = lambda i, j: float(i == j)  # noqa: E731
 
-    ι = 1j  # iota
+    iota = 1j  # iota
 
     for i, j, l, m in itertools.product(range(ndim), repeat=4):
         for ind in itertools.product(*[range(n) for n in grid_size]):
@@ -143,39 +126,39 @@ def compute_projection_operator_legacy(
 
             factor = 1.0
             for jj in range(ndim):
-                factor *= 0.5 * (1 + np.exp(ι * 2 * np.pi * freq[jj][ind[jj]] * Δ))
+                factor *= 0.5 * (1 + np.exp(iota * 2 * np.pi * freq[jj][ind[jj]] * Δ))
 
             for ii in range(ndim):
                 ξ[ii] = (
                     2 * np.pi * freq[ii][ind[ii]]
                 )  ## frequency vector # 2*pi*(n)/samplingspace/n https://arxiv.org/pdf/1412.8398
 
-                if operator == Operator.fourier:
-                    Dξ[ii] = ι * ξ[ii]  ## fourier operator
-                elif operator == Operator.forward_difference:
-                    Dξ[ii] = (np.exp(ι * ξ[ii] * Δ) - 1) / Δ
-                elif operator == Operator.central_difference:
-                    Dξ[ii] = ι * np.sin(ξ[ii] * Δ) / Δ
-                elif operator == Operator.four_central_difference:
-                    Dξ[ii] = ι * (
+                if diff_mode == DifferentialMode.fourier:
+                    Dξ[ii] = iota * ξ[ii]  ## fourier operator
+                elif diff_mode == DifferentialMode.forward_difference:
+                    Dξ[ii] = (np.exp(iota * ξ[ii] * Δ) - 1) / Δ
+                elif diff_mode == DifferentialMode.central_difference:
+                    Dξ[ii] = iota * np.sin(ξ[ii] * Δ) / Δ
+                elif diff_mode == DifferentialMode.four_central_difference:
+                    Dξ[ii] = iota * (
                         8 * np.sin(ξ[ii] * Δ) / (6 * Δ)
                         - np.sin(2 * ξ[ii] * Δ) / (6 * Δ)
                     )
-                elif operator == Operator.six_central_difference:
-                    Dξ[ii] = ι * (
+                elif diff_mode == DifferentialMode.six_central_difference:
+                    Dξ[ii] = iota * (
                         9 * np.sin(ξ[ii] * Δ) / (6 * Δ)
                         - 3 * np.sin(2 * ξ[ii] * Δ) / (10 * Δ)
                         + np.sin(3 * ξ[ii] * Δ) / (30 * Δ)
                     )
-                elif operator == Operator.eight_central_difference:
-                    Dξ[ii] = ι * (
+                elif diff_mode == DifferentialMode.eight_central_difference:
+                    Dξ[ii] = iota * (
                         8 * np.sin(ξ[ii] * Δ) / (5 * Δ)
                         - 2 * np.sin(2 * ξ[ii] * Δ) / (5 * Δ)
                         + 8 * np.sin(3 * ξ[ii] * Δ) / (105 * Δ)
                         - np.sin(4 * ξ[ii] * Δ) / (140 * Δ)
                     )
-                elif operator == Operator.rotated_difference:
-                    Dξ[ii] = 2 * ι * np.tan(ξ[ii] * Δ / 2) * factor / Δ
+                elif diff_mode == DifferentialMode.rotated_difference:
+                    Dξ[ii] = 2 * iota * np.tan(ξ[ii] * Δ / 2) * factor / Δ
 
             if not Dξ.dot(np.conjugate(Dξ)) == 0:  # zero freq. -> mean
                 Dξ_inverse = np.conjugate(Dξ) / (Dξ.dot(np.conjugate(Dξ)))
@@ -183,8 +166,8 @@ def compute_projection_operator_legacy(
     return 𝔾
 
 
-@functools.partial(jax.jit, static_argnames=["N", "length", "operator"])
-def compute_Ghat_2_1(N, length=1, operator=Operator.forward_difference):
+@functools.partial(jax.jit, static_argnames=["N", "length", "diff_mode"])
+def compute_Ghat_2_1(N, length=1, diff_mode=DifferentialMode.forward_difference):
     """
     Compute the projection operator for the 2nd order 1st derivative.
     """
@@ -204,26 +187,26 @@ def compute_Ghat_2_1(N, length=1, operator=Operator.forward_difference):
             Dξ = np.empty(ndim, dtype="complex")
             for ii in range(ndim):
                 q[ii] = 2 * np.pi * freq[ii][ind[ii]]  ## frequency vector
-                if operator == Operator.fourier:
+                if diff_mode == DifferentialMode.fourier:
                     Dξ[ii] = 1j * q[ii]
-                elif operator == Operator.central_difference:
+                elif diff_mode == DifferentialMode.central_difference:
                     Dξ[ii] = 1j * np.sin(q[ii] * Δ) / Δ
-                elif operator == Operator.four_central_difference:
+                elif diff_mode == DifferentialMode.four_central_difference:
                     Dξ[ii] = 1j * (
                         8 * np.sin(q[ii] * Δ) / (6 * Δ)
                         - np.sin(2 * q[ii] * Δ) / (6 * Δ)
                     )
-                elif operator == Operator.eight_central_difference:
+                elif diff_mode == DifferentialMode.eight_central_difference:
                     Dξ[ii] = 1j * (
                         8 * np.sin(q[ii] * Δ) / (5 * Δ)
                         - 2 * np.sin(2 * q[ii] * Δ) / (5 * Δ)
                         + 8 * np.sin(3 * q[ii] * Δ) / (105 * Δ)
                         - np.sin(4 * q[ii] * Δ) / (140 * Δ)
                     )
-                elif operator == Operator.forward_difference:
+                elif diff_mode == DifferentialMode.forward_difference:
                     Dξ[ii] = (np.exp(1j * q[ii] * Δ) - 1) / Δ
                 else:
-                    raise RuntimeError("operator incorrectly defined")
+                    raise RuntimeError("diff_mode incorrectly defined")
 
             if not Dξ.dot(np.conjugate(Dξ)) == 0:  # zero freq. -> mean
                 Dξ_inverse = np.conjugate(Dξ) / (Dξ.dot(np.conjugate(Dξ)))

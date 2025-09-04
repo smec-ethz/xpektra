@@ -1,5 +1,7 @@
-from spectralsolver.operator import Operator, TensorOperator
+from spectralsolver.space import SpectralSpace, DifferentialMode
+from spectralsolver.operator import SpectralOperator, TensorOperator
 import numpy as np
+
 
 def make_field(dim: int, N: int, rank: int) -> np.ndarray:
     return np.zeros((rank,) * rank + (N,) * dim)

@@ -1,9 +1,8 @@
 import jax
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
 import jax.numpy as jnp  # type: ignore
 from jax import Array
 import equinox as eqx
+from typing import Optional
 
 
 # --- Define the gradient modes ---
@@ -18,12 +17,33 @@ class DifferentialMode:
     eight_central_difference = "eight_central_difference"
 
 
-class FourierSpace(eqx.Module):
+class SpectralSpace(eqx.Module):
+    """Defines the spectral space
+
+    Args:
+        size (int): Number of grid points.
+        dim (int): Dimension of the space. Defaults to 1.
+        length (float): Length of the space. Defaults to 1.
+        iota (complex): Imaginary unit. Defaults to 1j. Optional
+
+    Methods:
+        fft: Fast Fourier Transform.
+        ifft: Inverse Fast Fourier Transform.
+        frequency_vector: get the frequency vector.
+        wavenumber_vector: get the wavenumber vector.
+        differential_vector: get the differential vector.
+    Raises:
+        RuntimeError: Rotated difference is not defined for 1D.
+        RuntimeError: Differential scheme not defined.
+
+    Returns:
+        Array: Transformed array.
+    """
 
     size: int
     dim: int
     length: float
-    iota: complex = 1j
+    iota: Optional[complex] = 1j
 
     def fft(self, x: Array) -> Array:
         return jnp.fft.fftshift(
@@ -52,8 +72,8 @@ class FourierSpace(eqx.Module):
             jnp.arange(-(self.size - 1) / 2, +(self.size + 1) / 2, dtype="int64")
             / self.length
         )
-        return freq   # 2*pi*(n)/samplingspace/n https://arxiv.org/pdf/1412.8398
-    
+        return freq  # 2*pi*(n)/samplingspace/n https://arxiv.org/pdf/1412.8398
+
     def wavenumber_vector(self):
         freq = self.frequency_vector()
         return 2 * jnp.pi * freq

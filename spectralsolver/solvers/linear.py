@@ -1,19 +1,11 @@
 import jax
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-import os
-
-
 import jax.numpy as jnp
-import numpy as np
 import functools
 import equinox as eqx
 
-#@functools.partial(jax.jit, static_argnums=(0,))
+
 @eqx.filter_jit
 def conjugate_gradient_while(A, b, additionals, atol=1e-8, max_iter=100):
-
     iiter = 0
 
     def body_fun(state):
@@ -44,7 +36,6 @@ def conjugate_gradient_while(A, b, additionals, atol=1e-8, max_iter=100):
     return x, iiter
 
 
-#@functools.partial(jax.jit, static_argnames=["A", "max_iter"])
 @eqx.filter_jit
 def conjugate_gradient_scan(A, b, additionals, atol, max_iter):
     x = jnp.full_like(b, fill_value=0.0)
@@ -82,7 +73,9 @@ def conjugate_gradient_scan(A, b, additionals, atol, max_iter):
             n,
         )
 
-    final_state, xs = jax.lax.scan(conjugate_gradient, init=state, xs=jnp.arange(0, max_iter))
+    final_state, xs = jax.lax.scan(
+        conjugate_gradient, init=state, xs=jnp.arange(0, max_iter)
+    )
 
     return final_state[-1], None
 
@@ -91,7 +84,6 @@ def conjugate_gradient_scan(A, b, additionals, atol, max_iter):
 def bound_conjugate_gradient(
     A, b, lower_bound, upper_bound, additional, x0=None, atol=1e-5
 ):
-
     b, lower_bound, upper_bound, x0, additionals = jax.device_put(
         (b, lower_bound, upper_bound, x0, additional)
     )
@@ -241,7 +233,6 @@ def bound_conjugate_gradient(
 def enhanced_bound_conjugate_gradient(
     A, b, lower_bound, upper_bound, additional, x0=None, atol=1e-5
 ):
-
     b, lower_bound, upper_bound, x0, additionals = jax.device_put(
         (b, lower_bound, upper_bound, x0, additional)
     )
