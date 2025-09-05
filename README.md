@@ -1,6 +1,6 @@
 
 <p align="center">
-<img src="assets/logo-xpektra.png" alt="drawing" width="400"/>
+<img src="docs/assets/logo-xpektra.png" alt="drawing" width="400"/>
 </p>
 <p align="center">
 xpektra : Framework for spectral methods
