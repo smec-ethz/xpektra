@@ -18,7 +18,6 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
 
-
 site_name: xpektra
 site_description: The documentation for xpektra software package
 site_author: Mohit Pundir
@@ -71,8 +70,8 @@ plugins:
                 show_symbol_type_heading: true
                 show_symbol_type_toc: true
 nav:
-    - index.md
+    - 'index.md'
     - Examples:
         - Elasticity:
-            - examples/linear_elasticity.ipynb
-            - examples/j2_plasticity.ipynb
+            - 'examples/linear_elasticity.ipynb'
+            - 'examples/j2_plasticity.ipynb'  

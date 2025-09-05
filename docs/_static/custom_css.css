@@ -1,4 +1,7 @@
+/* Custom CSS for taken from Equinox documentation */
+
 /* Fix /page#foo going to the top of the viewport and being hidden by the navbar */
+
 html {
     scroll-padding-top: 50px;
 }
@@ -70,8 +73,8 @@ div.doc-contents {
 
 html {
     /* Decrease font size for overall webpage
-       Down from 137.5% which is the Material default */
-    font-size: 110%;
+       Down from 137.5% which is the Material default, equinox uses 110% */
+    font-size: 115%;
 }
 
 .md-typeset .admonition {
@@ -126,7 +129,7 @@ html {
 /* Change default colours for <a> tags */
 
 [data-md-color-scheme="default"] {
-    --md-typeset-a-color: rgb(0, 189, 164) !important;
+    --md-typeset-a-color: #722092 !important;
 }
 [data-md-color-scheme="slate"] {
     --md-typeset-a-color: rgb(0, 189, 164) !important;
