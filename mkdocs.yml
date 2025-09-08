@@ -71,7 +71,8 @@ plugins:
                 show_symbol_type_toc: true
 nav:
     - 'index.md'
-    - Examples:
-        - Elasticity:
-            - 'examples/linear_elasticity.ipynb'
-            - 'examples/j2_plasticity.ipynb'  
+    - Elasticity:
+        - 'examples/linear_elasticity.ipynb'
+        - 'examples/j2_plasticity.ipynb'  
+    - Homogenization:
+        - 'examples/computational_homogenization.ipynb'
