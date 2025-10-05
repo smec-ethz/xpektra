@@ -17,9 +17,26 @@ class DifferentialMode:
     eight_central_difference = "eight_central_difference"
 
 
-
 class SpectralSpace(eqx.Module):
-    """Defines the spectral space"""
+    """Defines the spectral space
+
+    Args:
+        size: The size of the spectral space.
+        dim: The dimension of the spectral space.
+        length: The length of the spectral space.
+        iota: The imaginary unit.
+
+    Returns:
+        The spectral space.
+
+    Example:
+        >>> space = SpectralSpace(size=10, dim=1, length=1.0)
+        >>> space.fft(jnp.array([1.0, 2.0, 3.0, 4.0]))
+        >>> space.ifft(jnp.array([ 5. +0.j, -5.+10.j], dtype=complex64))
+        >>> space.frequency_vector()
+        >>> space.wavenumber_vector()
+        >>> space.differential_vector(jnp.array([1.0, 2.0, 3.0, 4.0]), "forward_difference")
+    """
 
     size: int
     dim: int
@@ -27,61 +44,62 @@ class SpectralSpace(eqx.Module):
     iota: Optional[complex] = 1j
 
     def fft(self, x: Array) -> Array:
-        # CRITICAL CHANGE: We must specify the axes to transform, which are
-        # the first `self.dim` spatial dimensions.
         axes_to_transform = range(self.dim)
         return jnp.fft.fftshift(
             jnp.fft.fftn(
                 jnp.fft.ifftshift(x),
                 s=[self.size] * self.dim,
-                axes=axes_to_transform, # <--- ADDED THIS LINE
+                axes=axes_to_transform,
             )
         )
 
     def ifft(self, x: Array) -> Array:
-        # CRITICAL CHANGE: Also specify the axes for the inverse transform.
         axes_to_transform = range(self.dim)
         return jnp.fft.fftshift(
             jnp.fft.ifftn(
                 jnp.fft.ifftshift(x),
                 s=[self.size] * self.dim,
-                axes=axes_to_transform, # <--- ADDED THIS LINE
+                axes=axes_to_transform,
             )
         )
 
-    # --- All other methods remain exactly the same ---
-    
-    def frequency_vector(self):
+    def frequency_vector(self) -> Array:
         freq = (
             jnp.arange(-(self.size - 1) / 2, +(self.size + 1) / 2, dtype="int64")
             / self.length
         )
         return freq
 
-    def wavenumber_vector(self):
+    def wavenumber_vector(self) -> Array:
         freq = self.frequency_vector()
         return 2 * jnp.pi * freq
 
     def differential_vector(
         self, xi: Array, diff_mode: str, factor: float = 1.0
     ) -> Array:
-        # This method operates element-wise and is layout-agnostic. No changes needed.
-        # ... (code for differential_vector is unchanged) ...
-        iota = 1j
+        """
+        Args:
+            xi: The wavenumber vector.
+            diff_mode: The differential mode.
+            factor: The factor for the differential mode.
+
+        Returns:
+            The differential vector.
+        """
+
         dx = self.length / self.size
         if self.dim == 1 and diff_mode == "rotated_difference":
             raise RuntimeError("Rotated difference is not defined for 1D")
 
         if diff_mode == "fourier":
-            return iota * xi
+            return self.iota * xi
         elif diff_mode == "forward_difference":
-            return (jnp.exp(iota * xi * dx) - 1) / dx
+            return (jnp.exp(self.iota * xi * dx) - 1) / dx
         elif diff_mode == "central_difference":
-            return iota * jnp.sin(xi * dx) / dx
+            return self.iota * jnp.sin(xi * dx) / dx
         elif diff_mode == "backward_difference":
-            return (1 - jnp.exp(-iota * xi * dx)) / dx
+            return (1 - jnp.exp(-self.iota * xi * dx)) / dx
         elif diff_mode == "rotated_difference":
-            return 2 * iota * jnp.tan(xi * dx / 2) * factor / dx
-        # ... and so on for other difference schemes
+            return 2 * self.iota * jnp.tan(xi * dx / 2) * factor / dx
         else:
             raise RuntimeError("Differential scheme not defined")
