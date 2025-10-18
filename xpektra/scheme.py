@@ -1,0 +1,140 @@
+from abc import ABC, abstractmethod
+from typing import List
+import numpy as np
+import jax.numpy as jnp
+from jax import Array
+import equinox as eqx
+
+from xpektra.space import SpectralSpace
+
+# --- Abstract Base Classes ---
+
+
+class Scheme(eqx.Module):
+    """
+    Abstract base class for a complete discretization strategy.
+
+    A Scheme is a self-contained object responsible for generating the
+    discrete gradient operator based on a given spectral space.
+    """
+
+    space: eqx.AbstractVar[SpectralSpace]
+
+    @abstractmethod
+    def compute_gradient_operator(self) -> Array:
+        """
+        The primary output of any scheme.
+
+        Returns:
+            The gradient operator field with shape (nx, ny, ..., d).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_wavenumber_mesh(self) -> List[Array]:
+        """
+        Creates a list of coordinate arrays for the wavenumbers.
+        """
+        raise NotImplementedError
+
+
+class CartesianScheme(Scheme):
+    """
+    Base class for schemes operating on a uniform Cartesian grid.
+
+    It handles the wavenumber_mesh generation. Subclasses only need to
+    provide the mathematical formula for differentiation.
+    """
+
+    space: SpectralSpace
+    grad_op: Array
+    wavenumbers_mesh: List[Array]
+
+    def __init__(self, space: SpectralSpace):
+        self.space = space
+        self.wavenumbers_mesh = self.create_wavenumber_mesh()
+        self.grad_op = self.compute_gradient_operator()
+
+    @property
+    def gradient_operator(self) -> Array:
+        return self.grad_op
+
+    @abstractmethod
+    def formula(self, xi: Array, dx: float, iota: complex, factor: float) -> Array:
+        """
+        Subclasses must implement their specific differentiation formula here.
+        This defines the discrete operator D(ξ) for a single dimension.
+        """
+        raise NotImplementedError
+
+    def create_wavenumber_mesh(self) -> List[Array]:
+        """Creates a list of coordinate arrays for the wavenumbers."""
+        ξ = self.space.wavenumber_vector()
+        if self.space.dim == 1:
+            return [ξ]
+        else:
+            return list(np.meshgrid(*([ξ] * self.space.dim), indexing="ij"))
+
+    def compute_gradient_operator(self) -> Array:
+        """Builds the full gradient operator field using the scheme's formula."""
+        # This factor is needed for certain schemes like 'rotated_difference'
+        factor = 1.0
+        Δ = self.space.length / self.space.size
+        if self.space.dim > 1:
+            # Note: A scheme's formula must handle this factor if it needs it.
+            for j in range(self.space.dim):
+                factor *= 0.5 * (
+                    1 + np.exp(self.space.iota * self.wavenumbers_mesh[j] * Δ)
+                )
+
+        diff_vectors = []
+        for i in range(self.space.dim):
+            Dξ_i = self.formula(
+                xi=self.wavenumbers_mesh[i],
+                dx=self.space.length / self.space.size,
+                iota=self.space.iota,
+                factor=factor,
+            )
+            diff_vectors.append(Dξ_i)
+
+        return np.stack(diff_vectors, axis=-1)
+
+
+# --- Concrete Finite Difference Implementations ---
+
+
+class Fourier(CartesianScheme):
+    """Implements the standard spectral 'Fourier' derivative."""
+
+    def formula(self, xi, dx, iota, factor):
+        return iota * xi
+
+
+class CentralDifference(CartesianScheme):
+    """Implements the standard central difference scheme."""
+
+    def formula(self, xi, dx, iota, factor):
+        return iota * jnp.sin(xi * dx) / dx
+
+
+class ForwardDifference(CartesianScheme):
+    """Implements the forward difference scheme."""
+
+    def formula(self, xi, dx, iota, factor):
+        return (jnp.exp(iota * xi * dx) - 1) / dx
+
+
+class BackwardDifference(CartesianScheme):
+    """Implements the backward difference scheme."""
+
+    def formula(self, xi, dx, iota, factor):
+        return (1 - jnp.exp(-iota * xi * dx)) / dx
+
+
+class RotatedDifference(CartesianScheme):
+    """Implements the rotated finite difference scheme (Willot/HEX8R)."""
+
+    def formula(self, xi, dx, iota, factor):
+        if self.space.dim == 1:
+            raise RuntimeError("Rotated difference is not defined for 1D")
+        return 2 * iota * jnp.tan(xi * dx / 2) * factor / dx

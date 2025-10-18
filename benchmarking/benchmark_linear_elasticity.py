@@ -16,15 +16,24 @@ print(jax.devices())
 import numpy as np
 from functools import partial
 
-from spectralsolvers.operators import spatial, tensor, fourier_galerkin
-from spectralsolvers.fft.transform import _fft, _ifft
-from spectralsolvers.solvers.linear import conjugate_gradient_while
-from spectralsolvers.solvers.nonlinear import newton_krylov_solver
+from spectralsolver import (
+    DifferentialMode,
+    SpectralSpace,
+    TensorOperator,
+    make_field,
+)
+from spectralsolver.green_functions import fourier_galerkin
 
 from skimage.morphology import disk, rectangle, ellipse
 import timeit
 
 import argparse
+
+
+from spectralsolver.solvers.nonlinear import (
+    conjugate_gradient_while,
+    newton_krylov_solver,
+)
 
 def create_structure_3d(N):
     Hmid = int(N / 2)
@@ -54,7 +63,6 @@ def create_structure(N):
     return structure
 
 
-@partial(jax.jit, static_argnames=["crack", "solid"])
 def param(X, crack, solid):
     return crack * jnp.ones_like(X) * (X) + solid * jnp.ones_like(X) * (1 - X)
 
@@ -63,9 +71,6 @@ def run(args):
     N = args.N
     ndim = args.ndim
     length = args.length
-
-    grid_size = (N,) * ndim
-    elasticity_dof_shape = (ndim, ndim) + grid_size
 
     if ndim == 3:
         structure = create_structure_3d(N)
@@ -76,16 +81,16 @@ def run(args):
 
     structure = jax.device_put(structure)
 
+    tensor = TensorOperator(dim=ndim)
+    space = SpectralSpace(size=N, dim=ndim, length=length)
 
-    fft = jax.jit(partial(_fft, N=N, ndim=ndim))
-    ifft = jax.jit(partial(_ifft, N=N, ndim=ndim))
 
+    
     start_time = timeit.default_timer()
 
-    Ghat = fourier_galerkin.compute_projection_operator_legacy(
-        grid_size=grid_size, operator=spatial.Operator.rotated_difference, length=length
-    )
-
+    Ghat = fourier_galerkin.compute_projection_operator(
+    space=space, diff_mode=DifferentialMode.rotated_difference
+)
     Ghat = jax.device_put(Ghat)
 
     print('Ghat execution time : ', timeit.default_timer() - start_time )
@@ -128,95 +133,58 @@ def run(args):
     λ0 = jax.device_put(λ0)
     K0 = jax.device_put(K0)
 
-
-    # identity tensors (grid)
-    if ndim == 2:
-        I2 = jnp.einsum(
-            "ij,xy",
-            jnp.eye(ndim),
-            jnp.ones(
-                [
-                    N,
-                ]
-                * ndim
-            ),
-        )
-    elif ndim == 3:
-        I2 = jnp.einsum(
-            "ij,xyz",
-            jnp.eye(ndim),
-            jnp.ones(
-                [
-                    N,
-                ]
-                * ndim
-            ),
-        )
-    else:
-        raise RuntimeError(f"Operations are not defined for dim {ndim}")
-
-
-
+    eps = make_field(dim=ndim, N=N, rank=2)
 
     @jax.jit
-    def strain_energy(eps, args=None):
-        eps_sym = 0.5 * (eps + tensor.trans2(eps))
-        energy = 0.5 * jnp.multiply(λ0, tensor.trace2(eps_sym) ** 2) + jnp.multiply(
-            μ0, tensor.trace2(tensor.dot22(eps_sym, eps_sym))
+    def strain_energy(eps):
+        eps_sym = 0.5 * (eps + tensor.trans(eps))
+        energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
+            μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
         )
         return energy.sum()
 
 
-    sigma = jax.jit(jax.jacrev(strain_energy, argnums=0))
-
-
-    # functions for the projection 'G', and the product 'G : K : eps'
-    @jax.jit
-    def G(A2):
-        return jnp.real(ifft(tensor.ddot42(Ghat, fft(A2)))).reshape(-1)
-
+    compute_stress = jax.jacrev(strain_energy)
 
     @jax.jit
-    def G_K_deps(depsm, args=None):
-        depsm = depsm.reshape(elasticity_dof_shape)
-        return G(sigma(depsm, args))
+    def _tangent(deps, Ghat, dofs_shape):
+        deps = deps.reshape(dofs_shape)
+        dsigma = compute_stress(deps)
+        return jnp.real(space.ifft(tensor.ddot(Ghat, space.fft(dsigma)))).reshape(-1)
+
+    @jax.jit
+    def _residual(deps, Ghat, dofs_shape):
+        deps = deps.reshape(dofs_shape)
+        sigma = compute_stress(deps)
+        return jnp.real(space.ifft(tensor.ddot(Ghat, space.fft(sigma)))).reshape(-1)
 
 
+    residual = jax.jit(partial(_residual, Ghat=Ghat, dofs_shape=eps.shape))
+    jacobian = jax.jit(partial(_tangent, Ghat=Ghat, dofs_shape=eps.shape))
 
-    applied_strains = np.diff(np.linspace(0, 2e-1, num=20))
-    eps = jnp.zeros(elasticity_dof_shape)
-    deps = jnp.zeros(elasticity_dof_shape)
 
-    eps = jax.device_put(eps)
-    deps = jax.device_put(deps)
+    applied_strains = jnp.diff(jnp.linspace(0, 2e-1, num=20))
 
+    deps = make_field(dim=ndim, N=N, rank=2)
 
     for_start_time = timeit.default_timer()
 
     for inc, deps_avg in enumerate(applied_strains):
-
         # solving for elasticity
-        deps = deps.at[0, 0].set(deps_avg)
-
-        b = -G_K_deps(deps, None)
-        eps = jax.lax.add(eps, deps)
-
-        start_time = timeit.default_timer()
-
+        deps[0, 0] = deps_avg
+        b = -residual(deps)
+        eps = eps + deps
 
         final_state = newton_krylov_solver(
             state=(deps, b, eps),
-            A=G_K_deps,
+            gradient=residual,
+            jacobian=jacobian,
             tol=1e-8,
             max_iter=20,
             krylov_solver=conjugate_gradient_while,
             krylov_tol=1e-8,
             krylov_max_iter=20,
-            additionals=None,
         )
-        print("execution time :", timeit.default_timer() - start_time)
-
-
         eps = final_state[2]
 
     print("execution time for :", timeit.default_timer() - for_start_time)

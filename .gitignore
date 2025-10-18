@@ -17,3 +17,5 @@ arguments-*
 *venv*
 *jax-cache*
 *.egg-info*
+site/
+*uv.lock*

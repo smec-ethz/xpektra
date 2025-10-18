@@ -1,0 +1,390 @@
+import jax
+import jax.numpy as jnp
+import numpy as np
+import functools
+import itertools
+
+from xpektra.space import SpectralSpace, DifferentialMode
+
+'''
+def compute_projection_operator(
+    space: SpectralSpace,
+    diff_mode: DifferentialMode = DifferentialMode.fourier,
+) -> np.ndarray:
+    """
+    Computes the projection operator Ghat with an efficient (spatial..., tensor...) layout.
+
+    This function replaces the slow, loop-based approach with a fully vectorized one.
+    """
+    ndim = space.dim
+    grid_size = (space.size,) * ndim
+
+    # --- Step 1: Compute the Gradient Operator Field (Dξs) efficiently ---
+    # This logic is identical to the refactored `gradient_operator` method.
+    # It directly creates the Dξs field with the shape (nx, ny, ..., d).
+    
+    # Create coordinate arrays for each spatial dimension
+    ξ = space.wavenumber_vector()
+    if ndim == 1:
+        wavenumbers_mesh = [ξ]
+    else:
+        # Use 'ij' indexing to match matrix layout
+        meshes = np.meshgrid(*([ξ] * ndim), indexing='ij')
+        wavenumbers_mesh = list(meshes)
+
+    # Calculate the factor for certain finite difference schemes
+    factor = 1.0
+    if ndim > 1 and diff_mode != DifferentialMode.fourier:
+        Δ = space.length / space.size
+        for j in range(ndim):
+            factor *= 0.5 * (1 + np.exp(space.iota * wavenumbers_mesh[j] * Δ))
+
+    # Calculate the differential vector for each dimension
+    diff_vectors = []
+    for i in range(ndim):
+        ξ_i = wavenumbers_mesh[i]
+        Dξ_i = space.differential_vector(xi=ξ_i, diff_mode=diff_mode, factor=factor)
+        diff_vectors.append(Dξ_i)
+
+    # Stack the vectors along the last axis to create the (nx, ny, ..., d) tensor field
+    Dξs = np.stack(diff_vectors, axis=-1)
+
+
+    # --- Step 2: Calculate the inverse of Dξ needed for the projection ---
+    # This is also vectorized. Note the `keepdims=True` for safe broadcasting.
+    norm_sq = np.sum(Dξs * np.conj(Dξs), axis=-1, keepdims=True)
+
+    # Avoid division by zero at the zero-frequency mode
+    Dξ_inv = np.zeros_like(Dξs, dtype=np.complex128)
+    valid_mask = (norm_sq > 1e-12).squeeze() # Squeeze to remove the last dim for masking
+    Dξ_inv[valid_mask] = np.conj(Dξs[valid_mask]) / norm_sq[valid_mask]
+    
+
+    # --- Step 3: Construct Ghat with a single, powerful einsum operation ---
+    # The projection operator is G_ijlm = δ_im * Dξ_j * Dξ_inv_l
+    # ... represents the spatial dimensions (nx, ny, ...)
+    # 'im'      -> identity matrix δ_im
+    # '...j'    -> input Dξs vector field
+    # '...l'    -> input Dξ_inv vector field
+    # '...ijlm' -> desired output tensor field
+    identity = np.eye(ndim)
+    Ghat = np.einsum('im,...j,...l->...ijlm', identity, Dξs, Dξ_inv, optimize=True)
+
+    # The final shape will be, e.g., (nx, ny, nz, 3, 3, 3, 3)
+    return Ghat'''
+
+
+def compute_differential_operator(
+    ind: jnp.ndarray,
+    space: SpectralSpace,
+    diff_mode: DifferentialMode,
+) -> jnp.ndarray:
+    """
+    NO CHANGES NEEDED HERE.
+    This function computes the Dξ vector for a single frequency point,
+    which is independent of the final operator's memory layout.
+    """
+    freq = jnp.array([space.frequency_vector() for ii in range(space.dim)])
+    Δ = space.length / space.size
+
+    ξ = jnp.empty(space.dim, dtype="complex")
+    Dξ = jnp.empty(space.dim, dtype="complex")
+
+    factor = 1.0
+    for jj in range(space.dim):
+        index = ind.at[jj].get()
+        freq_jj = freq.at[jj].get()
+
+        factor *= 0.5 * (
+            1 + jnp.exp(space.iota * 2 * jnp.pi * freq_jj.at[index].get() * Δ)
+        )
+    for ii in range(space.dim):
+        index = ind.at[ii].get()
+        freq_ii = freq.at[ii].get()
+        ξ = ξ.at[ii].set(2 * jnp.pi * freq_ii.at[index].get())
+        Dξ = Dξ.at[ii].set(space.differential_vector(ξ.at[ii].get(), diff_mode, factor))
+
+    return Dξ
+
+
+def optimized_projection_fill(
+    G: np.ndarray, Dξs: np.ndarray, grid_size: tuple[int, ...]
+) -> np.ndarray:
+    """
+    ONLY ONE LINE IS CHANGED HERE.
+    The assignment indexing is updated to match the new (spatial..., tensor...) layout.
+    """
+    ndim = len(grid_size)
+    shape = grid_size
+    N = np.prod(shape)
+
+    # Flatten Dξs into shape (N, ndim)
+    Dξs = Dξs.reshape(N, ndim)
+    norm_sq = np.einsum("ni,ni->n", Dξs, np.conj(Dξs))  # shape (N,)
+
+    # Avoid division by zero
+    valid_mask = norm_sq != 0
+    Dξ_inv = np.zeros_like(Dξs, dtype=np.complex128)
+    Dξ_inv[valid_mask] = np.conj(Dξs[valid_mask]) / norm_sq[valid_mask, None]
+
+    # Precompute grid indices
+    grid_indices = list(itertools.product(*[range(n) for n in shape]))
+
+    δ = lambda i, j: float(i == j)  # noqa: E731
+
+    for i, j, l, m in itertools.product(range(ndim), repeat=4):
+        if δ(i, m) == 0:
+            continue  # skip computation entirely
+
+        term = Dξs[:, j] * Dξ_inv[:, l]  # shape (N,)
+        term[~valid_mask] = 0.0
+
+        # Assign into G
+        for index, ind in enumerate(grid_indices):
+            # --- THIS IS THE ONLY LINE CHANGED IN THIS FUNCTION ---
+            # Old indexing: G[i, j, l, m][ind]
+            # New indexing: G[ind + (i, j, l, m)]
+            # `ind` is a tuple like (x,y,z), so we concatenate it with the tensor indices.
+            G[ind + (i, j, l, m)] = δ(i, m) * term[index]
+
+    return G
+
+
+def compute_projection_operator(
+    space: SpectralSpace,
+    diff_mode: DifferentialMode = "fourier",
+) -> np.ndarray:
+    """
+    ONLY ONE LINE IS CHANGED HERE.
+    The shape of the initial `G` array is changed to the new layout.
+    """
+    ndim = space.dim
+    grid_size = (space.size,) * ndim
+    
+    # --- THIS IS THE ONLY LINE CHANGED IN THIS FUNCTION ---
+    # Old shape: (ndim, ndim, ndim, ndim) + grid_size
+    # New shape: grid_size + (ndim, ndim, ndim, ndim)
+    G = np.zeros(grid_size + (ndim, ndim, ndim, ndim), dtype="complex")
+
+    grid_indices = np.array(list(itertools.product(*[range(n) for n in grid_size])))
+    partial_compute_differential_operator = functools.partial(
+        compute_differential_operator, space=space, diff_mode=diff_mode
+    )
+
+    _map = jax.vmap(partial_compute_differential_operator)
+    Dξs = _map(
+        jnp.array(grid_indices),
+    )
+    Dξs = np.array(Dξs)
+
+    G = optimized_projection_fill(G, Dξs, grid_size)
+
+    return G
+
+'''
+def compute_differential_operator(
+    ind: jnp.ndarray,
+    space: SpectralSpace,
+    diff_mode: DifferentialMode,
+) -> jnp.ndarray:
+    freq = jnp.array([space.frequency_vector() for ii in range(space.dim)])
+    Δ = space.length / space.size
+
+    ξ = jnp.empty(space.dim, dtype="complex")
+    Dξ = jnp.empty(space.dim, dtype="complex")
+
+    factor = 1.0
+    for jj in range(space.dim):
+        index = ind.at[jj].get()
+        freq_jj = freq.at[jj].get()
+
+        factor *= 0.5 * (
+            1 + jnp.exp(space.iota * 2 * jnp.pi * freq_jj.at[index].get() * Δ)
+        )
+    for ii in range(space.dim):
+        index = ind.at[ii].get()
+        freq_ii = freq.at[ii].get()
+        ξ = ξ.at[ii].set(2 * jnp.pi * freq_ii.at[index].get())
+        Dξ = Dξ.at[ii].set(space.differential_vector(ξ.at[ii].get(), diff_mode, factor))
+
+    return Dξ
+
+
+def optimized_projection_fill(
+    G: np.ndarray, Dξs: np.ndarray, grid_size: tuple[int, ...]
+) -> np.ndarray:
+    ndim = len(grid_size)
+    shape = grid_size
+    N = np.prod(shape)
+
+    # Flatten Dξs into shape (N, ndim)
+    Dξs = Dξs.reshape(N, ndim)
+    norm_sq = np.einsum("ni,ni->n", Dξs, np.conj(Dξs))  # shape (N,)
+
+    # Avoid division by zero
+    valid_mask = norm_sq != 0
+    Dξ_inv = np.zeros_like(Dξs, dtype=np.complex128)
+    Dξ_inv[valid_mask] = np.conj(Dξs[valid_mask]) / norm_sq[valid_mask, None]
+
+    # Precompute grid indices
+    grid_indices = list(itertools.product(*[range(n) for n in shape]))
+
+    δ = lambda i, j: float(i == j)  # noqa: E731
+
+    for i, j, l, m in itertools.product(range(ndim), repeat=4):
+        if δ(i, m) == 0:
+            continue  # skip computation entirely
+
+        term = Dξs[:, j] * Dξ_inv[:, l]  # shape (N,)
+        term[~valid_mask] = 0.0
+
+        # Assign into G
+        for index, ind in enumerate(grid_indices):
+            G[i, j, l, m][ind] = δ(i, m) * term[index]
+
+    return G
+
+
+def compute_projection_operator(
+    space: SpectralSpace,
+    diff_mode: DifferentialMode = DifferentialMode.fourier,
+) -> np.ndarray:
+    ndim = space.dim
+    grid_size = (space.size,) * ndim
+    G = np.zeros((ndim, ndim, ndim, ndim) + grid_size, dtype="complex")
+
+    grid_indices = np.array(list(itertools.product(*[range(n) for n in grid_size])))
+    partial_compute_differential_operator = functools.partial(
+        compute_differential_operator, space=space, diff_mode=diff_mode
+    )
+
+    _map = jax.vmap(partial_compute_differential_operator)
+    Dξs = _map(
+        jnp.array(grid_indices),
+    )
+    Dξs = np.array(Dξs)
+
+    G = optimized_projection_fill(G, Dξs, grid_size)
+
+    return G
+
+
+@functools.partial(jax.jit, static_argnames=["grid_size", "length", "diff_mode"])
+def compute_projection_operator_legacy(
+    grid_size, length=1, diff_mode=DifferentialMode.forward_difference
+):
+    ndim = len(grid_size)
+    Δ = length / grid_size[0]
+
+    # projection operator
+    𝔾 = np.zeros(
+        (ndim, ndim, ndim, ndim) + grid_size, dtype="complex"
+    )  # zero initialize
+
+    # frequencies
+    freq = [
+        np.arange(-(grid_size[ii] - 1) / 2.0, +(grid_size[ii] + 1) / 2.0, dtype="int64")
+        / length
+        for ii in range(ndim)
+    ]
+
+    # Dirac delta function
+    δ = lambda i, j: float(i == j)  # noqa: E731
+
+    iota = 1j  # iota
+
+    for i, j, l, m in itertools.product(range(ndim), repeat=4):
+        for ind in itertools.product(*[range(n) for n in grid_size]):
+            ξ = np.empty(ndim, dtype="complex")
+            Dξ = np.empty(ndim, dtype="complex")
+
+            factor = 1.0
+            for jj in range(ndim):
+                factor *= 0.5 * (1 + np.exp(iota * 2 * np.pi * freq[jj][ind[jj]] * Δ))
+
+            for ii in range(ndim):
+                ξ[ii] = (
+                    2 * np.pi * freq[ii][ind[ii]]
+                )  ## frequency vector # 2*pi*(n)/samplingspace/n https://arxiv.org/pdf/1412.8398
+
+                if diff_mode == DifferentialMode.fourier:
+                    Dξ[ii] = iota * ξ[ii]  ## fourier operator
+                elif diff_mode == DifferentialMode.forward_difference:
+                    Dξ[ii] = (np.exp(iota * ξ[ii] * Δ) - 1) / Δ
+                elif diff_mode == DifferentialMode.central_difference:
+                    Dξ[ii] = iota * np.sin(ξ[ii] * Δ) / Δ
+                elif diff_mode == DifferentialMode.four_central_difference:
+                    Dξ[ii] = iota * (
+                        8 * np.sin(ξ[ii] * Δ) / (6 * Δ)
+                        - np.sin(2 * ξ[ii] * Δ) / (6 * Δ)
+                    )
+                elif diff_mode == DifferentialMode.six_central_difference:
+                    Dξ[ii] = iota * (
+                        9 * np.sin(ξ[ii] * Δ) / (6 * Δ)
+                        - 3 * np.sin(2 * ξ[ii] * Δ) / (10 * Δ)
+                        + np.sin(3 * ξ[ii] * Δ) / (30 * Δ)
+                    )
+                elif diff_mode == DifferentialMode.eight_central_difference:
+                    Dξ[ii] = iota * (
+                        8 * np.sin(ξ[ii] * Δ) / (5 * Δ)
+                        - 2 * np.sin(2 * ξ[ii] * Δ) / (5 * Δ)
+                        + 8 * np.sin(3 * ξ[ii] * Δ) / (105 * Δ)
+                        - np.sin(4 * ξ[ii] * Δ) / (140 * Δ)
+                    )
+                elif diff_mode == DifferentialMode.rotated_difference:
+                    Dξ[ii] = 2 * iota * np.tan(ξ[ii] * Δ / 2) * factor / Δ
+
+            if not Dξ.dot(np.conjugate(Dξ)) == 0:  # zero freq. -> mean
+                Dξ_inverse = np.conjugate(Dξ) / (Dξ.dot(np.conjugate(Dξ)))
+                𝔾[i, j, l, m][ind] = δ(i, m) * Dξ[j] * Dξ_inverse[l]
+    return 𝔾
+
+
+@functools.partial(jax.jit, static_argnames=["N", "length", "diff_mode"])
+def compute_Ghat_2_1(N, length=1, diff_mode=DifferentialMode.forward_difference):
+    """
+    Compute the projection operator for the 2nd order 1st derivative.
+    """
+
+    ndim = len(N)
+    Δ = length / N[0]
+
+    # PROJECTION IN FOURIER SPACE #############################################
+    Ghat2_1 = np.zeros((ndim, ndim) + N, dtype="complex")  # zero initialize
+    freq = [
+        np.arange(-(N[ii] - 1) / 2.0, +(N[ii] + 1) / 2.0) / length for ii in range(ndim)
+    ]
+
+    for i, j in itertools.product(range(ndim), repeat=2):
+        for ind in itertools.product(*[range(n) for n in N]):
+            q = np.empty(ndim, dtype="complex")
+            Dξ = np.empty(ndim, dtype="complex")
+            for ii in range(ndim):
+                q[ii] = 2 * np.pi * freq[ii][ind[ii]]  ## frequency vector
+                if diff_mode == DifferentialMode.fourier:
+                    Dξ[ii] = 1j * q[ii]
+                elif diff_mode == DifferentialMode.central_difference:
+                    Dξ[ii] = 1j * np.sin(q[ii] * Δ) / Δ
+                elif diff_mode == DifferentialMode.four_central_difference:
+                    Dξ[ii] = 1j * (
+                        8 * np.sin(q[ii] * Δ) / (6 * Δ)
+                        - np.sin(2 * q[ii] * Δ) / (6 * Δ)
+                    )
+                elif diff_mode == DifferentialMode.eight_central_difference:
+                    Dξ[ii] = 1j * (
+                        8 * np.sin(q[ii] * Δ) / (5 * Δ)
+                        - 2 * np.sin(2 * q[ii] * Δ) / (5 * Δ)
+                        + 8 * np.sin(3 * q[ii] * Δ) / (105 * Δ)
+                        - np.sin(4 * q[ii] * Δ) / (140 * Δ)
+                    )
+                elif diff_mode == DifferentialMode.forward_difference:
+                    Dξ[ii] = (np.exp(1j * q[ii] * Δ) - 1) / Δ
+                else:
+                    raise RuntimeError("diff_mode incorrectly defined")
+
+            if not Dξ.dot(np.conjugate(Dξ)) == 0:  # zero freq. -> mean
+                Dξ_inverse = np.conjugate(Dξ) / (Dξ.dot(np.conjugate(Dξ)))
+                Ghat2_1[i, j][ind] = Dξ[i] * Dξ_inverse[j]
+
+    return Ghat2_1
+'''
