@@ -1,5 +1,5 @@
 [project]
-name = "spectralsolver"
+name = "xpektra"
 version = "0.1.0"
 description = "Functional programming and differentiable framework for spectral methods"
 authors = [

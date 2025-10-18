@@ -8,7 +8,7 @@ from itertools import repeat
 import itertools
 
 
-from spectralsolver.space import SpectralSpace, DifferentialMode
+from xpektra.space import SpectralSpace, DifferentialMode
 
 # --- Define the einsum rules for dot product (spatial dims first) ---
 DOT_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {

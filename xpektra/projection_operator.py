@@ -7,9 +7,9 @@ import numpy as np
 import itertools
 from itertools import repeat
 
-from spectralsolver.scheme import CartesianScheme
-from spectralsolver import TensorOperator
-from spectralsolver.scheme import SpectralSpace
+from xpektra.scheme import CartesianScheme
+from xpektra import TensorOperator
+from xpektra.scheme import SpectralSpace
 
 class ProjectionOperator(eqx.Module):
     """

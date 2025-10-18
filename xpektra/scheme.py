@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from jax import Array
 import equinox as eqx
 
-from spectralsolver.space import SpectralSpace
+from xpektra.space import SpectralSpace
 
 # --- Abstract Base Classes ---
 

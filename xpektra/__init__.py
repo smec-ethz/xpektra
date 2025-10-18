@@ -1,5 +1,5 @@
-from spectralsolver.space import SpectralSpace, DifferentialMode
-from spectralsolver.operator import TensorOperator
+from xpektra.space import SpectralSpace, DifferentialMode
+from xpektra.operator import TensorOperator
 import numpy as np
 
 

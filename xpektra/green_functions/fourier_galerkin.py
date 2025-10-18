@@ -4,7 +4,7 @@ import numpy as np
 import functools
 import itertools
 
-from spectralsolver.space import SpectralSpace, DifferentialMode
+from xpektra.space import SpectralSpace, DifferentialMode
 
 '''
 def compute_projection_operator(
