@@ -5,8 +5,8 @@ description = "Functional programming and differentiable framework for spectral 
 authors = [
     { name = "Mohit Pundir", email = "mpundir@ethz.ch" },
 ]
-license = "MIT"
-license-files = ["LICENSE.md",]
+license = "LGPL-3.0"
+license-files = ["COPYING", "COPYING.LESSER"]
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 classifiers = [
@@ -14,21 +14,24 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "jax<=0.6.1",
-    "equinox",
+    "jax>=0.4.1",
+    "equinox<=0.13.0",
     "numpy",
     "sparsejac",
-    "matplotlib",
     "scipy",
 ]
 
 [project.optional-dependencies]
 examples = [
-    # "petsc",
-    # "petsc4py",
-    "cmcrameri",
     "ipykernel>=6.30.0",
+    "scikit-image>=0.25.2",
+    "matplotlib",
 ]
+dev = [
+    "commitizen>=4.9.1",
+    "pytest>=8.4.2",
+]
+
 
 [build-system]
 requires = [ "hatchling", ]
@@ -36,3 +39,12 @@ build-backend = "hatchling.build"
 
 [project.urls]
 repository = "https://gitlab.ethz.ch/compmechmat/research/mohit-pundir/spectralsolver"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
+major_version_zero = true
+template = ".changelog.tpl"
