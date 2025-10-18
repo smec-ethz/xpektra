@@ -1,17 +1,16 @@
 
-<p align="center">
+<div align="center">
 <img src="docs/assets/logo-xpektra.png" alt="drawing" width="400"/>
-</p>
-<p align="center">
-xpektra : Framework for spectral methods
-</p>
+<h3 align="center">xpektra : Modular framework for spectral methods</h3>
 
 
-Functional programming and differentiable framework for spectral methods
+`xpektra` is a Python library that provides a modularframework for spectral methods.  `xpektra` provide fundamental mathematical building blocks which can be used to construct complex spectral methods. It is built on top of JAX and Equinox, making it easy to use spectral methods in a differentiable way.
 
-## Overview
 
-spectralsolvers is a Python library that provides a functional programming and differentiable framework for spectral methods. It is built on top of JAX and Equinox, making it easy to use spectral methods in a differentiable way.
+</div>
+
+## License
+`xpektra` is distributed under the GNU Lesser General Public License v3.0 or later. See `COPYING` and `COPYING.LESSER` for the complete terms. © 2025 ETH Zurich (Mohit Pundir).
 
 ## Features
 
@@ -20,188 +19,170 @@ spectralsolvers is a Python library that provides a functional programming and d
 - Support for FFT and other spectral transforms
 - Easy integration with machine learning frameworks
 
-## Getting Started
-
-Here's a simple example of using FFT in spectralsolvers:
-
 ## Installation
+Install the current release from PyPI:
 
 ```bash
+pip install xpektra
+```
+For development work, clone the repository and install it in editable mode (use your preferred virtual environment tool such as `uv` or `venv`):
+
+```bash
+git clone https://gitlab.ethz.ch/smec/software/xpektra.git
+cd xpektra
 pip install -e .
 ```
 
 ## Usage
 
+`xpektra` provides modular blocks by defining a few operators and spaces that can be used to construct complex spectral methods. These operators and spaces are:
+
+- `SpectralSpace`: Defines the spectral space on which the methods are defined, this includes the FFT, IFFT, and other spectral transforms.
+- `TensorOperator`: Defines the tensor operator which performs tensor operations on quantities living on the grid, the operator automatically figures out the order of the tensor.
+- `Scheme`: Defines the scheme for discretization which is then used to construct the gradient operator. Currently, `CartesianScheme` is the only scheme available but one can easily define new schemes by subclassing the `Scheme` class.
+- `make_field`: Defines the field on which the methods are defined, this includes the field operations and the field creation.
+- `ProjectionOperator`: Defines the projection operator which projects the stress field onto the spectral space. Currently, `GalerkinProjection` is the only projection operator available but one can easily define new projection operators by subclassing the `ProjectionOperator` class.
+
 ```python
-import os
+from xpektra import (
+    SpectralSpace,
+    TensorOperator,
+    make_field,
+)
+from xpektra.scheme import RotatedDifference, Fourier
+from xpektra.projection_operator import GalerkinProjection
+from xpektra.solvers.nonlinear import (  # noqa: E402
+    conjugate_gradient_while,
+    newton_krylov_solver,
+)
 
-import jax
 
-
-jax.config.update("jax_compilation_cache_dir", os.environ["JAX_CACHE_DIR"])
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-import jax.numpy as jnp
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
-if os.environ["JAX_PLATFORM"] == "cpu":
-    jax.config.update("jax_platforms", "cpu")
-
-
-from functools import partial
-
-import numpy as np
-
-from spectralsolvers.operators import spatial, fourier_galerkin
-from spectralsolvers.operators import tensor
-from spectralsolvers.fft.transform import _fft, _ifft
-from spectralsolvers.solvers.linear import conjugate_gradient
-from spectralsolvers.solvers.nonlinear import newton_krylov_solver
-
-from skimage.morphology import disk, rectangle, ellipse
-import timeit
-
+N = 199
+shape = (N, N)
+length = 1.0
+ndim = 2
 
 
 def create_structure(N):
     Hmid = int(N / 2)
     Lmid = int(N / 2)
-    r = int(N / 10)
+    r = int(N / 4)
 
-    structure = np.zeros((N, N))
-    structure[Hmid : Hmid + 1, Lmid - 2 * r : Lmid + 2 * r] += rectangle(
-        nrows=1, ncols=4 * r
-    )
+    structure = np.ones((N, N))
+    structure[Hmid - r : Hmid + r + 1, Lmid - r : Lmid + r + 1] -= disk(r)
 
     return structure
 
 
-@partial(jax.jit, static_argnames=["crack", "solid"])
-def param(X, crack, solid):
-    return crack * jnp.ones_like(X) * (X) + solid * jnp.ones_like(X) * (1 - X)
-
-
-N = 49
-ndim = 2
-length = 10
-dx = length / N
-ell = 0.1
-
-grid_size = (N,) * ndim
-elasticity_dof_shape = (ndim, ndim) + grid_size
-
-
 structure = create_structure(N)
-structure = jax.device_put(structure)
+
+tensor = TensorOperator(dim=ndim)
+space = SpectralSpace(size=N, dim=ndim, length=length)
 
 
-fft = jax.jit(partial(_fft, N=N, ndim=ndim))
-ifft = jax.jit(partial(_ifft, N=N, ndim=ndim))
+def param(X, inclusion, solid):
+    props = inclusion * jnp.ones_like(X) * (1 - X) + solid * jnp.ones_like(X) * (X)
+    return props
 
 
-
-Ghat = fourier_galerkin.compute_projection_operator_legacy(
-    grid_size=grid_size, operator="rotated-difference", length=length
-)
-
-Ghat = jax.device_put(Ghat)
-
-
-# material parameters
-elastic_modulus = {"solid": 1.0, "crack": 1e-3}  # N/mm2
-poisson_modulus = {"solid": 0.2, "crack": 0.2}
+phase_contrast = 1./1e3
 
 # lames constant
-lambda_modulus = {}
-lambda_modulus["solid"] = (
-    poisson_modulus["solid"]
-    * elastic_modulus["solid"]
-    / ((1 + poisson_modulus["solid"]) * (1 - 2 * poisson_modulus["solid"]))
-)
-lambda_modulus["crack"] = (
-    poisson_modulus["crack"]
-    * elastic_modulus["crack"]
-    / ((1 + poisson_modulus["crack"]) * (1 - 2 * poisson_modulus["crack"]))
-)
-
-shear_modulus = {}
-shear_modulus["solid"] = elastic_modulus["solid"] / (2 * (1 + poisson_modulus["solid"]))
-shear_modulus["crack"] = elastic_modulus["crack"] / (2 * (1 + poisson_modulus["crack"]))
+lambda_modulus = {"solid": 1.0, "inclusion": phase_contrast}
+shear_modulus = {"solid": 1.0, "inclusion": phase_contrast}
 
 bulk_modulus = {}
 bulk_modulus["solid"] = lambda_modulus["solid"] + 2 * shear_modulus["solid"] / 3
-bulk_modulus["crack"] = lambda_modulus["crack"] + 2 * shear_modulus["crack"] / 3
-
-
+bulk_modulus["inclusion"] = (
+    lambda_modulus["inclusion"] + 2 * shear_modulus["inclusion"] / 3
+)
 
 λ0 = param(
-    structure, crack=lambda_modulus["crack"], solid=lambda_modulus["solid"]
+    structure, inclusion=lambda_modulus["inclusion"], solid=lambda_modulus["solid"]
 )  # lame parameter
 μ0 = param(
-    structure, crack=shear_modulus["crack"], solid=shear_modulus["solid"]
+    structure, inclusion=shear_modulus["inclusion"], solid=shear_modulus["solid"]
 )  # lame parameter
-K0 = param(structure, crack=bulk_modulus["crack"], solid=bulk_modulus["solid"])
-
-μ0 = jax.device_put(μ0)
-λ0 = jax.device_put(λ0)
-K0 = jax.device_put(K0)
+K0 = param(structure, inclusion=bulk_modulus["inclusion"], solid=bulk_modulus["solid"])
 
 
-
-@jax.jit
+@eqx.filter_jit
 def strain_energy(eps):
-    eps_sym = 0.5 * (eps + tensor.trans2(eps))
-    energy = 0.5 * jnp.multiply(λ0, tensor.trace2(eps_sym) ** 2) + jnp.multiply(
-        μ0, tensor.trace2(tensor.dot22(eps_sym, eps_sym))
+    eps_sym = 0.5 * (eps + tensor.trans(eps))
+    energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
+        μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
     )
-   
     return energy.sum()
 
 
-sigma = jax.jit(jax.jacrev(strain_energy, argnums=0))
+I = make_field(dim=ndim, N=N, rank=2)
+I[:, :, 0, 0] = 1
+I[:, :, 1, 1] = 1
 
 
-# functions for the projection 'G', and the product 'G : K : eps'
-@jax.jit
-def G(A2):
-    return jnp.real(ifft(tensor.ddot42(Ghat, fft(A2)))).reshape(-1)
-
-
-@jax.jit
-def G_K_deps(depsm):
-    depsm = depsm.reshape(elasticity_dof_shape)
-    return G(sigma(depsm))
-
-
-
-applied_strains = np.diff(np.linspace(0, 2e-1, num=20))
-eps = jnp.zeros(elasticity_dof_shape)
-deps = jnp.zeros(elasticity_dof_shape)
-
-eps = jax.device_put(eps)
-deps = jax.device_put(deps)
-
-
-for deps_avg in applied_strains:
-
-    # solving for elasticity
-    deps = deps.at[0, 0].set(deps_avg)
-
-    b = -G_K_deps(deps)
-    eps = jax.lax.add(eps, deps)
-
-
-    final_state = newton_krylov_solver(
-        state=(deps, b, eps),
-        A=G_K_deps,
-        tol=1e-8,
-        max_iter=20,
-        krylov_solver=conjugate_gradient,
-        krylov_tol=1e-8,
-        krylov_max_iter=20,
-
+def compute_stress(eps):
+    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
+        "..., ...ij->...ij", μ0, eps
     )
 
-    eps = final_state[2]
 
+Ghat = GalerkinProjection(
+    scheme=RotatedDifference(space=space), tensor_op=tensor
+).compute_operator()
+
+eps = make_field(dim=2, N=N, rank=2)
+
+
+class Residual(eqx.Module):
+    """A callable module that computes the residual vector."""
+
+    Ghat: Array
+    space: SpectralSpace = eqx.field(static=True)
+    tensor_op: TensorOperator = eqx.field(static=True)
+    dofs_shape: tuple = eqx.field(static=True)
+
+    # We can even pre-define the stress function if it's always the same
+    # For this example, we'll keep your original `compute_stress` function
+    # available in the global scope.
+
+    @eqx.filter_jit
+    def __call__(self, eps_flat: Array) -> Array:
+        """
+        This makes instances of this class behave like a function.
+        It takes only the flattened vector of unknowns, as required by the solver.
+        """
+        eps = eps_flat.reshape(self.dofs_shape)
+        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
+        residual_field = self.space.ifft(
+            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma))
+        )
+        return jnp.real(residual_field).reshape(-1)
+
+
+class Jacobian(eqx.Module):
+    """A callable module that represents the Jacobian operator (tangent)."""
+
+    Ghat: Array
+    space: SpectralSpace = eqx.field(static=True)
+    tensor_op: TensorOperator = eqx.field(static=True)
+    dofs_shape: tuple = eqx.field(static=True)
+
+    @eqx.filter_jit
+    def __call__(self, deps_flat: Array) -> Array:
+        """
+        The Jacobian is a linear operator, so its __call__ method
+        represents the Jacobian-vector product.
+        """
+        deps = deps_flat.reshape(self.dofs_shape)
+        # Assuming linear elasticity, the tangent is the same as the residual operator
+        dsigma = compute_stress(deps)
+        jvp_field = self.space.ifft(
+            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma))
+        )
+        return jnp.real(jvp_field).reshape(-1)
+
+
+residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
+jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
 
 ```

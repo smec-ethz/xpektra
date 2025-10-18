@@ -19,7 +19,9 @@ from xpektra import (
     TensorOperator,
     make_field,
 )
+from xpektra.scheme import RotatedDifference, Fourier
 from xpektra.green_functions import fourier_galerkin
+from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
@@ -54,7 +56,7 @@ def param(X, inclusion, solid):
     return props
 
 
-phase_contrast = 1./1e3
+phase_contrast = 1.0 / 1e3
 
 # lames constant
 lambda_modulus = {"solid": 1.0, "inclusion": phase_contrast}
@@ -95,9 +97,12 @@ def compute_stress(eps):
     )
 
 
-Ghat = fourier_galerkin.compute_projection_operator(
-    space=space, diff_mode=DifferentialMode.rotated_difference
-)
+# Ghat = fourier_galerkin.compute_projection_operator(
+#    space=space, diff_mode=DifferentialMode.rotated_difference
+# )
+Ghat = GalerkinProjection(
+    scheme=RotatedDifference(space=space), tensor_op=tensor
+).compute_operator()
 
 eps = make_field(dim=2, N=N, rank=2)
 
