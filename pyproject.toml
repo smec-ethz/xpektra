@@ -47,3 +47,13 @@ version_provider = "pep621"
 update_changelog_on_bump = true
 major_version_zero = true
 template = ".changelog.tpl"
+
+[tool.eenv]
+stack = "2025-06"
+modules = [
+    "gcc/12.2.0",
+    "python/3.13.0",
+]
+
+[tool.uv]
+constraint-dependencies = []
