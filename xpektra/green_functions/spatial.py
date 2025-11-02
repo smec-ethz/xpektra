@@ -3,7 +3,6 @@ import jax
 import equinox as eqx
 
 
-
 class Operator:
     fourier = "fourier"
     forward_difference = "forward-difference"
@@ -13,6 +12,7 @@ class Operator:
     four_central_difference = "4-central-difference"
     six_central_difference = "6-central-difference"
     eight_central_difference = "8-central-difference"
+
 
 def gradient_operator(N, ndim, length=1.0, operator=Operator.fourier):
     Δ = length / N

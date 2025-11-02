@@ -12,41 +12,41 @@ from xpektra.space import SpectralSpace, DifferentialMode
 
 # --- Define the einsum rules for dot product (spatial dims first) ---
 DOT_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {
-    (0, 0): "...,...->...",         # scalar-scalar
-    (1, 1): "...i,...i->...",         # dot11: vector-vector
-    (2, 1): "...ij,...j->...i",       # dot21: tensor-vector
-    (2, 2): "...ij,...jk->...ik",     # dot22: tensor-tensor
-    (2, 4): "...ij,...jkmn->...ikmn", # dot24: tensor-tensor4
-    (4, 2): "...ijkl,...lm->...ijkm", # dot42: tensor4-tensor
+    (0, 0): "...,...->...",  # scalar-scalar
+    (1, 1): "...i,...i->...",  # dot11: vector-vector
+    (2, 1): "...ij,...j->...i",  # dot21: tensor-vector
+    (2, 2): "...ij,...jk->...ik",  # dot22: tensor-tensor
+    (2, 4): "...ij,...jkmn->...ikmn",  # dot24: tensor-tensor4
+    (4, 2): "...ijkl,...lm->...ijkm",  # dot42: tensor4-tensor
 }
 
 # --- Define the einsum rules for double dot product (spatial dims first) ---
 DDOT_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {
-    (2, 2): "...ij,...ji->...",       # ddot22: tensor-tensor
-    (4, 2): "...ijkl,...lk->...ij",    # ddot42: tensor4-tensor
-    (4, 4): "...ijkl,...lkmn->...ijmn",# ddot44: tensor4-tensor4
+    (2, 2): "...ij,...ji->...",  # ddot22: tensor-tensor
+    (4, 2): "...ijkl,...lk->...ij",  # ddot42: tensor4-tensor
+    (4, 4): "...ijkl,...lkmn->...ijmn",  # ddot44: tensor4-tensor4
 }
 
 # --- Define the einsum rules for dyad (spatial dims first) ---
 DYAD_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {
-    (2, 2): "...ij,...kl->...ijkl",   # dyad22: tensor-tensor
-    (1, 1): "...i,...j->...ij",       # dyad11: vector-vector
+    (2, 2): "...ij,...kl->...ijkl",  # dyad22: tensor-tensor
+    (1, 1): "...i,...j->...ij",  # dyad11: vector-vector
 }
 
 # --- Define the einsum rules for trace (spatial dims first) ---
 TRACE_EINSUM_DISPATCH: Dict[int, str] = {
-    2: "...ii->...",                 # trace of a rank-2 tensor
-    4: "...ijij->...",               # trace of a rank-4 tensor (e.g., for identity)
+    2: "...ii->...",  # trace of a rank-2 tensor
+    4: "...ijij->...",  # trace of a rank-4 tensor (e.g., for identity)
 }
 
 # --- Define the einsum rules for transpose (spatial dims first) ---
 TRANS_EINSUM_DISPATCH: Dict[int, str] = {
-    2: "...ij->...ji",               # transpose of a rank-2 tensor
+    2: "...ij->...ji",  # transpose of a rank-2 tensor
 }
 
 
 class TensorOperator(eqx.Module):
-    dim: int # Number of spatial dimensions, e.g., 2 for (nx, ny)
+    dim: int  # Number of spatial dimensions, e.g., 2 for (nx, ny)
 
     @eqx.filter_jit
     def _get_rank(self, A: Array) -> int:
@@ -74,7 +74,7 @@ class TensorOperator(eqx.Module):
 
     # The other methods (ddot, trace, etc.) follow the exact same pattern
     # Just replace the dispatch dictionary and the error message string.
-    
+
     @eqx.filter_jit
     def ddot(self, A: Array, B: Array) -> Array:
         rank_A = self._get_rank(A)
@@ -117,8 +117,9 @@ class TensorOperator(eqx.Module):
             )
         return jnp.einsum(einsum_str, A, B, optimize="optimal")
 
+
 # --- Define the operator ---
-'''class SpectralOperator(eqx.Module):
+"""class SpectralOperator(eqx.Module):
     space: SpectralSpace
     diff_mode: DifferentialMode
     tensor: TensorOperator
@@ -230,4 +231,4 @@ class TensorOperator(eqx.Module):
                 "ijkxy, jkxy->ixy", self.div_op, self.space.fft(A), optimize="optimal"
             )
         )
-'''
+"""

@@ -3,7 +3,7 @@ from xpektra.operator import TensorOperator
 import numpy as np
 
 
-#def make_field(dim: int, N: int, rank: int) -> np.ndarray:
+# def make_field(dim: int, N: int, rank: int) -> np.ndarray:
 #    return np.zeros((rank,) * rank + (N,) * dim)
 
 
@@ -20,6 +20,6 @@ def make_field(dim: int, N: int, rank: int) -> np.ndarray:
         A NumPy array with the correct shape.
     """
     spatial_shape = (N,) * dim
-    tensor_shape = (dim,) * rank # Assumes tensor dimensions are size `dim`
-    
+    tensor_shape = (dim,) * rank  # Assumes tensor dimensions are size `dim`
+
     return np.zeros(spatial_shape + tensor_shape)

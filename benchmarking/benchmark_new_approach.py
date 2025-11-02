@@ -50,7 +50,6 @@ class FourierGalerkinOperator(eqx.Module):
         self.funcs["compute_tangent_modulus"] = compute_tangent_modulus
         self.elasticity_dof_shape = (ndim, ndim) + (N,) * ndim
 
-
     def __call__(self, deps, args=None):
         deps = deps.reshape(self.elasticity_dof_shape)
         dsigma = self.funcs["compute_tangent_modulus"](deps, args)
@@ -58,7 +57,6 @@ class FourierGalerkinOperator(eqx.Module):
         return jnp.real(
             self.funcs["ifft"](tensor.ddot42(self.Ghat, self.funcs["fft"](dsigma)))
         ).reshape(-1)
-
 
 
 def create_structure_3d(N):
@@ -180,7 +178,6 @@ def run(args):
     for_start_time = timeit.default_timer()
 
     for inc, deps_avg in enumerate(applied_strains):
-
         # solving for elasticity
         deps = deps.at[0, 0].set(deps_avg)
 
@@ -207,7 +204,6 @@ def run(args):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="benchmark simulations")
 
     parser.add_argument("--N", type=int, default=499, help="pixel size")

@@ -19,7 +19,6 @@ import itertools
 import functools
 
 
-
 # ----------------------------
 # ORIGINAL (slow) implementation
 # ----------------------------

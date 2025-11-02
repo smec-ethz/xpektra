@@ -160,7 +160,7 @@ def compute_projection_operator(
     """
     ndim = space.dim
     grid_size = (space.size,) * ndim
-    
+
     # --- THIS IS THE ONLY LINE CHANGED IN THIS FUNCTION ---
     # Old shape: (ndim, ndim, ndim, ndim) + grid_size
     # New shape: grid_size + (ndim, ndim, ndim, ndim)
@@ -180,6 +180,7 @@ def compute_projection_operator(
     G = optimized_projection_fill(G, Dξs, grid_size)
 
     return G
+
 
 '''
 def compute_differential_operator(

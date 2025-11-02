@@ -11,20 +11,21 @@ from xpektra.scheme import CartesianScheme
 from xpektra import TensorOperator
 from xpektra.scheme import SpectralSpace
 
+
 class ProjectionOperator(eqx.Module):
     """
     An 'abstract' base class for operators that project fields.
-    
+
     It uses a `Scheme` to construct a 4th-order tensor (`Ghat`) that
     enforces mechanical constraints in Fourier space.
     """
+
     scheme: CartesianScheme
     tensor_op: TensorOperator
 
     def __init__(self, scheme: CartesianScheme, tensor_op: TensorOperator):
         self.scheme = scheme
         self.tensor_op = tensor_op
-
 
     @abstractmethod
     def compute_operator(self) -> Array:
@@ -36,6 +37,7 @@ class GalerkinProjection(ProjectionOperator):
     """
     A 'final' class implementing the material-independent Galerkin projection.
     """
+
     def compute_operator(self) -> Array:
         """Implements the formula: Ghat_ijlm = δ_im * Dξ_j * Dξ_inv_l."""
         Dξs = self.scheme.gradient_operator
@@ -44,7 +46,7 @@ class GalerkinProjection(ProjectionOperator):
         # Calculate the inverse of the gradient operator field
         norm_sq = jnp.sum(Dξs * jnp.conj(Dξs), axis=-1, keepdims=True)
         Dξ_inv = jnp.zeros_like(Dξs, dtype=jnp.complex128)
-        
+
         # Avoid division by zero at the zero-frequency mode
         valid_mask = (norm_sq > 1e-12).squeeze()
         Dξ_inv = Dξ_inv.at[valid_mask].set(
@@ -53,13 +55,7 @@ class GalerkinProjection(ProjectionOperator):
 
         # Construct the 4th-order tensor using einsum
         identity = jnp.eye(ndim)
-        Ghat = jnp.einsum(
-            'im,...j,...l->...ijlm', 
-            identity, 
-            Dξs, 
-            Dξ_inv, 
-            optimize=True
-        )
+        Ghat = jnp.einsum("im,...j,...l->...ijlm", identity, Dξs, Dξ_inv, optimize=True)
         return Ghat
 
 
