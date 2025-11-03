@@ -18,6 +18,7 @@ dependencies = [
     "equinox<=0.13.0",
     "numpy",
     "scipy",
+    "jax-autovmap>=0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -57,3 +58,8 @@ modules = [
 
 [tool.uv]
 constraint-dependencies = []
+
+[dependency-groups]
+examples = [
+    "jax-autovmap>=0.3.0",
+]

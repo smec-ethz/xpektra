@@ -91,10 +91,12 @@ I[:, :, 0, 0] = 1
 I[:, :, 1, 1] = 1
 
 
-def compute_stress(eps):
-    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
-        "..., ...ij->...ij", μ0, eps
-    )
+#def compute_stress(eps):
+#    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
+#        "..., ...ij->...ij", μ0, eps
+#    )
+
+compute_stress = jax.jacrev(strain_energy)
 
 
 # Ghat = fourier_galerkin.compute_projection_operator(
