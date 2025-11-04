@@ -56,7 +56,7 @@ def param(X, inclusion, solid):
     return props
 
 
-phase_contrast = 1.0 / 1e3
+phase_contrast = 1.0  / 1e-3
 
 # lames constant
 lambda_modulus = {"solid": 1.0, "inclusion": phase_contrast}
@@ -94,7 +94,7 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 Ghat = GalerkinProjection(
-    scheme=RotatedDifference(space=space), tensor_op=tensor
+    scheme=Fourier(space=space), tensor_op=tensor
 ).compute_operator()
 
 eps = make_field(dim=2, N=N, rank=2)
@@ -118,7 +118,7 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        # eps = eps_flat.reshape(self.dofs_shape)
+        eps_flat = eps_flat.reshape(-1)
         sigma = compute_stress(eps_flat)  # Assumes compute_stress is defined elsewhere
         residual_field = self.space.ifft(
             self.tensor_op.ddot(
@@ -143,7 +143,7 @@ class Jacobian(eqx.Module):
         represents the Jacobian-vector product.
         """
 
-        # Assuming linear elasticity, the tangent is the same as the residual operator
+        deps_flat = deps_flat.reshape(-1)
         dsigma = compute_stress(deps_flat)
         jvp_field = self.space.ifft(
             self.tensor_op.ddot(
@@ -157,13 +157,16 @@ residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.
 jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
 
 
-applied_strains = jnp.diff(jnp.linspace(0, 2e-1, num=20))
+
+applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
 
 deps = make_field(dim=2, N=N, rank=2)
 
 for inc, deps_avg in enumerate(applied_strains):
     # solving for elasticity
     deps[:, :, 0, 0] = deps_avg
+    deps[:, :, 1, 1] = deps_avg
+
     b = -residual_fn(deps)
     eps = eps + deps
 
@@ -181,11 +184,13 @@ for inc, deps_avg in enumerate(applied_strains):
 
 sig = compute_stress(final_state[2]).reshape(dofs_shape)
 
-plt.figure(figsize=(4, 3))
-ax = plt.axes()
-ax.plot(sig.at[:, :, 1, 1].get()[int(N / 2), :])
+fig, (ax1, ax2) = plt.subplots(1, 2,figsize=(4, 3))
+ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
 
 
-ax2 = ax.twinx()
-ax2.plot(structure[int(N / 2), :], color="gray")
+ax2.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
+
+
+ax_twin = ax2.twinx()
+ax_twin.plot(structure[int(N / 2), :], color="gray")
 plt.show()
