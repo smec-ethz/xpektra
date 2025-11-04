@@ -28,7 +28,7 @@ def conjugate_gradient_while(A, b, atol=1e-8, max_iter=100):
     r = b - A(x)
     p = r
     rsold = jnp.vdot(r, r)
-    # jax.debug.print("CG error = {}", rsold)
+    jax.debug.print("CG error = {:.14f}", rsold)
 
     b, p, r, rsold, x, iiter = jax.lax.while_loop(
         cond_fun, body_fun, (b, p, r, rsold, x, iiter)
@@ -90,63 +90,3 @@ def newton_krylov_solver(
     _ = jax.lax.cond(residual > tol, not_converged, converged, residual)
 
     return final_state
-
-
-"""
-@eqx.filter_jit
-def newton_krylov_solver(
-    state: tuple,
-    A: eqx.Module,
-    additionals: tuple,
-    krylov_solver,
-    tol: float,
-    max_iter: int,
-    krylov_tol: float,
-    krylov_max_iter: int,
-):
-
-    def newton_raphson(state, n):
-        dF, b, F = state
-        error = jnp.linalg.norm(b)
-
-        def true_fun(state):
-            dF, b, F = state
-
-            dF, iiter = krylov_solver(
-                A=A,
-                b=b,
-                atol=krylov_tol,
-                max_iter=krylov_max_iter,
-                additionals=additionals,
-            )  # solve linear system
-
-            dF = dF.reshape(F.shape)
-            F = jax.lax.add(F, dF)
-            b = -A.residual(F, additionals)  # compute residual
-
-            return (dF, b, F)
-
-        def false_fun(state):
-            return state
-
-        return jax.lax.cond(error > tol, true_fun, false_fun, state), n
-
-    final_state, xs = jax.lax.scan(
-        newton_raphson,
-        init=state,
-        xs=jnp.arange(0, max_iter),
-    )
-
-    def not_converged(residual):
-        jax.debug.print("Didnot converge, Residual value : {}", residual)
-        return residual
-
-    def converged(residual):
-        jax.debug.print("Converged, Residual value : {}", residual)
-        return residual
-
-    residual = jnp.linalg.norm(final_state[1])
-    _ = jax.lax.cond(residual > tol, not_converged, converged, residual)
-
-    return final_state
-"""

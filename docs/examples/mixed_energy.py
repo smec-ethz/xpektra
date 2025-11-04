@@ -1,6 +1,3 @@
-import os
-os.environ["XLA_FLAGS"] = '--xla_force_host_platform_device_count=4' # Use 8 CPU devices
-
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
@@ -9,8 +6,6 @@ jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
-from jax.sharding import Mesh, PartitionSpec as P
-
 import equinox as eqx
 
 
@@ -19,13 +14,11 @@ from functools import partial
 import matplotlib.pyplot as plt
 from skimage.morphology import disk
 from xpektra import (
-    DifferentialMode,
     SpectralSpace,
     TensorOperator,
     make_field,
 )
 from xpektra.scheme import RotatedDifference, Fourier
-from xpektra.green_functions import fourier_galerkin
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
@@ -33,9 +26,8 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 )
 
 from jax_autovmap import autovmap
-import time
 
-N = 8
+N = 199
 shape = (N, N)
 length = 1.0
 ndim = 2
@@ -53,11 +45,6 @@ def create_structure(N):
 
 
 structure = create_structure(N)
-
-print(structure)
-
-mask = structure == 1
-mask_eps = mask[..., None, None]
 
 tensor = TensorOperator(dim=ndim)
 space = SpectralSpace(size=N, dim=ndim, length=length)
@@ -89,37 +76,12 @@ bulk_modulus["inclusion"] = (
 K0 = param(structure, inclusion=bulk_modulus["inclusion"], solid=bulk_modulus["solid"])
 
 
-dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
+dofs_shape = make_field(dim=2, N=N, rank=2).shape
+
 
 @eqx.filter_jit
-def strain_energy_flattened(eps_flat):
+def strain_energy(eps_flat: Array) -> Array:
     eps = eps_flat.reshape(dofs_shape)
-    eps_unmasked = jnp.where(mask_eps, 0, eps)
-    eps_sym = 0.5 * (eps_unmasked + tensor.trans(eps_unmasked))
-    energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
-    )
-    return energy.sum()
-
-
-@eqx.filter_jit
-def strain_energy_masked(eps_flat):
-    eps = eps_flat.reshape(dofs_shape)
-    eps_masked = jnp.where(mask_eps, eps, 0)
-    eps_sym = 0.5 * (eps_masked + tensor.trans(eps_masked))
-    energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
-    )
-    return energy.sum()
-
-
-@eqx.filter_jit
-def total_strain_energy(eps_flat):
-    return strain_energy_masked(eps_flat) + strain_energy_flattened(eps_flat)
-
-
-@eqx.filter_jit
-def strain_energy(eps):
     eps_sym = 0.5 * (eps + tensor.trans(eps))
     energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
         μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
@@ -127,52 +89,32 @@ def strain_energy(eps):
     return energy.sum()
 
 
-I = make_field(dim=ndim, N=N, rank=2)
-I[:, :, 0, 0] = 1
-I[:, :, 1, 1] = 1
+@autovmap(eps=2)
+def strain_energy_autovmap(eps: Array) -> float:
+   eps_sym = 0.5 * (eps + eps.T)
+   energy = 0.5 * jnp.multiply(λ0, jnp.einsum("ii->", eps_sym) ** 2) + jnp.multiply(
+        μ0, jnp.einsum("ii->", jnp.dot(eps_sym, eps_sym))
+    )
+   return energy
 
-mask_eps
 
-print(I[mask])
 
-I_flat = I.reshape(-1)
-num_devices = len(jax.devices())
-jax_mesh = jax.make_mesh((num_devices,), ("batch",))
-data_sharding = jax.sharding.NamedSharding(jax_mesh, jax.sharding.PartitionSpec("batch"))
+#I = make_field(dim=ndim, N=N, rank=2)
+#I[:, :, 0, 0] = 1
+#I[:, :, 1, 1] = 1
 
+
+#def compute_stress(eps):
+#    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
+#        "..., ...ij->...ij", μ0, eps
+#    )
 
 compute_stress = jax.jacrev(strain_energy)
-compute_stress_flattened = jax.jacrev(total_strain_energy)
+compute_stress_autovmap = jax.jacrev(strain_energy_autovmap)
 
-
-start_time = time.time()
-compute_stress(I)
-end_time = time.time()
-print(f"Time taken: {end_time - start_time} seconds")
-
-start_time = time.time()
-compute_stress(I)
-end_time = time.time()
-print(f"Time taken: {end_time - start_time} seconds")
-
-start_time = time.time()
-compute_stress_flattened(I_flat)
-end_time = time.time()
-print(f"Time taken flattened: {end_time - start_time} seconds")
-
-start_time = time.time()
-compute_stress_flattened(I_flat)
-end_time = time.time()
-print(f"Time taken flattened: {end_time - start_time} seconds")
-
-
-#print(compute_stress(I).shape)
-#print_shape(I)
-#mapped_print_shape = jax.vmap(print_shape, in_axes=(0,))
-
-#print(mapped_print_shape(jnp.array(I)).shape)
-
-'''
+# Ghat = fourier_galerkin.compute_projection_operator(
+#    space=space, diff_mode=DifferentialMode.rotated_difference
+# )
 Ghat = GalerkinProjection(
     scheme=RotatedDifference(space=space), tensor_op=tensor
 ).compute_operator()
@@ -198,8 +140,9 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
+        sigma_flat = compute_stress_autovmap(eps_flat)  # Assumes compute_stress is defined elsewhere
+        sigma = sigma_flat.reshape(self.dofs_shape)
+
         residual_field = self.space.ifft(
             self.tensor_op.ddot(self.Ghat, self.space.fft(sigma))
         )
@@ -220,9 +163,9 @@ class Jacobian(eqx.Module):
         The Jacobian is a linear operator, so its __call__ method
         represents the Jacobian-vector product.
         """
-        deps = deps_flat.reshape(self.dofs_shape)
         # Assuming linear elasticity, the tangent is the same as the residual operator
-        dsigma = compute_stress(deps)
+        dsigma_flat = compute_stress_autovmap(deps_flat)
+        dsigma = dsigma_flat.reshape(self.dofs_shape)
         jvp_field = self.space.ifft(
             self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma))
         )
@@ -240,7 +183,7 @@ deps = make_field(dim=2, N=N, rank=2)
 for inc, deps_avg in enumerate(applied_strains):
     # solving for elasticity
     deps[:, :, 0, 0] = deps_avg
-    b = -residual_fn(deps)
+    b = -residual_fn(deps.reshape(-1,  2, 2))
     eps = eps + deps
 
     final_state = newton_krylov_solver(
@@ -255,7 +198,7 @@ for inc, deps_avg in enumerate(applied_strains):
     )
     eps = final_state[2]
 
-sig = compute_stress(final_state[2])
+sig = compute_stress_autovmap(final_state[2].reshape(-1, 2, 2)).reshape(dofs_shape)
 
 plt.figure(figsize=(4, 3))
 ax = plt.axes()
@@ -265,4 +208,3 @@ ax.plot(sig.at[:, :, 1, 1].get()[int(N / 2), :])
 ax2 = ax.twinx()
 ax2.plot(structure[int(N / 2), :], color="gray")
 plt.show()
-'''
