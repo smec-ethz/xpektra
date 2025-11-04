@@ -77,8 +77,12 @@ bulk_modulus["inclusion"] = (
 K0 = param(structure, inclusion=bulk_modulus["inclusion"], solid=bulk_modulus["solid"])
 
 
+dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
+
+
 @eqx.filter_jit
-def strain_energy(eps):
+def strain_energy(eps_flat: Array) -> Array:
+    eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + tensor.trans(eps))
     energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
         μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
@@ -86,22 +90,9 @@ def strain_energy(eps):
     return energy.sum()
 
 
-I = make_field(dim=ndim, N=N, rank=2)
-I[:, :, 0, 0] = 1
-I[:, :, 1, 1] = 1
-
-
-#def compute_stress(eps):
-#    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
-#        "..., ...ij->...ij", μ0, eps
-#    )
-
 compute_stress = jax.jacrev(strain_energy)
 
 
-# Ghat = fourier_galerkin.compute_projection_operator(
-#    space=space, diff_mode=DifferentialMode.rotated_difference
-# )
 Ghat = GalerkinProjection(
     scheme=RotatedDifference(space=space), tensor_op=tensor
 ).compute_operator()
@@ -127,10 +118,12 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
+        # eps = eps_flat.reshape(self.dofs_shape)
+        sigma = compute_stress(eps_flat)  # Assumes compute_stress is defined elsewhere
         residual_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma))
+            self.tensor_op.ddot(
+                self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape))
+            )
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -149,11 +142,13 @@ class Jacobian(eqx.Module):
         The Jacobian is a linear operator, so its __call__ method
         represents the Jacobian-vector product.
         """
-        deps = deps_flat.reshape(self.dofs_shape)
+
         # Assuming linear elasticity, the tangent is the same as the residual operator
-        dsigma = compute_stress(deps)
+        dsigma = compute_stress(deps_flat)
         jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma))
+            self.tensor_op.ddot(
+                self.Ghat, self.space.fft(dsigma.reshape(self.dofs_shape))
+            )
         )
         return jnp.real(jvp_field).reshape(-1)
 
@@ -184,7 +179,7 @@ for inc, deps_avg in enumerate(applied_strains):
     )
     eps = final_state[2]
 
-sig = compute_stress(final_state[2])
+sig = compute_stress(final_state[2]).reshape(dofs_shape)
 
 plt.figure(figsize=(4, 3))
 ax = plt.axes()

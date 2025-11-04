@@ -99,7 +99,6 @@ def generate_multiphase_material_3d(
     return material, seed_points
 
 
-# %%
 N = 63
 ndim = 3
 length = 1
@@ -157,14 +156,14 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        eps = eps_flat.reshape(self.dofs_shape)
+        #eps = eps_flat.reshape(self.dofs_shape)
         start_time = time.time()
-        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
+        sigma = compute_stress(eps_flat)  # Assumes compute_stress is defined elsewhere
         end_time = time.time()
         jax.debug.print("Time taken to compute sigma: {:.14f} seconds", end_time - start_time)
         
         residual_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma))
+            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape)))
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -183,10 +182,10 @@ class Jacobian(eqx.Module):
         The Jacobian is a linear operator, so its __call__ method
         represents the Jacobian-vector product.
         """
-        deps = deps_flat.reshape(self.dofs_shape)
+        #deps = deps_flat.reshape(self.dofs_shape)
         # Assuming linear elasticity, the tangent is the same as the residual operator
         start_time = time.time()
-        dsigma = compute_stress(deps)
+        dsigma = compute_stress(deps_flat)
         end_time = time.time()
         jax.debug.print(
             "Time taken to compute dsigma: {:.14f} seconds", end_time - start_time
@@ -194,7 +193,7 @@ class Jacobian(eqx.Module):
 
         start_time = time.time()
         jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma))
+            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma.reshape(self.dofs_shape)))
         )
         end_time = time.time()
         jax.debug.print(
@@ -236,7 +235,7 @@ for inc, deps_avg in enumerate(applied_strains):
 
     print("step", inc, "time", inc)
 
-sig = compute_stress(eps)
+sig = compute_stress(eps).reshape(dofs_shape)
 
 import matplotlib.pyplot as plt  # noqa: E402
 from mpl_toolkits.axes_grid1 import make_axes_locatable

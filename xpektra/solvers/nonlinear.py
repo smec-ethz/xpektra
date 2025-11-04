@@ -54,6 +54,8 @@ def newton_krylov_solver(
         def true_fun(state):
             dF, b, F = state
 
+            #jacobian_partial = eqx.Partial(jacobian, F_flat=F.reshape(-1))
+
             dF, iiter = krylov_solver(
                 A=jacobian,
                 b=b,
