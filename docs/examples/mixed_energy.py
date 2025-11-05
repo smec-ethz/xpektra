@@ -46,6 +46,11 @@ def create_structure(N):
 
 structure = create_structure(N)
 
+mask = structure == 1
+mask_eps = mask[..., None, None]
+
+
+
 tensor = TensorOperator(dim=ndim)
 space = SpectralSpace(size=N, dim=ndim, length=length)
 
@@ -87,16 +92,6 @@ def strain_energy(eps_flat: Array) -> Array:
         μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
     )
     return energy.sum()
-
-
-@autovmap(eps=2)
-def strain_energy_autovmap(eps: Array) -> float:
-   eps_sym = 0.5 * (eps + eps.T)
-   energy = 0.5 * jnp.multiply(λ0, jnp.einsum("ii->", eps_sym) ** 2) + jnp.multiply(
-        μ0, jnp.einsum("ii->", jnp.dot(eps_sym, eps_sym))
-    )
-   return energy
-
 
 
 #I = make_field(dim=ndim, N=N, rank=2)

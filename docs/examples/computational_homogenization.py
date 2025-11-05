@@ -26,6 +26,8 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 )
 import equinox as eqx
 
+import time
+
 volume_fraction_percentage = 0.007
 
 # %%
@@ -198,7 +200,10 @@ tangent_operator_and_state = jax.jit(
 )
 
 deps = jnp.array([1.2, 1.0, 1])
+start_time = time.time()
 tangent, state = tangent_operator_and_state(deps)
+end_time = time.time()
+print(f"Time taken: {end_time - start_time} seconds")
 
 print(tangent)
 
