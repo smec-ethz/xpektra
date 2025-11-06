@@ -20,13 +20,6 @@ class ProjectionOperator(eqx.Module):
     enforces mechanical constraints in Fourier space.
     """
 
-    scheme: CartesianScheme
-    tensor_op: TensorOperator
-
-    def __init__(self, scheme: CartesianScheme, tensor_op: TensorOperator):
-        self.scheme = scheme
-        self.tensor_op = tensor_op
-
     @abstractmethod
     def compute_operator(self) -> Array:
         """Abstract method to compute the 4th-order operator tensor."""
@@ -37,6 +30,9 @@ class GalerkinProjection(ProjectionOperator):
     """
     A 'final' class implementing the material-independent Galerkin projection.
     """
+
+    scheme: CartesianScheme
+    tensor_op: TensorOperator
 
     def compute_operator(self) -> Array:
         """Implements the formula: Ghat_ijlm = δ_im * Dξ_j * Dξ_inv_l."""
