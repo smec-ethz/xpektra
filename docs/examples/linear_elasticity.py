@@ -8,73 +8,42 @@ import numpy as np
 from jax import Array
 import equinox as eqx
 
-
-from functools import partial
-
 import matplotlib.pyplot as plt
-from skimage.morphology import disk
 from xpektra import (
-    DifferentialMode,
     SpectralSpace,
     TensorOperator,
     make_field,
 )
 from xpektra.scheme import RotatedDifference, Fourier
-from xpektra.green_functions import fourier_galerkin
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
 )
 
-
-N = 199
-shape = (N, N)
-length = 1.0
+N = 251
 ndim = 2
-
-
-def create_structure(N):
-    Hmid = int(N / 2)
-    Lmid = int(N / 2)
-    r = int(N / 4)
-
-    structure = np.ones((N, N))
-    structure[Hmid - r : Hmid + r + 1, Lmid - r : Lmid + r + 1] -= disk(r)
-
-    return structure
-
-
-structure = create_structure(N)
+length = 1
 
 tensor = TensorOperator(dim=ndim)
 space = SpectralSpace(size=N, dim=ndim, length=length)
 
 
-def param(X, inclusion, solid):
-    props = inclusion * jnp.ones_like(X) * (1 - X) + solid * jnp.ones_like(X) * (X)
-    return props
+# Create phase indicator (cylinder)
+x = np.linspace(-0.5, 0.5, N)
 
+if ndim == 3:
+    Y, X, Z = np.meshgrid(x, x, x, indexing="ij")  # (N, N, N) grid
+    phase = jnp.where(X**2 + Z**2 <= (0.2 / np.pi), 1.0, 0.0)  # 20% vol frac
+else:
+    X, Y = np.meshgrid(x, x, indexing="ij")  # (N, N) grid
+    phase = jnp.where(X**2 + Y**2 <= (0.2 / np.pi), 1.0, 0.0)
 
-phase_contrast = 1.0  / 1e-3
-
-# lames constant
-lambda_modulus = {"solid": 1.0, "inclusion": phase_contrast}
-shear_modulus = {"solid": 1.0, "inclusion": phase_contrast}
-
-bulk_modulus = {}
-bulk_modulus["solid"] = lambda_modulus["solid"] + 2 * shear_modulus["solid"] / 3
-bulk_modulus["inclusion"] = (
-    lambda_modulus["inclusion"] + 2 * shear_modulus["inclusion"] / 3
-)
-
-λ0 = param(
-    structure, inclusion=lambda_modulus["inclusion"], solid=lambda_modulus["solid"]
-)  # lame parameter
-μ0 = param(
-    structure, inclusion=shear_modulus["inclusion"], solid=shear_modulus["solid"]
-)  # lame parameter
-K0 = param(structure, inclusion=bulk_modulus["inclusion"], solid=bulk_modulus["solid"])
+# Material parameters [grids of scalars, shape (N,N,N)]
+lambda1, lambda2 = 10.0, 1000.0
+mu1, mu2 = 0.25, 2.5
+lambdas = lambda1 * (1.0 - phase) + lambda2 * phase
+mu = mu1 * (1.0 - phase) + mu2 * phase
 
 
 dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
@@ -84,8 +53,8 @@ dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
 def strain_energy(eps_flat: Array) -> Array:
     eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + tensor.trans(eps))
-    energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
+    energy = 0.5 * jnp.multiply(lambdas, tensor.trace(eps_sym) ** 2) + jnp.multiply(
+        mu, tensor.trace(tensor.dot(eps_sym, eps_sym))
     )
     return energy.sum()
 
@@ -94,10 +63,8 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 Ghat = GalerkinProjection(
-    scheme=Fourier(space=space), tensor_op=tensor
+    scheme=RotatedDifference(space=space), tensor_op=tensor
 ).compute_operator()
-
-eps = make_field(dim=2, N=N, rank=2)
 
 
 class Residual(eqx.Module):
@@ -119,7 +86,7 @@ class Residual(eqx.Module):
         It takes only the flattened vector of unknowns, as required by the solver.
         """
         eps_flat = eps_flat.reshape(-1)
-        sigma = compute_stress(eps_flat)  # Assumes compute_stress is defined elsewhere
+        sigma = compute_stress(eps_flat) 
         residual_field = self.space.ifft(
             self.tensor_op.ddot(
                 self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape))
@@ -153,14 +120,14 @@ class Jacobian(eqx.Module):
         return jnp.real(jvp_field).reshape(-1)
 
 
-residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-
-
-
 applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
 
 deps = make_field(dim=2, N=N, rank=2)
+eps = make_field(dim=2, N=N, rank=2)
+
+residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
+jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
+
 
 for inc, deps_avg in enumerate(applied_strains):
     # solving for elasticity
@@ -184,7 +151,7 @@ for inc, deps_avg in enumerate(applied_strains):
 
 sig = compute_stress(final_state[2]).reshape(dofs_shape)
 
-fig, (ax1, ax2) = plt.subplots(1, 2,figsize=(4, 3))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(4, 3))
 ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
 
 
@@ -192,5 +159,5 @@ ax2.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
 
 
 ax_twin = ax2.twinx()
-ax_twin.plot(structure[int(N / 2), :], color="gray")
+ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()

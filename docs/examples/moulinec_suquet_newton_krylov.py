@@ -22,9 +22,7 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 
 
 import equinox as eqx
-from functools import partial
 
-import time
 import matplotlib.pyplot as plt
 
 
@@ -100,7 +98,7 @@ else:
 
 
 # Material parameters [grids of scalars, shape (N,N,N)]
-lambda1, lambda2 = 10.0, 1000.
+lambda1, lambda2 = 10.0, 1000.0
 mu1, mu2 = 0.25, 2.5
 lambdas = lambda1 * (1.0 - phase) + lambda2 * phase
 mu = mu1 * (1.0 - phase) + mu2 * phase
@@ -166,8 +164,8 @@ class Residual(eqx.Module):
         It takes only the flattened vector of unknowns, as required by the solver.
         """
         eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
-        sigma0 = compute_reference_stress(eps)  # tensor.ddot(C0, eps)
+        sigma = compute_stress(eps) 
+        sigma0 = compute_reference_stress(eps) 
         tau = sigma - sigma0
         eps_fluc = self.space.ifft(self.tensor_op.ddot(self.Ghat, self.space.fft(tau)))
 
@@ -194,7 +192,7 @@ class Jacobian(eqx.Module):
         deps = deps_flat.reshape(self.dofs_shape)
 
         dsigma = compute_stress(deps)
-        dsigma0 = compute_reference_stress(deps)  # tensor.ddot(C0, deps)
+        dsigma0 = compute_reference_stress(deps) 
         dtau = dsigma - dsigma0
         jvp_field = self.space.ifft(
             self.tensor_op.ddot(self.Ghat, self.space.fft(dtau))
@@ -238,10 +236,10 @@ for inc, eps_avg in enumerate(applied_strains):
 sig = compute_stress(final_state[2])
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(4, 3))
-ax1.imshow(sig.at[:, :, 0, 1].get(), cmap="managua_r")
+ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
 
 
-ax2.plot(sig.at[:, :, 0, 1].get()[:, int(N / 2)])
+ax2.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
 
 
 ax_twin = ax2.twinx()
