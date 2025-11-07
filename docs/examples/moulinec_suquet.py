@@ -14,7 +14,6 @@ from xpektra import (
     TensorOperator,
     make_field,
 )
-from xpektra.scheme import RotatedDifference, Fourier, Scheme
 from xpektra.projection_operator import ProjectionOperator
 
 import equinox as eqx
@@ -41,7 +40,6 @@ class MoulinecSuquetProjection(ProjectionOperator):
         """
         # Get grid properties from the scheme's space
         ndim = self.space.dim
-        N = self.space.size
 
         # Get the frequency grid 'q' (which is ξ), shape (N, N, N, 3)
         freq_vec = self.space.frequency_vector()
@@ -77,7 +75,7 @@ class MoulinecSuquetProjection(ProjectionOperator):
         return Ghat
 
 
-N = 127
+N = 251
 ndim = 2
 length = 1
 
@@ -119,7 +117,7 @@ C4 = (
 
 # Use average properties for the reference material
 lambda0 = (lambda1 + lambda2) / 2.0
-mu0 = (mu1 + mu2) / 2.0
+mu0 =  (mu1 + mu2) / 2.0
 
 # Build the constant C0 reference tensor [shape (3,3,3,3)]
 C0 = lambda0 * II + 2.0 * mu0 * I4s
@@ -132,7 +130,9 @@ Ghat = MoulinecSuquetProjection(
 
 # --- fixed-point iteration ---
 @partial(jax.jit, static_argnames=["max_iter", "tol"])
-def solve_ms_fft(E_macro: Array, eps_guess: Array, max_iter: int, tol: float) -> Array:
+def fixed_point_iteration(
+    E_macro: Array, eps_guess: Array, max_iter: int, tol: float
+) -> Array:
     """Solves the Lippmann-Schwinger equation via fixed-point iteration."""
 
     eps = eps_guess
@@ -161,7 +161,6 @@ def solve_ms_fft(E_macro: Array, eps_guess: Array, max_iter: int, tol: float) ->
 
         return (eps_new, eps_k, k + 1)
 
-    # Run the while loop
     (eps_final, _, num_iters) = jax.lax.while_loop(
         cond_fun, body_fun, (eps, jnp.zeros_like(eps), 0)
     )
@@ -219,7 +218,9 @@ for i, E_voigt in enumerate(E_list):
     E_macro = make_field(dim=ndim, N=N, rank=2) + E_voigt
 
     # Solve the RVE problem
-    eps_final = solve_ms_fft(E_macro, E_macro, max_iter=200, tol=1e-8)
+    eps_final = fixed_point_iteration(
+        E_macro, eps_guess=E_macro, max_iter=200, tol=1e-8
+    )
 
     # Compute the final stress field
     sig_final = tensor.ddot(C4, eps_final)
