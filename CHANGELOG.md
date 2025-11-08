@@ -1,3 +1,15 @@
+## v0.3.0 (2025-11-08)
+
+### Feat
+
+- adds Moulinec-Suquet projection operator, divergence operator, symmetric gradient operator and preconditioned cg solver (a2e223c)
+
+### Fix
+
+- **example**: working moulinec suquet formulation with fixed-point iteration (4c8483c)
+- **operator**: makes projection operator pure abstract, moves scheme and tensor to inherited class (0b43992)
+- bump jax version to 0.8.0 (0aff0aa)
+
 ## v0.2.0 (2025-10-18)
 
 ### Feat
