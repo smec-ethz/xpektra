@@ -5,18 +5,6 @@ import equinox as eqx
 from typing import Optional
 
 
-# --- Define the gradient modes ---
-class DifferentialMode:
-    fourier = "fourier"
-    forward_difference = "forward_difference"
-    central_difference = "central_difference"
-    backward_difference = "backward_difference"
-    rotated_difference = "rotated_difference"
-    four_central_difference = "four_central_difference"
-    six_central_difference = "six_central_difference"
-    eight_central_difference = "eight_central_difference"
-
-
 class SpectralSpace(eqx.Module):
     """Defines the spectral space
 

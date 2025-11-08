@@ -14,14 +14,14 @@ from xpektra import (
     TensorOperator,
     make_field,
 )
-from xpektra.scheme import RotatedDifference, Fourier
+from xpektra.scheme import RotatedDifference, Fourier, ForwardDifference
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
 )
 
-N = 251
+N = 99
 ndim = 2
 length = 1
 
@@ -86,7 +86,7 @@ class Residual(eqx.Module):
         It takes only the flattened vector of unknowns, as required by the solver.
         """
         eps_flat = eps_flat.reshape(-1)
-        sigma = compute_stress(eps_flat) 
+        sigma = compute_stress(eps_flat)
         residual_field = self.space.ifft(
             self.tensor_op.ddot(
                 self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape))
@@ -149,15 +149,18 @@ for inc, deps_avg in enumerate(applied_strains):
     )
     eps = final_state[2]
 
+eps = final_state[2].reshape(dofs_shape)
 sig = compute_stress(final_state[2]).reshape(dofs_shape)
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(4, 3))
-ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3), layout="constrained")
+cb1 = ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
 
+fig.colorbar(cb1, ax=ax1)
+cb2 = ax2.imshow(eps.at[:, :, 0, 1].get(), cmap="managua_r")
 
-ax2.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
+fig.colorbar(cb2, ax=ax2)
+ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
 
-
-ax_twin = ax2.twinx()
+ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()

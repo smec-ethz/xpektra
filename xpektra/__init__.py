@@ -1,4 +1,4 @@
-from xpektra.space import SpectralSpace, DifferentialMode
+from xpektra.space import SpectralSpace
 from xpektra.operator import TensorOperator
 import numpy as np
 
@@ -7,7 +7,7 @@ import numpy as np
 #    return np.zeros((rank,) * rank + (N,) * dim)
 
 
-def make_field(dim: int, N: int, rank: int) -> np.ndarray:
+def make_field(dim: int, N: int, rank: int, dtype: np.dtype = float) -> np.ndarray:
     """
     Creates a zero-filled tensor field with the (spatial..., tensor...) memory layout.
 
@@ -22,4 +22,4 @@ def make_field(dim: int, N: int, rank: int) -> np.ndarray:
     spatial_shape = (N,) * dim
     tensor_shape = (dim,) * rank  # Assumes tensor dimensions are size `dim`
 
-    return np.zeros(spatial_shape + tensor_shape)
+    return np.zeros(spatial_shape + tensor_shape, dtype=dtype)

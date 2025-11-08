@@ -7,8 +7,6 @@ import equinox as eqx
 
 from xpektra.space import SpectralSpace
 
-# --- Abstract Base Classes ---
-
 
 class Scheme(eqx.Module):
     """
@@ -18,7 +16,7 @@ class Scheme(eqx.Module):
     discrete gradient operator based on a given spectral space.
     """
 
-    space: eqx.AbstractVar[SpectralSpace]
+    # space: eqx.AbstractVar[SpectralSpace]
 
     @abstractmethod
     def compute_gradient_operator(self) -> Array:
@@ -47,17 +45,33 @@ class CartesianScheme(Scheme):
     """
 
     space: SpectralSpace
-    grad_op: Array
     wavenumbers_mesh: List[Array]
 
     def __init__(self, space: SpectralSpace):
         self.space = space
         self.wavenumbers_mesh = self.create_wavenumber_mesh()
-        self.grad_op = self.compute_gradient_operator()
 
     @property
     def gradient_operator(self) -> Array:
-        return self.grad_op
+        return self.compute_gradient_operator()
+
+    @property
+    def symmetric_gradient_operator(self) -> Array:
+        nabla = self.gradient_operator
+        kronecker_delta = np.eye(self.space.dim, dtype=complex)
+
+        nabla_sym = 0.5 * (
+            jnp.einsum("...j,ik->...ijk", nabla, kronecker_delta, optimize="optimal")
+            + jnp.einsum("...i,jk->...ijk", nabla, kronecker_delta, optimize="optimal")
+        )
+        return nabla_sym
+
+    @property
+    def divergence_operator(self) -> Array:
+        nabla = self.gradient_operator
+        kronecker_delta = jnp.eye(self.space.dim, dtype=complex)
+        div = jnp.einsum("...k,ij->...ijk", nabla, kronecker_delta, optimize="optimal")
+        return div
 
     @abstractmethod
     def formula(self, xi: Array, dx: float, iota: complex, factor: float) -> Array:
@@ -138,3 +152,35 @@ class RotatedDifference(CartesianScheme):
         if self.space.dim == 1:
             raise RuntimeError("Rotated difference is not defined for 1D")
         return 2 * iota * jnp.tan(xi * dx / 2) * factor / dx
+
+
+class FourthOrderCentralDifference(CartesianScheme):
+    """Implements the fourth order difference scheme."""
+
+    def formula(self, xi, dx, iota, factor):
+        return iota * (
+            8 * jnp.sin(xi * dx) / (6 * dx) - jnp.sin(2 * xi * dx) / (6 * dx)
+        )
+
+
+class SixthOrderCentralDifference(CartesianScheme):
+    """Implements the sixth order difference scheme."""
+
+    def formula(self, xi, dx, iota, factor):
+        return iota * (
+            9 * jnp.sin(xi * dx) / (6 * dx)
+            - 3 * jnp.sin(2 * xi * dx) / (10 * dx)
+            + jnp.sin(3 * xi * dx) / (30 * dx)
+        )
+
+
+class EighthOrderCentralDifference(CartesianScheme):
+    """Implements the eighth order difference scheme."""
+
+    def formula(self, xi, dx, iota, factor):
+        return iota * (
+            8 * jnp.sin(xi * dx) / (5 * dx)
+            - 2 * jnp.sin(2 * xi * dx) / (5 * dx)
+            + 8 * jnp.sin(3 * xi * dx) / (105 * dx)
+            - jnp.sin(4 * xi * dx) / (140 * dx)
+        )

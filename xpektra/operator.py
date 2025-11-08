@@ -3,12 +3,7 @@ from jax import Array
 import equinox as eqx
 
 from typing import Dict, Tuple
-import numpy as np
-from itertools import repeat
-import itertools
 
-
-from xpektra.space import SpectralSpace, DifferentialMode
 
 # --- Define the einsum rules for dot product (spatial dims first) ---
 DOT_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {

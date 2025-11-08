@@ -36,6 +36,43 @@ def conjugate_gradient_while(A, b, atol=1e-8, max_iter=100):
     return x, iiter
 
 
+
+@eqx.filter_jit
+def preconditioned_conjugate_gradient(A, b, M_inv, atol=1e-8, max_iter=100):
+    iiter = 0
+    x = jnp.full_like(b, fill_value=0.0)
+
+    r = b - A(x)
+    z = M_inv(r)  # Apply preconditioner
+    p = z
+    rsold = jnp.vdot(r, z)  # z^T * r
+
+    def body_fun(state):
+        b, p, r, rsold, x, z, iiter = state
+        Ap = A(p)
+        alpha = rsold / jnp.vdot(p, Ap)
+        x = x + alpha * p
+        r = r - alpha * Ap
+        z = M_inv(r)  # Apply preconditioner
+        rsnew = jnp.vdot(r, z)  # z^T * r
+
+        p = z + (rsnew / rsold) * p
+        rsold = rsnew
+        iiter = iiter + 1
+        return (b, p, r, rsold, x, z, iiter)
+
+    def cond_fun(state):
+        b, p, r, rsold, x, z, iiter = state
+        return jnp.logical_and(jnp.sqrt(rsold) > atol, iiter < max_iter)
+
+    b, p, r, rsold, x, z, iiter = jax.lax.while_loop(
+        cond_fun, body_fun, (b, p, r, rsold, x, z, iiter)
+    )
+    jax.debug.print("CG error = {:.14f}", rsold)
+
+    return x, iiter
+
+
 @eqx.filter_jit
 def newton_krylov_solver(
     state: tuple,

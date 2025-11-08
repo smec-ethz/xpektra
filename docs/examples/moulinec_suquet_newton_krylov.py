@@ -78,7 +78,7 @@ class MoulinecSuquetProjection(ProjectionOperator):
         return Ghat
 
 
-N = 251
+N = 99
 ndim = 2
 length = 1
 
@@ -235,13 +235,14 @@ for inc, eps_avg in enumerate(applied_strains):
 
 sig = compute_stress(final_state[2])
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(4, 3))
-ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3), layout="constrained")
+cb1 = ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
+fig.colorbar(cb1, ax=ax1)
 
+cb2 = ax2.imshow(eps.at[:, :, 0, 1].get(), cmap="managua_r")
+fig.colorbar(cb2, ax=ax2)
 
-ax2.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
-
-
-ax_twin = ax2.twinx()
+ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
+ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()
