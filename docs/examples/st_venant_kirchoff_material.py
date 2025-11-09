@@ -9,11 +9,9 @@ from jax import Array
 
 import numpy as np
 
-import functools
 
 import matplotlib.pyplot as plt
 from skimage.morphology import disk, rectangle
-import itertools
 
 from xpektra import (
     SpectralSpace,
@@ -44,7 +42,7 @@ structure[:r, -r:] += rectangle(r, r)
 tensor = TensorOperator(dim=ndim)
 space = SpectralSpace(size=N, dim=ndim, length=length)
 
-'''
+"""
 # identity tensor (single tensor)
 i = jnp.eye(ndim)
 
@@ -57,10 +55,12 @@ I4rt = jnp.einsum("ijkl,xy->ijklxy", jnp.einsum("ik,jl", i, i), jnp.ones([N, N])
 I4s = (I4 + I4rt) / 2.0
 
 II = tensor.dyad(I, I)
-'''
+"""
+
 
 def param(X, soft, hard):
     return soft * jnp.ones_like(X) * (X) + hard * jnp.ones_like(X) * (1 - X)
+
 
 # %%
 # material parameters
@@ -106,6 +106,7 @@ I[:, :, 1, 1] = 1
 
 dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
 
+
 @eqx.filter_jit
 def green_lagrange_strain(F: Array) -> Array:
     return 0.5 * (tensor.dot(tensor.trans(F), F) - I)
@@ -146,10 +147,14 @@ class Residual(eqx.Module):
         start_time = time.time()
         sigma = compute_stress(F_flat)  # Assumes compute_stress is defined elsewhere
         end_time = time.time()
-        jax.debug.print("Time taken to compute sigma: {:.14f} seconds", end_time - start_time)
-        
+        jax.debug.print(
+            "Time taken to compute sigma: {:.14f} seconds", end_time - start_time
+        )
+
         residual_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape)))
+            self.tensor_op.ddot(
+                self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape))
+            )
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -178,7 +183,9 @@ class Jacobian(eqx.Module):
 
         start_time = time.time()
         jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(tangents.reshape(self.dofs_shape)))
+            self.tensor_op.ddot(
+                self.Ghat, self.space.fft(tangents.reshape(self.dofs_shape))
+            )
         )
         end_time = time.time()
         jax.debug.print(
@@ -187,8 +194,10 @@ class Jacobian(eqx.Module):
         return jnp.real(jvp_field).reshape(-1)
 
 
-
 F = make_field(dim=ndim, N=N, rank=2)
+F[:, :, 0, 0] = 1
+F[:, :, 1, 1] = 1
+
 residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=F.shape)
 jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=F.shape)
 
@@ -224,11 +233,9 @@ for inc, dF_avg in enumerate(applied_strains):
     print("step", inc, "time", inc)
 
 
-
 P = compute_stress(F.reshape(-1)).reshape(dofs_shape)
 
 import matplotlib.pyplot as plt  # noqa: E402
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 fig = plt.figure(figsize=(5, 5))
 ax = plt.axes()

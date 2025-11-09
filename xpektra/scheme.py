@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import List
 import numpy as np
 import jax.numpy as jnp
@@ -21,10 +21,7 @@ class Scheme(eqx.Module):
     @abstractmethod
     def compute_gradient_operator(self) -> Array:
         """
-        The primary output of any scheme.
-
-        Returns:
-            The gradient operator field with shape (nx, ny, ..., d).
+        The primary output of any scheme. The gradient operator field has shape ( (N,)*dim, (dim,)*rank).
         """
         raise NotImplementedError
 
@@ -53,10 +50,12 @@ class CartesianScheme(Scheme):
 
     @property
     def gradient_operator(self) -> Array:
+        """The gradient operator field."""
         return self.compute_gradient_operator()
 
     @property
     def symmetric_gradient_operator(self) -> Array:
+        """The symmetric gradient operator field."""
         nabla = self.gradient_operator
         kronecker_delta = np.eye(self.space.dim, dtype=complex)
 
@@ -68,6 +67,7 @@ class CartesianScheme(Scheme):
 
     @property
     def divergence_operator(self) -> Array:
+        """The divergence operator field."""
         nabla = self.gradient_operator
         kronecker_delta = jnp.eye(self.space.dim, dtype=complex)
         div = jnp.einsum("...k,ij->...ijk", nabla, kronecker_delta, optimize="optimal")
@@ -118,35 +118,41 @@ class CartesianScheme(Scheme):
 
 
 class Fourier(CartesianScheme):
-    """Implements the standard spectral 'Fourier' derivative."""
+    """
+    Implements the standard spectral 'Fourier' derivative.
+    """
 
     def formula(self, xi, dx, iota, factor):
         return iota * xi
 
 
 class CentralDifference(CartesianScheme):
-    """Implements the standard central difference scheme."""
+    """Implements the standard central difference scheme.
+    """
 
     def formula(self, xi, dx, iota, factor):
         return iota * jnp.sin(xi * dx) / dx
 
 
 class ForwardDifference(CartesianScheme):
-    """Implements the forward difference scheme."""
+    """Implements the forward difference scheme.
+    """
 
     def formula(self, xi, dx, iota, factor):
         return (jnp.exp(iota * xi * dx) - 1) / dx
 
 
 class BackwardDifference(CartesianScheme):
-    """Implements the backward difference scheme."""
+    """Implements the backward difference scheme.    
+    """
 
     def formula(self, xi, dx, iota, factor):
         return (1 - jnp.exp(-iota * xi * dx)) / dx
 
 
 class RotatedDifference(CartesianScheme):
-    """Implements the rotated finite difference scheme (Willot/HEX8R)."""
+    """Implements the rotated finite difference scheme (Willot/HEX8R).    
+    """
 
     def formula(self, xi, dx, iota, factor):
         if self.space.dim == 1:
@@ -155,7 +161,8 @@ class RotatedDifference(CartesianScheme):
 
 
 class FourthOrderCentralDifference(CartesianScheme):
-    """Implements the fourth order difference scheme."""
+    """Implements the fourth order difference scheme.    
+    """
 
     def formula(self, xi, dx, iota, factor):
         return iota * (
@@ -164,7 +171,8 @@ class FourthOrderCentralDifference(CartesianScheme):
 
 
 class SixthOrderCentralDifference(CartesianScheme):
-    """Implements the sixth order difference scheme."""
+    """Implements the sixth order difference scheme.    
+    """
 
     def formula(self, xi, dx, iota, factor):
         return iota * (
@@ -175,7 +183,8 @@ class SixthOrderCentralDifference(CartesianScheme):
 
 
 class EighthOrderCentralDifference(CartesianScheme):
-    """Implements the eighth order difference scheme."""
+    """Implements the eighth order difference scheme.    
+    """
 
     def formula(self, xi, dx, iota, factor):
         return iota * (

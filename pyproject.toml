@@ -60,6 +60,11 @@ modules = [
 constraint-dependencies = []
 
 [dependency-groups]
-examples = [
-    "jax-autovmap>=0.3.0",
+dev = []
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-include-exclude-files>=0.1.0",
+    "mkdocs-material>=9.6.23",
+    "mkdocstrings-python>=1.18.2",
 ]
+examples = []

@@ -1,23 +1,24 @@
-import jax
+"""
+Projection operators for the spectral methods.
+"""
+
 import jax.numpy as jnp
 from jax import Array
 import equinox as eqx
 from abc import abstractmethod
 import numpy as np
-import itertools
-from itertools import repeat
 
 from xpektra.scheme import CartesianScheme
 from xpektra import TensorOperator
 from xpektra.scheme import SpectralSpace
 
-
 class ProjectionOperator(eqx.Module):
     """
     An 'abstract' base class for operators that project fields.
 
-    It uses a `Scheme` to construct a 4th-order tensor (`Ghat`) that
+    It uses a `Scheme` to construct a 4th-order tensor ($\hat{\mathbb{G}}$) that
     enforces mechanical constraints in Fourier space.
+
     """
 
     @abstractmethod
@@ -29,13 +30,20 @@ class ProjectionOperator(eqx.Module):
 class GalerkinProjection(ProjectionOperator):
     """
     A subclass implementing the material-independent Galerkin projection.
+
     """
 
     scheme: CartesianScheme
     tensor_op: TensorOperator
 
     def compute_operator(self) -> Array:
-        """Implements the formula: Ghat_ijlm = δ_im * Dξ_j * Dξ_inv_l."""
+        """Implements the Fourier Galerkin projection operator.
+        
+        ```python
+        Ghat = GalerkinProjection(scheme, tensor_op).compute_operator()
+        ```
+        
+        """
         Dξs = self.scheme.gradient_operator
         ndim = self.scheme.space.dim
 
@@ -57,8 +65,8 @@ class GalerkinProjection(ProjectionOperator):
 
 class MoulinecSuquetProjection(ProjectionOperator):
     """
-    A subclass implementing the Moulinec-Suquet (MS) Green's operator,
-    which depends on a homogeneous isotropic reference material (C0).
+    A subclass of `ProjectionOperator` implementing the Moulinec-Suquet (MS) Green's operator,
+    which depends on a homogeneous isotropic reference material ($\mathbb{C}^{0}$).
     """
 
     space: SpectralSpace
@@ -67,8 +75,11 @@ class MoulinecSuquetProjection(ProjectionOperator):
 
     def compute_operator(self) -> Array:
         """
-        Implements the vectorized formula for the MS Green's operator (Ghat = Γ^0).
-        This replaces the slow, nested loops from the original script.
+        Implements the Moulinec-Suquet projection operator.
+
+        ```python
+        Ghat = MoulinecSuquetProjection(space, lambda0, mu0).compute_operator()
+        ```
         """
         # Get grid properties from the scheme's space
         ndim = self.space.dim

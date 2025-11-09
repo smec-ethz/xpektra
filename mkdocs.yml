@@ -52,7 +52,6 @@ plugins:
         exclude:
             - "_overrides"
             - "assets/*.svg"
-    - ipynb
     - mkdocstrings:
         handlers:
           python: 
@@ -73,8 +72,9 @@ nav:
     - 'index.md'
     - 'basics.md'
     - 'theory.md'
-    - Elasticity:
-        - 'examples/linear_elasticity.ipynb'
-        - 'examples/j2_plasticity.ipynb'  
-    - Homogenization:
-        - 'examples/computational_homogenization.ipynb'
+    - Examples:
+        - 'examples/linear_elasticity.py'
+        - 'examples/computational_homogenization.py'
+    - Basic API:
+        - 'api/projection_operators.md'
+        - 'api/scheme_api.md'
