@@ -1,29 +1,42 @@
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.18.1
+#   kernelspec:
+#     display_name: .venv
+#     language: python
+#     name: python3
+# ---
+
 # %%
 import jax
 
-jax.config.update("jax_compilation_cache_dir", "./jax-cache")
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
 
 import jax.numpy as jnp
 import numpy as np
-import functools
 
 from jax import Array
 import equinox as eqx
 
+# %%
 import matplotlib.pyplot as plt
 from skimage.morphology import disk, rectangle, ellipse
 import itertools
 from matplotlib.gridspec import GridSpec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from xpektra import (
     SpectralSpace,
     TensorOperator,
     make_field,
 )
-from xpektra.scheme import RotatedDifference, Fourier
-from xpektra.green_functions import fourier_galerkin
+from xpektra.scheme import RotatedDifference, Fourier, ForwardDifference
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
@@ -31,11 +44,12 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 )
 
 
+# %%
 def param(X, soft, hard):
     return soft * jnp.ones_like(X) * (X) + hard * jnp.ones_like(X) * (1 - X)
 
 
-def test_microstructure(N, operator, length):
+def test_microstructure(N, scheme, length):
     H, L = (N, N)
     r = int(H / 2)
 
@@ -49,6 +63,15 @@ def test_microstructure(N, operator, length):
 
     tensor = TensorOperator(dim=ndim)
     space = SpectralSpace(size=N, dim=ndim, length=length)
+
+    if scheme == "rotated":
+        scheme = RotatedDifference(space=space)
+    elif scheme == "fourier":
+        scheme = Fourier(space=space)
+    elif scheme == "forward":
+        scheme = ForwardDifference(space=space)
+    else:
+        raise ValueError(f"Invalid scheme: {scheme}")
 
     # material parameters
     phase_contrast = 1000.0
@@ -82,9 +105,7 @@ def test_microstructure(N, operator, length):
 
     compute_stress = jax.jacrev(strain_energy)
 
-    Ghat = GalerkinProjection(
-        scheme=RotatedDifference(space=space), tensor_op=tensor
-    ).compute_operator()
+    Ghat = GalerkinProjection(scheme=scheme, tensor_op=tensor).compute_operator()
 
     class Residual(eqx.Module):
         """A callable module that computes the residual vector."""
@@ -147,7 +168,6 @@ def test_microstructure(N, operator, length):
         Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape
     )
 
-
     deps = make_field(dim=ndim, N=N, rank=2)
     deps[:, :, 0, 1] = 5e-1
     deps[:, :, 1, 0] = 5e-1
@@ -169,52 +189,46 @@ def test_microstructure(N, operator, length):
 
     sig = compute_stress(eps.reshape(-1)).reshape(dofs_shape)
 
-    return sig.at[:, :,0, 1].get(), structure
+    return sig.at[:, :, 0, 1].get(), structure
 
 
-N = 699
-length = 1
-
-sig_xy, structure = test_microstructure(N=N, operator="rotated", length=length)
 
 # %%
-dx = length / N
-N_inset = int(0.04 / dx)
-
-plt.imshow(sig_xy, origin="lower", cmap="Spectral", vmax=2000)
-plt.xlim(int(N / 2) - N_inset, int(N / 2) + N_inset)
-plt.ylim(int(N / 2) - N_inset, int(N / 2) + N_inset)
-plt.plot(
-    [int(N / 2) - N_inset, int(N / 2)], [int(N / 2), int(N / 2)], color="k", zorder=20
-)
-plt.plot(
-    [int(N / 2), int(N / 2)],
-    [int(N / 2), int(N / 2) + N_inset],
-    color="k",
-    zorder=20,
-)
-
-plt.colorbar()
-
-plt.show()
-
-
+N = 99
 length = 1
-dx = length / N
-N_inset = int(0.04 / dx)
 
-plt.imshow(sig_xy, origin="lower", cmap="Spectral", vmax=2000)
-plt.xlim(int(N / 2) - N_inset, int(N / 2) + N_inset)
-plt.ylim(int(N / 2) - N_inset, int(N / 2) + N_inset)
-plt.plot(
-    [int(N / 2) - N_inset, int(N / 2)], [int(N / 2), int(N / 2)], color="k", zorder=20
-)
-plt.plot(
-    [int(N / 2), int(N / 2)],
-    [int(N / 2), int(N / 2) + N_inset],
-    color="k",
-    zorder=20,
-)
 
-plt.colorbar()
+fig, axs = plt.subplots(1, 3, figsize=(10, 5))
+
+
+for index, scheme in enumerate(["rotated", "fourier", "forward"]):
+
+    sig_xy, structure = test_microstructure(N=N, scheme=scheme, length=length)
+    dx = length / N
+    N_inset = int(0.08 / dx)
+
+
+    cb = axs[index].imshow(sig_xy, origin="lower", cmap="managua_r",)
+    axs[index].set_title(f"{scheme} scheme")
+
+    axs[index].set_xlim(int(N / 2) - N_inset, int(N / 2) + N_inset)
+    axs[index].set_ylim(int(N / 2) - N_inset, int(N / 2) + N_inset)
+    axs[index].plot(
+        [int(N / 2) - N_inset, int(N / 2)], [int(N / 2), int(N / 2)], color="k", zorder=20
+    )
+    axs[index].plot(
+        [int(N / 2), int(N / 2)],
+        [int(N / 2), int(N / 2) + N_inset],
+        color="k",
+        zorder=20,
+    )
+
+    divider = make_axes_locatable(axs[index])
+    cax = divider.append_axes("bottom", size="10%", pad=0.6)
+    fig.colorbar(cb, cax=cax, label=r"$\sigma_{xy}$", orientation="horizontal", location="bottom")
+
 plt.show()
+
+
+
+# %%

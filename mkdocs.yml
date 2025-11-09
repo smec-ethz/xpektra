@@ -46,6 +46,7 @@ markdown_extensions:
 plugins:
     - search:
         separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+    - autorefs
     - include_exclude_files:
         include:
             - ".htaccess"
@@ -80,6 +81,7 @@ nav:
           - 'examples/gent.ipynb' 
           - 'examples/j2_plasticity.ipynb'
           - 'examples/multiphase_material.ipynb'
+          - 'examples/differential_operator.ipynb'
         - Moulinec-Suquet:
           - 'examples/moulinec_suquet.ipynb'
           - 'examples/moulinec_suquet_newton_krylov.ipynb'

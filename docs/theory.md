@@ -34,6 +34,8 @@ In Fourier space, the expensive convolution $*$ becomes a simple multiplication 
     This entire formulation is encapsulated by the `MoulinecSuquetProjection` class. You initialize it with
     the properties of your chosen reference material (`lambda0`, `mu0`), and it pre-computes the $\hat{\mathcal{G}}^0$ operator tensor.
 
+See [Moulinec-Suquet Example](examples/moulinec_suquet.ipynb) for an example.
+
 
 ### The Fourier-Galerkin (Variational) Approach
 This is a more general and mathematically robust formulation that does *not* require a reference material. It starts from the weak form of the equilibrium equation (like in the Finite Element Method).
@@ -44,12 +46,18 @@ It enforces mechanical compatibility (ensuring the strain field comes from a val
     
     This is encapsulated by the `GalerkinProjection` class. This operator is "universal" because it is constructed *only* from the chosen `Scheme` (i.e., the definition of the derivatives) and is completely independent of any material properties. It is the recommended choice for most problems, especially when using Newton-Krylov solvers.
 
+See [Fourier-Galerkin Example](examples/linear_elasticity.ipynb) for an example.
+
+
 ### The Displacement-Based (DBFFT) Approach
 Both methods above solve for the **strain** $\varepsilon$ as the primary unknown. An alternative is to solve for the **displacement** field $u$. The governing equation becomes $\nabla \cdot (C : \nabla_s u) = 0$.
 
 !!! info "How `xpektra` implements this?"
     
-    The library is flexible enough to allow this. Instead of a `ProjectionOperator`, you can use the `Scheme` object directly to get the Fourier-space gradient (`.gradient_operator`) and divergence (`.divergence_operator`) operators. You can then write a residual function that solves for `u`, as shown in the DBFFT example. This approach is powerful because it produces a full-rank system that can be preconditioned very effectively.
+    The library is flexible enough to allow this. Instead of a `ProjectionOperator`, you can use the `Scheme` object directly to get the Fourier-space gradient (`.gradient_operator`) and divergence (`.divergence_operator`) operators. You can then write a residual function that solves for `u`, as shown in the DBFFT example. This approach is powerful because it produces a full-rank system that can be preconditioned very effectively. 
+
+See [DBFFT Example](examples/displacement_based_fft.ipynb) for an example.
+
 
 ## Discretization (The `Scheme` Choice)
 
@@ -58,7 +66,7 @@ This is the most critical choice for numerical accuracy and stability. It define
 ### The "Ringing" Problem: Spectral vs. Local Schemes
 The original FFT methods used a **spectral** derivative ($D_k = i\xi_k$). This is what the **`Fourier`** scheme in `xpektra` implements.
 
-* **Problem:** This scheme has "global support," meaning the derivative at one point depends on *all* other points. At sharp material interfaces, this causes the **Gibbs phenomenon**, which appears as spurious oscillations ("ringing") in the stress/strain fields.
+* **Problem:** This scheme has "global support," meaning the derivative at one point depends on *all* other points. At sharp material interfaces, this causes the **Gibbs phenomenon**, which appears as spurious oscillations ("ringing") in the stress/strain fields. See [Gibbs Ringing Artifact](examples/differential_operator.ipynb) for an example.
 
 
 
@@ -79,6 +87,10 @@ This is the most basic strategy, used in the original Moulinec-Suquet method. Yo
 * **Pros:** Very simple to implement (a `for` loop). Low memory usage.
 * **Cons:** Very slow convergence. The number of iterations scales linearly with the material contrast ($\sim \kappa$). This is impractical for high-contrast (e.g., 1000:1) or non-linear problems.
 * **Advanced Versions:** Accelerated methods like Eyre-Milton (EM) or AEM are more advanced fixed-point schemes that converge faster ($\sim \sqrt{\kappa}$). These are not (yet) implemented in `xpektra` but can be built using the provided blocks.
+
+
+See [Fixed-Point Example](examples/moulinec_suquet) for an example.
+
 
 ### Newton-Krylov Solvers
 This is the most powerful and robust approach, and it is the primary motivation for building `xpektra` on JAX.
@@ -101,6 +113,8 @@ $$
 * **Cons:** More complex to set up.
 * **Preconditioning:** The `xpektra` DBFFT example shows how to use a preconditioner to dramatically speed up the inner Krylov solver, making this the most efficient method for large problems.
 
+
+See [Fourier-Galerkin Newton-Krylov Example](examples/linear_elasticity.ipynb), [DBFFT Newton-Krylov Example](examples/displacement_based_fft.ipynb), [Moulinec-Suquet Newton-Krylov Example](examples/moulinec_suquet_newton_krylov.ipynb) for an example.
 
 <!--
 The various spectral methods utilized in computational homogenization, particularly those based on the Fast Fourier Transform (FFT), can be broadly categorized based on how they formulate the core mathematical problem, particularly focusing on the nature of the Green operator (or equivalent projection) and the spatial approximation (differentiation scheme) used for discretization.

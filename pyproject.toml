@@ -28,12 +28,14 @@ examples = [
     "matplotlib",
 ]
 dev = [
+    "cmap>=0.6.2",
     "commitizen>=4.9.1",
     "pytest>=8.4.2",
 ]
 docs = [
     "jupytext>=1.18.1",
     "mkdocs>=1.6.1",
+    "mkdocs-autorefs>=1.4.3",
     "mkdocs-include-exclude-files>=0.1.0",
     "mkdocs-ipynb>=0.1.1",
     "mkdocs-jupyter>=0.25.1",
