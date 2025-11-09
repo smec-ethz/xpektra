@@ -1,3 +1,108 @@
+# How `xpektra` works?
+
+All FFT-based homogenization methods solve the same underlying static equilibrium problem. They differ in *how* they formulate the problem, *how* they approximate derivatives, and *how* they solve the resulting equations.
+
+The `xpektra` library is designed to make these choices modular. You can mix and match components to build the solver that best fits your problem. This guide explains the theory behind those components.
+
+There are three main choices you make when building a solver:
+
+1.  **The Formulation**: (`ProjectionOperator`) How is the mechanical problem expressed? As a Lippmann-Schwinger equation or a variational (Galerkin) problem?
+2.  **The Discretization** `Scheme`: How are derivatives (like gradient and divergence) calculated? Using the original spectral method or a more stable Finite Difference scheme?
+3.  **The Solver Strategy**: How is the final (often non-linear) system of equations solved? With a simple fixed-point iteration or a more robust Newton-Krylov method?
+
+## Core Formulations (The `ProjectionOperator` Choice)
+
+`xpektra` provides two main implementations of the `ProjectionOperator` class, each corresponding to a major school of thought in FFT homogenization.
+
+### The Moulinec-Suquet (Lippmann-Schwinger) Approach
+This is the "classic" formulation, based on the **Lippmann-Schwinger integral equation**. The idea is to introduce a simple, homogeneous **reference material** $C^0$.
+
+This splits the problem into a known reference part and an unknown "polarization" part $\tau = \sigma(\varepsilon) - C^0:\varepsilon$. The goal is to solve the fixed-point equation for the strain $\varepsilon$:
+
+$$
+\varepsilon = \bar{\varepsilon} - \mathcal{G}^0 * \tau(\varepsilon) = \bar{\varepsilon} - \mathcal{G}^0 * (\sigma(\varepsilon) - C^0 : \varepsilon)
+$$
+
+* $\bar{\varepsilon}$ is the macroscopic strain.
+* $*$ is a convolution.
+* $\mathcal{G}^0$ is the **Green's operator** for the reference material $C^0$.
+
+In Fourier space, the expensive convolution $*$ becomes a simple multiplication $\hat{\mathcal{G}}^0 \cdot \hat{\tau}$.
+
+!!! info "How `xpektra` implements this?"
+    
+    This entire formulation is encapsulated by the `MoulinecSuquetProjection` class. You initialize it with
+    the properties of your chosen reference material (`lambda0`, `mu0`), and it pre-computes the $\hat{\mathcal{G}}^0$ operator tensor.
+
+
+### The Fourier-Galerkin (Variational) Approach
+This is a more general and mathematically robust formulation that does *not* require a reference material. It starts from the weak form of the equilibrium equation (like in the Finite Element Method).
+
+It enforces mechanical compatibility (ensuring the strain field comes from a valid displacement) and equilibrium using a single, material-independent **projection operator** $\hat{G}$.
+
+!!! info "How `xpektra` implements this?"
+    
+    This is encapsulated by the `GalerkinProjection` class. This operator is "universal" because it is constructed *only* from the chosen `Scheme` (i.e., the definition of the derivatives) and is completely independent of any material properties. It is the recommended choice for most problems, especially when using Newton-Krylov solvers.
+
+### The Displacement-Based (DBFFT) Approach
+Both methods above solve for the **strain** $\varepsilon$ as the primary unknown. An alternative is to solve for the **displacement** field $u$. The governing equation becomes $\nabla \cdot (C : \nabla_s u) = 0$.
+
+!!! info "How `xpektra` implements this?"
+    
+    The library is flexible enough to allow this. Instead of a `ProjectionOperator`, you can use the `Scheme` object directly to get the Fourier-space gradient (`.gradient_operator`) and divergence (`.divergence_operator`) operators. You can then write a residual function that solves for `u`, as shown in the DBFFT example. This approach is powerful because it produces a full-rank system that can be preconditioned very effectively.
+
+## Discretization (The `Scheme` Choice)
+
+This is the most critical choice for numerical accuracy and stability. It defines how derivatives are computed.
+
+### The "Ringing" Problem: Spectral vs. Local Schemes
+The original FFT methods used a **spectral** derivative ($D_k = i\xi_k$). This is what the **`Fourier`** scheme in `xpektra` implements.
+
+* **Problem:** This scheme has "global support," meaning the derivative at one point depends on *all* other points. At sharp material interfaces, this causes the **Gibbs phenomenon**, which appears as spurious oscillations ("ringing") in the stress/strain fields.
+
+
+
+### Solution: Finite Difference / Finite Element Schemes
+To solve the ringing problem, modern methods use **local approximations** for derivatives. This is the entire purpose of the `Scheme` abstract class in `xpektra`: to let you "plug in" different derivative rules.
+
+* `CentralDifference`: This scheme is mathematically equivalent to a **Linear Finite Element (LFE)** formulation on a regular grid. It is extremely effective at eliminating ringing artifacts and is highly recommended.
+* `RotatedDifference`: This scheme (from Willot, 2015) is equivalent to a trilinear Finite Element formulation with **reduced integration** (like `HEX8R`). It is also very stable and robust.
+* **Extensibility:** The library is designed so you can implement your own advanced schemes (like `TETRA2`) by simply creating a new class that inherits from `Scheme` and provides the necessary logic.
+
+## Solver Strategy (Fixed-Point vs. Newton-Krylov)
+
+Once you have your formulation (`ProjectionOperator`) and discretization (`Scheme`), you need to solve the equations.
+
+### Fixed-Point Iteration
+This is the most basic strategy, used in the original Moulinec-Suquet method. You simply iterate the equation $\varepsilon^{k+1} = \text{RHS}(\varepsilon^k)$ until it converges.
+
+* **Pros:** Very simple to implement (a `for` loop). Low memory usage.
+* **Cons:** Very slow convergence. The number of iterations scales linearly with the material contrast ($\sim \kappa$). This is impractical for high-contrast (e.g., 1000:1) or non-linear problems.
+* **Advanced Versions:** Accelerated methods like Eyre-Milton (EM) or AEM are more advanced fixed-point schemes that converge faster ($\sim \sqrt{\kappa}$). These are not (yet) implemented in `xpektra` but can be built using the provided blocks.
+
+### Newton-Krylov Solvers
+This is the most powerful and robust approach, and it is the primary motivation for building `xpektra` on JAX.
+
+Instead of iterating, we find the root of the residual equation $R(\varepsilon) = 0$. The Newton-Raphson method does this by iteratively solving the linear system:
+
+$$
+J \cdot \Delta\varepsilon = -R(\varepsilon)
+$$
+
+* `R` is the residual (the function you want to drive to zero).
+* `J` is the **Jacobian** of the residual.
+* The linear system is solved with a **Krylov** method (like Conjugate Gradient, CG).
+
+!!! info "How `xpektra` and JAX are used?"
+    
+    The power of JAX is that it can compute the **Jacobian-Vector Product (JVP)**, `J \cdot p`, *without ever forming the massive Jacobian matrix J*. The `newton_krylov_solver` uses `jax.jvp` to provide this action to the inner CG solver.
+
+* **Pros:** Quadratically fast convergence. Robust for high-contrast and complex non-linear materials.
+* **Cons:** More complex to set up.
+* **Preconditioning:** The `xpektra` DBFFT example shows how to use a preconditioner to dramatically speed up the inner Krylov solver, making this the most efficient method for large problems.
+
+
+<!--
 The various spectral methods utilized in computational homogenization, particularly those based on the Fast Fourier Transform (FFT), can be broadly categorized based on how they formulate the core mathematical problem, particularly focusing on the nature of the Green operator (or equivalent projection) and the spatial approximation (differentiation scheme) used for discretization.
 
 The goal of these methods is generally to solve the Lippmann–Schwinger (LS) equation or the discretized nodal equilibrium conditions, often formulated efficiently in the Fourier space.
@@ -485,3 +590,4 @@ Standard methods often fail when a material contains regions of zero stiffness (
 * **Adaptive Eyre–Milton (AEM) and Polarization Schemes**: These methods are highly robust because they reformulate the problem using re-scaled tensor fields that remain bounded and well-behaved even when the elastic moduli approach zero or infinity. AEM, in particular, guarantees unconditional convergence.
 * **Galerkin FFT with MINRES**: The standard Galerkin approach can be adapted for materials with pores by using the **Minimal Residual Method (MINRES)**. MINRES is a Krylov solver specifically designed to handle the singular (rank-deficient) systems that arise from zero-stiffness regions.
 * **Modified Displacement-Based FFT (MoDBFFT)**: This method is tailored for porous materials. It resolves the mathematical underdetermination caused by voids by adding a small, artificial **penalty stiffness** $\alpha$ in the pore regions. This makes the system non-singular and allows the efficient use of the standard Conjugate Gradient (CG) solver.
+-->

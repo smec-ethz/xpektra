@@ -1,3 +1,22 @@
+# ---
+# jupyter:
+#   jupytext:
+#     formats: ipynb,py:percent
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.18.1
+#   kernelspec:
+#     display_name: .venv
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# This tutorial used Fourier-Galerkin method to solve a linear elasticity problem of a circular inclusion in a square matrix. The inclusion is a material with a different elastic properties than the matrix.
+
+# %%
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
@@ -8,25 +27,42 @@ import numpy as np
 from jax import Array
 import equinox as eqx
 
-import matplotlib.pyplot as plt
+# %% [markdown]
+#
+# In this example, we solve a linear elasticity problem of a circular inclusion in a square matrix. The inclusion is a material with a different elastic properties than the matrix. We use the Fourier-Galerkin method to solve the problem.
+#
+# We import the necessary modules and set up the environment. The module `xpektra` contains the operators and solvers for the Fourier-Galerkin method. We import the `SpectralSpace`, `TensorOperator`, `make_field`, `RotatedDifference`, `Fourier`, `ForwardDifference`, `GalerkinProjection`, `conjugate_gradient_while`, and `newton_krylov_solver` modules to create the operators and solvers.
+#
+
+# %%
 from xpektra import (
     SpectralSpace,
     TensorOperator,
     make_field,
 )
-from xpektra.scheme import RotatedDifference, Fourier, ForwardDifference
+from xpektra.scheme import RotatedDifference
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
 )
 
+
+# %% [markdown]
+# To simplify the execution of the code, we define a `ElasticityOperator` class that contains the Fourier-Galerkin operator, the spatial operators, the tensor operators, and the FFT and IFFT operators. The `__init__` method initializes the operator and the `__call__` method computes the stresses in the real space given as 
+#
+# $$
+# \mathcal{F}^{-1} \left( \mathbb{G}:\mathcal{F}(\mathbf{\sigma}) \right) = \mathbf{0}
+# $$
+
+# %% [markdown]
+# We define the grid size and the length of the RVE and construct the structure of the RVE.
+
+# %%
 N = 99
 ndim = 2
 length = 1
 
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
 
 
 # Create phase indicator (cylinder)
@@ -39,6 +75,18 @@ else:
     X, Y = np.meshgrid(x, x, indexing="ij")  # (N, N) grid
     phase = jnp.where(X**2 + Y**2 <= (0.2 / np.pi), 1.0, 0.0)
 
+# %% [markdown]
+# ## Definin the tensor operator and the spectral space
+
+# %%
+tensor = TensorOperator(dim=ndim)
+space = SpectralSpace(size=N, dim=ndim, length=length)
+
+# %% [markdown]
+# Next, we define the material parameters.
+
+# %%
+
 # Material parameters [grids of scalars, shape (N,N,N)]
 lambda1, lambda2 = 10.0, 1000.0
 mu1, mu2 = 0.25, 2.5
@@ -46,6 +94,16 @@ lambdas = lambda1 * (1.0 - phase) + lambda2 * phase
 mu = mu1 * (1.0 - phase) + mu2 * phase
 
 
+# %% [markdown]
+# The linear elasticity strain energy is given as 
+#
+# $$
+# W = \frac{1}{2} \int_{\Omega}  (\lambda \text{tr}(\epsilon)^2+ \mu \text{tr}(\epsilon : \epsilon ) ) d\Omega
+# $$
+#
+# We define a python function to compute the strain energy and then use the `jax.jacrev` function to compute the stress tensor.
+
+# %%
 dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
 
 
@@ -58,14 +116,16 @@ def strain_energy(eps_flat: Array) -> Array:
     )
     return energy.sum()
 
-
 compute_stress = jax.jacrev(strain_energy)
 
 
+# %%
 Ghat = GalerkinProjection(
     scheme=RotatedDifference(space=space), tensor_op=tensor
 ).compute_operator()
 
+
+# %%
 
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
@@ -120,6 +180,7 @@ class Jacobian(eqx.Module):
         return jnp.real(jvp_field).reshape(-1)
 
 
+# %%
 applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
 
 deps = make_field(dim=2, N=N, rank=2)
@@ -128,6 +189,8 @@ eps = make_field(dim=2, N=N, rank=2)
 residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
 jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
 
+
+# %%
 
 for inc, deps_avg in enumerate(applied_strains):
     # solving for elasticity
@@ -152,15 +215,27 @@ for inc, deps_avg in enumerate(applied_strains):
 eps = final_state[2].reshape(dofs_shape)
 sig = compute_stress(final_state[2]).reshape(dofs_shape)
 
+
+# %%
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3), layout="constrained")
 cb1 = ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
+divider = make_axes_locatable(ax1)
+cax = divider.append_axes("top", size="10%", pad=0.2)
+fig.colorbar(cb1, cax=cax, label=r"$\sigma_{xx}$", orientation="horizontal", location="top")
 
-fig.colorbar(cb1, ax=ax1)
 cb2 = ax2.imshow(eps.at[:, :, 0, 1].get(), cmap="managua_r")
+divider = make_axes_locatable(ax2)
+cax = divider.append_axes("top", size="10%", pad=0.2)
+fig.colorbar(cb2, cax=cax, label=r"$\varepsilon_{xy}$", orientation="horizontal", location="top")
 
-fig.colorbar(cb2, ax=ax2)
 ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
-
 ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()
+
+
+# %%

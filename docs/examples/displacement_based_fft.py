@@ -1,3 +1,22 @@
+# ---
+# jupyter:
+#   jupytext:
+#     formats: ipynb,py:percent
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.18.1
+#   kernelspec:
+#     display_name: .venv
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# In this example, we solve a displacement-based FFT problem for a heterogeneous material.
+
+# %%
 import jax
 
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
@@ -9,6 +28,8 @@ from jax import Array
 
 import numpy as np
 
+
+# %%
 from xpektra import (
     SpectralSpace,
     TensorOperator,
@@ -24,11 +45,18 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 import equinox as eqx
 import matplotlib.pyplot as plt
 
-import equinox as eqx
-from jax import Array
-import jax.numpy as jnp
 
+# %% [markdown]
+# In order to speed up the solution, we define a preconditioner defined as
+#
+# $$
+# \mathbb{M}(\xi) = [ \xi \cdot \mathbb{C} \cdot \xi ]^{-1}
+#
+# $$
+#
+# where $\mathbb{C}$ is the homogeneous elasticity tensor and $\xi$ is the wavenumber vector.
 
+# %%
 class HomogeneousPreconditioner(eqx.Module):
     """
     A callable module that applies the inverse of the homogeneous
@@ -37,7 +65,7 @@ class HomogeneousPreconditioner(eqx.Module):
     This is used as a preconditioner for the CG solver.
     """
 
-    K_inv: Array
+    M_inv: Array
     space: SpectralSpace = eqx.field(static=True)
     u_shape: tuple = eqx.field(static=True)
 
@@ -55,14 +83,14 @@ class HomogeneousPreconditioner(eqx.Module):
         xi_field = jnp.stack(meshes, axis=-1)
 
         # Compute the acoustic tensor field: M_il = D_j * C0_ijkl * D_k
-        K = jnp.einsum("...j,...k,ijkl->...il", xi_field, xi_field, C0, optimize=True)
+        M = jnp.einsum("...j,...k,ijkl->...il", xi_field, xi_field, C0, optimize=True)
 
         # Invert the K matrix at every point
-        K_reg = K + jnp.eye(space.dim) * 1e-12
-        K_inv = jnp.linalg.inv(K_reg)
+        M_reg = M + jnp.eye(space.dim) * 1e-12
+        M_inv = jnp.linalg.inv(M_reg)
 
         xi_dot_xi = jnp.sum(xi_field * xi_field, axis=-1, keepdims=True)
-        self.K_inv = jnp.where((xi_dot_xi == 0)[..., None], 0.0, K_inv)
+        self.M_inv = jnp.where((xi_dot_xi == 0)[..., None], 0.0, M_inv)
 
     @eqx.filter_jit
     def __call__(self, r_flat: Array) -> Array:
@@ -70,27 +98,18 @@ class HomogeneousPreconditioner(eqx.Module):
         r = r_flat.reshape(self.u_shape)
         r_hat = self.space.fft(r)
 
-        # z_hat = K_inv * r_hat  (z_i = K_inv_il * r_l)
-        z_hat = jnp.einsum("...il,...l->...i", self.K_inv, r_hat, optimize=True)
+        # z_hat = M_inv * r_hat  (z_i = K_inv_il * r_l)
+        z_hat = jnp.einsum("...il,...l->...i", self.M_inv, r_hat, optimize=True)
 
         z = self.space.ifft(z_hat).real
         return z.reshape(-1)
 
 
+
+# %%
 N = 251
 ndim = 2
 length = 1
-
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
-
-# ---- Displacement-based FFT scheme ----
-scheme = Fourier(space=space)
-
-# nabla = scheme.gradient_operator
-nabla_sym = scheme.symmetric_gradient_operator
-div = scheme.divergence_operator
-
 
 # Create phase indicator (cylinder)
 x = np.linspace(-0.5, 0.5, N)
@@ -102,17 +121,48 @@ else:
     X, Y = np.meshgrid(x, x, indexing="ij")  # (N, N) grid
     phase = jnp.where(X**2 + Y**2 <= (0.2 / np.pi), 1.0, 0.0)
 
+plt.figure(figsize=(4, 4))
+plt.imshow(phase)
+plt.colorbar()
+plt.show()
+
+
+# %% [markdown]
+# Similar to the examples for `Fourier-Galerkin` and `Moulinec-Suquet` tutorials, we define the `SpectralSpace` and `TensorOperator` objects.
+
+# %%
+tensor = TensorOperator(dim=ndim)
+space = SpectralSpace(size=N, dim=ndim, length=length)
+
+
+u_shape = make_field(dim=ndim, N=N, rank=1).shape
+eps_shape = make_field(dim=ndim, N=N, rank=2).shape
+
+# %% [markdown]
+# Unlike `Fourier-Galerkin` and `Moulinec-Suquet` schemes, displacement-based FFT scheme doesnot require any projection operators. Since it solves the strong form of the problem, we need to define a symmetric gradient and divergence operators in Fourier space.
+#
+
+# %%
+scheme = Fourier(space=space)
+
+# nabla = scheme.gradient_operator
+nabla_sym = scheme.symmetric_gradient_operator
+div = scheme.divergence_operator
+
+# %% [markdown]
+# Defining the material parameters.
+
+# %%
 # Material parameters [grids of scalars, shape (N,N,N)]
 lambda1, lambda2 = 10.0, 1000.0
 mu1, mu2 = 0.25, 2.5
 lambdas = lambda1 * (1.0 - phase) + lambda2 * phase
 mu = mu1 * (1.0 - phase) + mu2 * phase
 
+# %% [markdown]
+# Now we can construct our preconditioner. We need to define a reference tensor $\mathbb{C}_0$ and pass it to the preconditioner. The reference tensor is defined as the average of the material parameters over the domain.
 
-u_shape = make_field(dim=ndim, N=N, rank=1).shape
-eps_shape = make_field(dim=ndim, N=N, rank=2).shape
-
-
+# %%
 # --- Create a C0 reference tensor ---
 lambda0 = jnp.mean(lambdas)
 mu0 = jnp.mean(mu)
@@ -130,6 +180,11 @@ krylov_solver_fn = eqx.Partial(
     preconditioned_conjugate_gradient, M_inv=preconditioner_fn
 )
 
+
+# %% [markdown]
+# ## Defining the strain and strain energy functions.
+
+# %%
 
 @eqx.filter_jit
 def compute_strain(u: Array) -> Array:
@@ -153,6 +208,7 @@ def strain_energy(eps: Array) -> Array:
 compute_stress = jax.jacrev(strain_energy)
 
 
+# %%
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
@@ -205,6 +261,8 @@ class Jacobian(eqx.Module):
         return jvp.reshape(-1)
 
 
+
+# %%
 du = make_field(dim=2, N=N, rank=1)
 u = make_field(dim=2, N=N, rank=1)
 
@@ -242,14 +300,29 @@ eps = compute_strain(u) + eps_macro
 
 sig = compute_stress(eps)
 
+
+# %% [markdown]
+# Let us now plot the stresses and displacement fields
+
+# %%
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3), layout="constrained")
 cb1 = ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
-fig.colorbar(cb1, ax=ax1)
+divider = make_axes_locatable(ax1)
+cax = divider.append_axes("top", size="10%", pad=0.2)
+fig.colorbar(cb1, cax=cax, label=r"$\sigma_{xx}$", orientation="horizontal", location="top")
 
-cb2 = ax2.imshow(eps.at[:, :, 0, 1].get(), cmap="managua_r")
-fig.colorbar(cb2, ax=ax2)
+
+cb2 = ax2.imshow(u.at[:, :, 1].get(), cmap="managua_r")
+divider = make_axes_locatable(ax2)
+cax = divider.append_axes("top", size="10%", pad=0.2)
+fig.colorbar(cb2, cax=cax, label="Displacement", orientation="horizontal", location="top")
 
 ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
 ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()
+
+
+# %%

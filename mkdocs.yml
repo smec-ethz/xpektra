@@ -68,13 +68,23 @@ plugins:
                 show_source: false
                 show_symbol_type_heading: true
                 show_symbol_type_toc: true
+    - ipynb
 nav:
     - 'index.md'
     - 'basics.md'
     - 'theory.md'
-    - Examples:
-        - 'examples/linear_elasticity.py'
-        - 'examples/computational_homogenization.py'
+    - 'extensibility.md'
+    - Tutorials:
+        - Fourier-Galerkin:
+          - 'examples/linear_elasticity.ipynb'
+          - 'examples/gent.ipynb' 
+          - 'examples/j2_plasticity.ipynb'
+          - 'examples/multiphase_material.ipynb'
+        - Moulinec-Suquet:
+          - 'examples/moulinec_suquet.ipynb'
+          - 'examples/moulinec_suquet_newton_krylov.ipynb'
+        - Displacement-based FFT:
+          - 'examples/displacement_based_fft.ipynb'
     - Basic API:
         - 'api/projection_operators.md'
         - 'api/scheme_api.md'

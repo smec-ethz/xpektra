@@ -31,6 +31,15 @@ dev = [
     "commitizen>=4.9.1",
     "pytest>=8.4.2",
 ]
+docs = [
+    "jupytext>=1.18.1",
+    "mkdocs>=1.6.1",
+    "mkdocs-include-exclude-files>=0.1.0",
+    "mkdocs-ipynb>=0.1.1",
+    "mkdocs-jupyter>=0.25.1",
+    "mkdocs-material>=9.6.23",
+    "mkdocstrings-python>=1.18.2",
+]
 
 
 [build-system]
@@ -58,13 +67,3 @@ modules = [
 
 [tool.uv]
 constraint-dependencies = []
-
-[dependency-groups]
-dev = []
-docs = [
-    "mkdocs>=1.6.1",
-    "mkdocs-include-exclude-files>=0.1.0",
-    "mkdocs-material>=9.6.23",
-    "mkdocstrings-python>=1.18.2",
-]
-examples = []

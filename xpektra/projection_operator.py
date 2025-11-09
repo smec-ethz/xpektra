@@ -16,7 +16,7 @@ class ProjectionOperator(eqx.Module):
     """
     An 'abstract' base class for operators that project fields.
 
-    It uses a `Scheme` to construct a 4th-order tensor ($\hat{\mathbb{G}}$) that
+    It uses a `Scheme` to construct a 4th-order tensor that
     enforces mechanical constraints in Fourier space.
 
     """
@@ -66,7 +66,7 @@ class GalerkinProjection(ProjectionOperator):
 class MoulinecSuquetProjection(ProjectionOperator):
     """
     A subclass of `ProjectionOperator` implementing the Moulinec-Suquet (MS) Green's operator,
-    which depends on a homogeneous isotropic reference material ($\mathbb{C}^{0}$).
+    which depends on a homogeneous isotropic reference material.
     """
 
     space: SpectralSpace

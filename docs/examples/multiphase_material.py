@@ -1,14 +1,33 @@
+# ---
+# jupyter:
+#   jupytext:
+#     formats: ipynb,py:percent
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.18.1
+#   kernelspec:
+#     display_name: .venv
+#     language: python
+#     name: python3
+# ---
+
+# %%
 import jax
 
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 
 import jax.numpy as jnp
 from jax import Array
-
 import numpy as np
 
+# %% [markdown]
+# In this example, we solve a linear elasticity problem of a  multiphase material in 3D.
+
+# %%
 from xpektra import (
     SpectralSpace,
     TensorOperator,
@@ -23,8 +42,8 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 
 import equinox as eqx
 
-import time
 
+# %%
 from scipy.spatial.distance import cdist
 
 
@@ -99,6 +118,11 @@ def generate_multiphase_material_3d(
     return material, seed_points
 
 
+
+# %% [markdown]
+# We use the `generate_multiphase_material_3d` function to generate a 3D multiphase material. The function returns the material and the seed points.
+
+# %%
 N = 63
 ndim = 3
 length = 1
@@ -107,17 +131,59 @@ structure, seeds = generate_multiphase_material_3d(
     size=N, num_phases=5, num_seeds=15, random_state=42
 )
 
+# %% [markdown]
+# To simplify the execution of the code, we define a `ElasticityOperator` class that contains the Fourier-Galerkin operator, the spatial operators, the tensor operators, and the FFT and IFFT operators. The `__init__` method initializes the operator and the `__call__` method computes the stresses in the real space given as 
+#
+# $$
+# \mathcal{F}^{-1} \left( \mathbb{G}:\mathcal{F}(\sigma) \right)
+#
+#
+# $$
 
+# %% [markdown]
+# We define the grid size and the length of the RVE and construct the structure of the RVE.
+
+# %%
+N = 31
+length = 1.0
+ndim = 3
+
+
+structure, seeds = generate_multiphase_material_3d(
+    size=N, num_phases=5, num_seeds=15, random_state=42
+)
+
+
+# %%
 tensor = TensorOperator(dim=ndim)
 space = SpectralSpace(size=N, dim=ndim, length=length)
 
 
+# %% [markdown]
+# Next, we define the material parameters.
+
+# %%
 λ0 = structure.copy()
 μ0 = structure.copy()
+
+# %%
+Ghat = GalerkinProjection(
+    scheme=RotatedDifference(space=space), tensor_op=tensor
+).compute_operator()
+
 
 dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
 
 
+# %% [markdown]
+# The linear elasticity strain energy is given as 
+# $$
+# W = \frac{1}{2} \int_{\Omega}  (\lambda \text{tr}(\epsilon)^2+ \mu \text{tr}(\epsilon : \epsilon ) ) d\Omega
+# $$
+#
+# We define a python function to compute the strain energy and then use the `jax.jacrev` function to compute the stress tensor.
+
+# %%
 @eqx.filter_jit
 def strain_energy(eps_flat: Array) -> float:
     eps = eps_flat.reshape(dofs_shape)
@@ -130,14 +196,8 @@ def strain_energy(eps_flat: Array) -> float:
 
 compute_stress = jax.jacrev(strain_energy)
 
-start_time = time.time()
-Ghat = GalerkinProjection(
-    scheme=RotatedDifference(space=space), tensor_op=tensor
-).compute_operator()
-end_time = time.time()
-print(f"Time taken to compute Ghat: {end_time - start_time} seconds")
 
-
+# %%
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
@@ -156,14 +216,13 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        #eps = eps_flat.reshape(self.dofs_shape)
-        start_time = time.time()
+        # eps = eps_flat.reshape(self.dofs_shape)
         sigma = compute_stress(eps_flat)  # Assumes compute_stress is defined elsewhere
-        end_time = time.time()
-        jax.debug.print("Time taken to compute sigma: {:.14f} seconds", end_time - start_time)
-        
+
         residual_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape)))
+            self.tensor_op.ddot(
+                self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape))
+            )
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -182,31 +241,25 @@ class Jacobian(eqx.Module):
         The Jacobian is a linear operator, so its __call__ method
         represents the Jacobian-vector product.
         """
-        #deps = deps_flat.reshape(self.dofs_shape)
+        # deps = deps_flat.reshape(self.dofs_shape)
         # Assuming linear elasticity, the tangent is the same as the residual operator
-        start_time = time.time()
         dsigma = compute_stress(deps_flat)
-        end_time = time.time()
-        jax.debug.print(
-            "Time taken to compute dsigma: {:.14f} seconds", end_time - start_time
-        )
 
-        start_time = time.time()
         jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma.reshape(self.dofs_shape)))
-        )
-        end_time = time.time()
-        jax.debug.print(
-            "Time taken to compute jvp_field: {:.14f} seconds", end_time - start_time
+            self.tensor_op.ddot(
+                self.Ghat, self.space.fft(dsigma.reshape(self.dofs_shape))
+            )
         )
         return jnp.real(jvp_field).reshape(-1)
 
 
+
+# %%
 eps = make_field(dim=ndim, N=N, rank=2)
 residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
 jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
 
-
+# %%
 deps = make_field(dim=ndim, N=N, rank=2)
 
 applied_strains = jnp.diff(jnp.linspace(0, 2e-2, num=2))
@@ -218,7 +271,6 @@ for inc, deps_avg in enumerate(applied_strains):
     b = -residual_fn(deps)
     eps = eps + deps
 
-    start_time = time.time()
     final_state = newton_krylov_solver(
         state=(deps, b, eps),
         gradient=residual_fn,
@@ -229,14 +281,17 @@ for inc, deps_avg in enumerate(applied_strains):
         krylov_tol=1e-6,
         krylov_max_iter=20,
     )
-    end_time = time.time()
-    print(f"Time taken to solve for step {inc}: {end_time - start_time} seconds")
     eps = final_state[2]
 
     print("step", inc, "time", inc)
 
 sig = compute_stress(eps).reshape(dofs_shape)
 
+
+# %% [markdown]
+# Lets us now plot the stress tensor along the x-plane.
+
+# %%
 import matplotlib.pyplot as plt  # noqa: E402
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -260,3 +315,6 @@ cax = divider.append_axes("top", size="10%", pad=0.2)
 fig.colorbar(cax3, cax=cax, label=r"$\sigma_{yy}$", orientation="horizontal", location="top")
 
 plt.show()
+
+
+# %%
