@@ -14,6 +14,8 @@
 # ---
 
 # %% [markdown]
+# # Linear Elasticity
+#
 # In this example, we solve a displacement-based FFT problem for a heterogeneous material.
 
 # %%
@@ -51,7 +53,6 @@ import matplotlib.pyplot as plt
 #
 # $$
 # \mathbb{M}(\xi) = [ \xi \cdot \mathbb{C} \cdot \xi ]^{-1}
-#
 # $$
 #
 # where $\mathbb{C}$ is the homogeneous elasticity tensor and $\xi$ is the wavenumber vector.

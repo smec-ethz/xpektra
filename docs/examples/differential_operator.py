@@ -12,6 +12,17 @@
 #     name: python3
 # ---
 
+# %% [markdown]
+# # Gibbs Ringing Artifact
+#
+# In this example, we see the effect of Gibbs ringing artifact on the stress field. The original FFT methods used a **spectral** derivative ($D_k = i\xi_k$). This scheme has "global support," meaning the derivative at one point depends on *all* other points. At sharp material interfaces, this causes the **Gibbs phenomenon**, which appears as spurious oscillations ("ringing") in the stress/strain fields.
+#
+# In this notebook, we solve the same problem using a local scheme
+#
+# * `CentralDifference`: This scheme is mathematically equivalent to a **Linear Finite Element (LFE)** formulation on a regular grid. It is extremely effective at eliminating ringing artifacts and is highly recommended.
+# * `RotatedDifference`: This scheme (from Willot, 2015) is equivalent to a trilinear Finite Element formulation with **reduced integration** (like `HEX8R`). It is also very stable and robust.
+#
+
 # %%
 import jax
 
@@ -26,9 +37,7 @@ import equinox as eqx
 
 # %%
 import matplotlib.pyplot as plt
-from skimage.morphology import disk, rectangle, ellipse
-import itertools
-from matplotlib.gridspec import GridSpec
+from skimage.morphology import footprint_rectangle as rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from xpektra import (
@@ -36,12 +45,19 @@ from xpektra import (
     TensorOperator,
     make_field,
 )
-from xpektra.scheme import RotatedDifference, Fourier, ForwardDifference
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
 )
+
+# %% [markdown]
+# In `xpektra`, we can import various schemes from the `scheme` module.
+#
+#
+
+# %%
+from xpektra.scheme import RotatedDifference, Fourier, CentralDifference
 
 
 # %%
@@ -54,7 +70,7 @@ def test_microstructure(N, scheme, length):
     r = int(H / 2)
 
     structure = np.zeros((H, L))
-    structure[:r, -r:] += rectangle(r, r)
+    structure[:r, -r:] += rectangle((r, r))
     structure = np.flipud(structure)
     structure = np.fliplr(structure)
 
@@ -68,8 +84,8 @@ def test_microstructure(N, scheme, length):
         scheme = RotatedDifference(space=space)
     elif scheme == "fourier":
         scheme = Fourier(space=space)
-    elif scheme == "forward":
-        scheme = ForwardDifference(space=space)
+    elif scheme == "central":
+        scheme = CentralDifference(space=space)
     else:
         raise ValueError(f"Invalid scheme: {scheme}")
 
@@ -105,7 +121,7 @@ def test_microstructure(N, scheme, length):
 
     compute_stress = jax.jacrev(strain_energy)
 
-    Ghat = GalerkinProjection(scheme=scheme, tensor_op=tensor).compute_operator()
+    Ghat = GalerkinProjection(scheme=scheme).compute_operator()
 
     class Residual(eqx.Module):
         """A callable module that computes the residual vector."""
@@ -179,7 +195,7 @@ def test_microstructure(N, scheme, length):
         state=(deps, b, eps),
         gradient=residual_fn,
         jacobian=jacobian_fn,
-        tol=1e-8,
+        tol=1e-10,
         max_iter=20,
         krylov_solver=conjugate_gradient_while,
         krylov_tol=1e-8,
@@ -201,14 +217,14 @@ length = 1
 fig, axs = plt.subplots(1, 3, figsize=(10, 5))
 
 
-for index, scheme in enumerate(["rotated", "fourier", "forward"]):
+for index, scheme in enumerate(["fourier", "central", "rotated"]):
 
     sig_xy, structure = test_microstructure(N=N, scheme=scheme, length=length)
     dx = length / N
-    N_inset = int(0.08 / dx)
+    N_inset = int(0.1 / dx)
 
 
-    cb = axs[index].imshow(sig_xy, origin="lower", cmap="managua_r",)
+    cb = axs[index].imshow(sig_xy, origin="lower", cmap="berlin",)
     axs[index].set_title(f"{scheme} scheme")
 
     axs[index].set_xlim(int(N / 2) - N_inset, int(N / 2) + N_inset)

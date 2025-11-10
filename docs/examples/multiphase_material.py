@@ -13,6 +13,9 @@
 #     name: python3
 # ---
 
+# %% [markdown]
+# # 3D Multi-phase Material
+
 # %%
 import jax
 
@@ -123,7 +126,7 @@ def generate_multiphase_material_3d(
 # We use the `generate_multiphase_material_3d` function to generate a 3D multiphase material. The function returns the material and the seed points.
 
 # %%
-N = 63
+N = 31
 ndim = 3
 length = 1
 
@@ -144,17 +147,6 @@ structure, seeds = generate_multiphase_material_3d(
 # We define the grid size and the length of the RVE and construct the structure of the RVE.
 
 # %%
-N = 31
-length = 1.0
-ndim = 3
-
-
-structure, seeds = generate_multiphase_material_3d(
-    size=N, num_phases=5, num_seeds=15, random_state=42
-)
-
-
-# %%
 tensor = TensorOperator(dim=ndim)
 space = SpectralSpace(size=N, dim=ndim, length=length)
 
@@ -167,9 +159,7 @@ space = SpectralSpace(size=N, dim=ndim, length=length)
 μ0 = structure.copy()
 
 # %%
-Ghat = GalerkinProjection(
-    scheme=RotatedDifference(space=space), tensor_op=tensor
-).compute_operator()
+Ghat = GalerkinProjection(scheme=RotatedDifference(space=space)).compute_operator()
 
 
 dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
