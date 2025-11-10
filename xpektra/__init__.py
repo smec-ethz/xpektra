@@ -1,10 +1,7 @@
 from xpektra.space import SpectralSpace
-from xpektra.operator import TensorOperator
+from xpektra.tensor_operator import TensorOperator
 import numpy as np
 
-
-# def make_field(dim: int, N: int, rank: int) -> np.ndarray:
-#    return np.zeros((rank,) * rank + (N,) * dim)
 
 
 def make_field(dim: int, N: int, rank: int, dtype: np.dtype = float) -> np.ndarray:

@@ -62,6 +62,7 @@ class SpectralSpace(eqx.Module):
         freq = self.frequency_vector()
         return 2 * jnp.pi * freq
 
+'''
     def differential_vector(
         self, xi: Array, diff_mode: str, factor: float = 1.0
     ) -> Array:
@@ -91,3 +92,4 @@ class SpectralSpace(eqx.Module):
             return 2 * self.iota * jnp.tan(xi * dx / 2) * factor / dx
         else:
             raise RuntimeError("Differential scheme not defined")
+'''
