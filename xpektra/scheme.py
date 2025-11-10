@@ -6,6 +6,7 @@ from jax import Array
 import equinox as eqx
 
 from xpektra.space import SpectralSpace
+from xpektra.transform import Transform
 
 
 class Scheme(eqx.Module):

@@ -120,9 +120,7 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 # %%
-Ghat = GalerkinProjection(
-    scheme=RotatedDifference(space=space), tensor_op=tensor
-).compute_operator()
+Ghat = GalerkinProjection(scheme=RotatedDifference(space=space)).compute_operator()
 
 
 # %%

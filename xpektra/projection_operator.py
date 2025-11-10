@@ -9,7 +9,6 @@ from abc import abstractmethod
 import numpy as np
 
 from xpektra.scheme import CartesianScheme
-from xpektra import TensorOperator
 from xpektra.scheme import SpectralSpace
 
 class ProjectionOperator(eqx.Module):
@@ -34,7 +33,6 @@ class GalerkinProjection(ProjectionOperator):
     """
 
     scheme: CartesianScheme
-    tensor_op: TensorOperator
 
     def compute_operator(self) -> Array:
         """Implements the Fourier Galerkin projection operator.
