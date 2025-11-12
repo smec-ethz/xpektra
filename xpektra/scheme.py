@@ -44,34 +44,10 @@ class CartesianScheme(Scheme):
 
     space: SpectralSpace
     gradient_operator: Array
-    # wavenumbers_mesh: List[Array]
 
     def __init__(self, space: SpectralSpace):
         self.space = space
         self.gradient_operator = self.compute_gradient_operator()
-        # self.wavenumbers_mesh = self.create_wavenumber_mesh()
-
-    '''
-    @property
-    def symmetric_gradient_operator(self) -> Array:
-        """The symmetric gradient operator field."""
-        nabla = self.gradient_operator
-        kronecker_delta = np.eye(self.space.dim, dtype=complex)
-
-        nabla_sym = 0.5 * (
-            jnp.einsum("...j,ik->...ijk", nabla, kronecker_delta, optimize="optimal")
-            + jnp.einsum("...i,jk->...ijk", nabla, kronecker_delta, optimize="optimal")
-        )
-        return nabla_sym
-
-    @property
-    def divergence_operator(self) -> Array:
-        """The divergence operator field."""
-        nabla = self.gradient_operator
-        kronecker_delta = jnp.eye(self.space.dim, dtype=complex)
-        div = jnp.einsum("...k,ij->...ijk", nabla, kronecker_delta, optimize="optimal")
-        return div
-    '''
 
     @eqx.filter_jit
     def symm_grad(self, u_hat: Array) -> Array:

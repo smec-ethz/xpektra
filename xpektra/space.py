@@ -61,35 +61,3 @@ class SpectralSpace(eqx.Module):
     def wavenumber_vector(self) -> Array:
         freq = self.frequency_vector()
         return 2 * jnp.pi * freq
-
-'''
-    def differential_vector(
-        self, xi: Array, diff_mode: str, factor: float = 1.0
-    ) -> Array:
-        """
-        Args:
-            xi: The wavenumber vector.
-            diff_mode: The differential mode.
-            factor: The factor for the differential mode.
-
-        Returns:
-            The differential vector.
-        """
-
-        dx = self.length / self.size
-        if self.dim == 1 and diff_mode == "rotated_difference":
-            raise RuntimeError("Rotated difference is not defined for 1D")
-
-        if diff_mode == "fourier":
-            return self.iota * xi
-        elif diff_mode == "forward_difference":
-            return (jnp.exp(self.iota * xi * dx) - 1) / dx
-        elif diff_mode == "central_difference":
-            return self.iota * jnp.sin(xi * dx) / dx
-        elif diff_mode == "backward_difference":
-            return (1 - jnp.exp(-self.iota * xi * dx)) / dx
-        elif diff_mode == "rotated_difference":
-            return 2 * self.iota * jnp.tan(xi * dx / 2) * factor / dx
-        else:
-            raise RuntimeError("Differential scheme not defined")
-'''

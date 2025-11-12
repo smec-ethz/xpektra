@@ -14,7 +14,7 @@ class Transform(eqx.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def inverse(self, x_hat: Array) -> Array:
+    def backward(self, x_hat: Array) -> Array:
         """Perform the inverse transform (e.g., iFFT, iDCT)."""
         raise NotImplementedError
 
