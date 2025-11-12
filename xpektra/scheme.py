@@ -43,17 +43,15 @@ class CartesianScheme(Scheme):
     """
 
     space: SpectralSpace
-    wavenumbers_mesh: List[Array]
+    gradient_operator: Array
+    # wavenumbers_mesh: List[Array]
 
     def __init__(self, space: SpectralSpace):
         self.space = space
-        self.wavenumbers_mesh = self.create_wavenumber_mesh()
+        self.gradient_operator = self.compute_gradient_operator()
+        # self.wavenumbers_mesh = self.create_wavenumber_mesh()
 
-    @property
-    def gradient_operator(self) -> Array:
-        """The gradient operator field."""
-        return self.compute_gradient_operator()
-
+    '''
     @property
     def symmetric_gradient_operator(self) -> Array:
         """The symmetric gradient operator field."""
@@ -73,6 +71,28 @@ class CartesianScheme(Scheme):
         kronecker_delta = jnp.eye(self.space.dim, dtype=complex)
         div = jnp.einsum("...k,ij->...ijk", nabla, kronecker_delta, optimize="optimal")
         return div
+    '''
+
+    @eqx.filter_jit
+    def symm_grad(self, u_hat: Array) -> Array:
+        """
+        Applies the symmetric gradient operator on the fly.
+        Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
+        """
+        Dξs = self.gradient_operator
+        term1 = jnp.einsum('...i,...j->...ij', Dξs, u_hat) # D_i * u_j
+        term2 = jnp.einsum('...j,...i->...ij', Dξs, u_hat) # D_j * u_i
+        return 0.5 * (term1 + term2)
+
+    @eqx.filter_jit
+    def div(self, sigma_hat: Array) -> Array:
+        """
+        Applies the divergence operator on the fly.
+        Computes: div_hat_i = Dξ_j * sigma_hat_ji
+        """
+        Dξs = self.gradient_operator
+        # Note: We must transpose sigma_hat for the ddot
+        return jnp.einsum('...j,...ji->...i', Dξs, sigma_hat)
 
     @abstractmethod
     def formula(self, xi: Array, dx: float, iota: complex, factor: float) -> Array:
@@ -93,19 +113,19 @@ class CartesianScheme(Scheme):
     def compute_gradient_operator(self) -> Array:
         """Builds the full gradient operator field using the scheme's formula."""
         # This factor is needed for certain schemes like 'rotated_difference'
+
+        wavenumbers_mesh = self.create_wavenumber_mesh()
         factor = 1.0
         Δ = self.space.length / self.space.size
         if self.space.dim > 1:
             # Note: A scheme's formula must handle this factor if it needs it.
             for j in range(self.space.dim):
-                factor *= 0.5 * (
-                    1 + np.exp(self.space.iota * self.wavenumbers_mesh[j] * Δ)
-                )
+                factor *= 0.5 * (1 + np.exp(self.space.iota * wavenumbers_mesh[j] * Δ))
 
         diff_vectors = []
         for i in range(self.space.dim):
             Dξ_i = self.formula(
-                xi=self.wavenumbers_mesh[i],
+                xi=wavenumbers_mesh[i],
                 dx=self.space.length / self.space.size,
                 iota=self.space.iota,
                 factor=factor,
@@ -128,32 +148,28 @@ class Fourier(CartesianScheme):
 
 
 class CentralDifference(CartesianScheme):
-    """Implements the standard central difference scheme.
-    """
+    """Implements the standard central difference scheme."""
 
     def formula(self, xi, dx, iota, factor):
         return iota * jnp.sin(xi * dx) / dx
 
 
 class ForwardDifference(CartesianScheme):
-    """Implements the forward difference scheme.
-    """
+    """Implements the forward difference scheme."""
 
     def formula(self, xi, dx, iota, factor):
         return (jnp.exp(iota * xi * dx) - 1) / dx
 
 
 class BackwardDifference(CartesianScheme):
-    """Implements the backward difference scheme.    
-    """
+    """Implements the backward difference scheme."""
 
     def formula(self, xi, dx, iota, factor):
         return (1 - jnp.exp(-iota * xi * dx)) / dx
 
 
 class RotatedDifference(CartesianScheme):
-    """Implements the rotated finite difference scheme (Willot/HEX8R).    
-    """
+    """Implements the rotated finite difference scheme (Willot/HEX8R)."""
 
     def formula(self, xi, dx, iota, factor):
         if self.space.dim == 1:
@@ -162,8 +178,7 @@ class RotatedDifference(CartesianScheme):
 
 
 class FourthOrderCentralDifference(CartesianScheme):
-    """Implements the fourth order difference scheme.    
-    """
+    """Implements the fourth order difference scheme."""
 
     def formula(self, xi, dx, iota, factor):
         return iota * (
@@ -172,8 +187,7 @@ class FourthOrderCentralDifference(CartesianScheme):
 
 
 class SixthOrderCentralDifference(CartesianScheme):
-    """Implements the sixth order difference scheme.    
-    """
+    """Implements the sixth order difference scheme."""
 
     def formula(self, xi, dx, iota, factor):
         return iota * (
@@ -184,8 +198,7 @@ class SixthOrderCentralDifference(CartesianScheme):
 
 
 class EighthOrderCentralDifference(CartesianScheme):
-    """Implements the eighth order difference scheme.    
-    """
+    """Implements the eighth order difference scheme."""
 
     def formula(self, xi, dx, iota, factor):
         return iota * (

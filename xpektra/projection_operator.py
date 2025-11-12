@@ -11,6 +11,7 @@ import numpy as np
 from xpektra.scheme import CartesianScheme
 from xpektra.scheme import SpectralSpace
 
+
 class ProjectionOperator(eqx.Module):
     """
     An 'abstract' base class for operators that project fields.
@@ -26,61 +27,106 @@ class ProjectionOperator(eqx.Module):
         raise NotImplementedError
 
 
+
 class GalerkinProjection(eqx.Module):
     """
     A 'final' class implementing the material-independent Galerkin projection.
-    
+
     This implementation is 'matrix-free'. It does not materialize
     the full 4th-order Ghat tensor. Instead, it stores the
     gradient operator (Dξs) and its inverse (Dξ_inv) and computes
     the projection on the fly. This saves a massive amount of memory.
     """
-    Dξs: Array      # The gradient operator, shape (..., d)
-    Dξ_inv: Array   # The inverse gradient operator, shape (..., d)
+
+    scheme: CartesianScheme
+
+    @eqx.filter_jit
+    def project(self, field_hat: Array) -> Array:
+        """
+        Applies the projection on the fly. This is the core of the class.
+
+        Computes: eps_hat = [δ_im * Dξ_j * Dξ_inv_l] * sigma_hat_lm
+        """
+        Dξs = self.scheme.gradient_operator
+
+        # Calculate and store the inverse
+        norm_sq = jnp.einsum("...i,...i->...", Dξs, jnp.conj(Dξs)).real[..., None]
+
+        # Create a safe denominator to avoid 0/0
+        norm_sq_safe = jnp.where(norm_sq == 0, 1.0, norm_sq)
+
+        # Dξ_inv_l = conj(Dξ_l) / ||Dξ||²
+        Dξ_inv = jnp.conj(Dξs) / norm_sq_safe
+
+        # Manually set the zero-frequency mode to 0.0
+        Dξ_inv = jnp.where(
+            norm_sq == 0, 0.0, Dξ_inv
+        )  # Compute inner term: temp_i = Dξ_inv_l * sigma_hat_il
+        temp_i = jnp.einsum("...l,...il->...i", Dξ_inv, field_hat)
+
+        # Compute outer term: eps_hat_ij = Dξ_j * temp_i
+        eps_hat = jnp.einsum("...j,...i->...ij", Dξs, temp_i)
+
+        del temp_i
+
+        return eps_hat
+
+'''
+class GalerkinProjection(eqx.Module):
+    """
+    A 'final' class implementing the material-independent Galerkin projection.
+
+    This implementation is 'matrix-free'. It does not materialize
+    the full 4th-order Ghat tensor. Instead, it stores the
+    gradient operator (Dξs) and its inverse (Dξ_inv) and computes
+    the projection on the fly. This saves a massive amount of memory.
+    """
+
+    Dξs: Array  # The gradient operator, shape (..., d)
+    Dξ_inv: Array  # The inverse gradient operator, shape (..., d)
 
     def __init__(self, scheme: CartesianScheme):
         """
         Initializes the matrix-free projector by computing and storing
         the gradient operator and its inverse.
         """
-        self.scheme = scheme
-        
+
         # Store the gradient operator
-        self.Dξs = self.scheme.gradient_operator
-        
+        self.Dξs = scheme.gradient_operator
+
         # Calculate and store the inverse
         norm_sq = jnp.sum(self.Dξs * jnp.conj(self.Dξs), axis=-1, keepdims=True)
         Dξ_inv = jnp.zeros_like(self.Dξs, dtype=jnp.complex128)
-        
+
         valid_mask = (norm_sq > 1e-12).squeeze()
         Dξ_inv = Dξ_inv.at[valid_mask].set(
             jnp.conj(self.Dξs[valid_mask]) / norm_sq[valid_mask]
         )
         self.Dξ_inv = Dξ_inv
 
-
     @eqx.filter_jit
     def project(self, field_hat: Array) -> Array:
         """
         Applies the projection on the fly:
         eps_hat_ij = Dξ_j * (Dξ_inv_l * sigma_hat_il)
-        
+
         Args:
             field_hat: The stress field in Fourier space, shape (..., d, d)
 
         Returns:
             The projected (compatible) strain field in Fourier space.
         """
-        
+
         # Compute inner term: temp_i = Dξ_inv_l * sigma_hat_il
-        temp_i = jnp.einsum('...l,...il->...i', self.Dξ_inv, field_hat)
-        
+        temp_i = jnp.einsum("...l,...il->...i", self.Dξ_inv, field_hat)
+
         # Compute outer term: eps_hat_ij = Dξ_j * temp_i
-        eps_hat = jnp.einsum('...j,...i->...ij', self.Dξs, temp_i)
+        eps_hat = jnp.einsum("...j,...i->...ij", self.Dξs, temp_i)
 
         del temp_i
-        
+
         return eps_hat
+'''
 
 '''
 class GalerkinProjection(ProjectionOperator):
@@ -117,6 +163,7 @@ class GalerkinProjection(ProjectionOperator):
         Ghat = jnp.einsum("im,...j,...l->...ijlm", identity, Dξs, Dξ_inv, optimize=True)
         return Ghat
 '''
+
 
 class MoulinecSuquetProjection(ProjectionOperator):
     """
