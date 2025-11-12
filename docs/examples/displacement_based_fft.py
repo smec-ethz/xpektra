@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.18.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: xpektra
 #     language: python
 #     name: python3
 # ---
@@ -147,8 +147,8 @@ eps_shape = make_field(dim=ndim, N=N, rank=2).shape
 scheme = Fourier(space=space)
 
 # nabla = scheme.gradient_operator
-nabla_sym = scheme.symmetric_gradient_operator
-div = scheme.divergence_operator
+#nabla_sym = scheme.symmetric_gradient_operator
+#div = scheme.divergence_operator
 
 # %% [markdown]
 # Defining the material parameters.
@@ -186,14 +186,11 @@ krylov_solver_fn = eqx.Partial(
 # ## Defining the strain and strain energy functions.
 
 # %%
-
 @eqx.filter_jit
 def compute_strain(u: Array) -> Array:
     u = u.reshape(u_shape)
     u_hat = space.fft(u)
-    return space.ifft(
-        jnp.einsum("...ijk,...k->...ij", nabla_sym, u_hat, optimize="optimal")
-    ).real
+    return space.ifft(scheme.symm_grad(u_hat)).real
 
 
 @eqx.filter_jit
@@ -213,7 +210,7 @@ compute_stress = jax.jacrev(strain_energy)
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
-    div: Array
+    scheme: Fourier
     space: SpectralSpace = eqx.field(static=True)
     u_shape: tuple = eqx.field(static=True)
 
@@ -231,9 +228,7 @@ class Residual(eqx.Module):
         eps = compute_strain(u)
         sigma = compute_stress(eps + eps_macro)
         sigma_hat = self.space.fft(sigma)
-        residual_hat = jnp.einsum(
-            "...ijk,...jk->...i", self.div, sigma_hat, optimize="optimal"
-        )
+        residual_hat = self.scheme.div(sigma_hat)
         residual = self.space.ifft(residual_hat).real
         return residual.reshape(-1)
 
@@ -241,7 +236,7 @@ class Residual(eqx.Module):
 class Jacobian(eqx.Module):
     """A callable module that represents the Jacobian operator (tangent)."""
 
-    div: Array
+    scheme: Fourier
     space: SpectralSpace = eqx.field(static=True)
     u_shape: tuple = eqx.field(static=True)
 
@@ -255,9 +250,7 @@ class Jacobian(eqx.Module):
         deps = compute_strain(du)
         dsigma = compute_stress(deps)
         dsigma_hat = self.space.fft(dsigma)
-        jvp_hat = jnp.einsum(
-            "...ijk,...jk->...i", self.div, dsigma_hat, optimize="optimal"
-        )
+        jvp_hat = self.scheme.div(dsigma_hat)
         jvp = self.space.ifft(jvp_hat).real
         return jvp.reshape(-1)
 
@@ -269,8 +262,8 @@ u = make_field(dim=2, N=N, rank=1)
 
 eps_macro = make_field(dim=2, N=N, rank=2)
 
-residual_fn = Residual(div=div, space=space, u_shape=u_shape)
-jacobian_fn = Jacobian(div=div, space=space, u_shape=u_shape)
+residual_fn = Residual(scheme=scheme, space=space, u_shape=u_shape)
+jacobian_fn = Jacobian(scheme=scheme, space=space, u_shape=u_shape)
 
 
 applied_strains = jnp.linspace(0, 1e-2, num=5)

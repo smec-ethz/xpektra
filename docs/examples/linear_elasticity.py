@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.18.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: xpektra
 #     language: python
 #     name: python3
 # ---
@@ -120,11 +120,10 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 # %%
-Ghat = GalerkinProjection(scheme=RotatedDifference(space=space)).compute_operator()
+Ghat = GalerkinProjection(scheme=RotatedDifference(space=space))
 
 
 # %%
-
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
@@ -146,9 +145,7 @@ class Residual(eqx.Module):
         eps_flat = eps_flat.reshape(-1)
         sigma = compute_stress(eps_flat)
         residual_field = self.space.ifft(
-            self.tensor_op.ddot(
-                self.Ghat, self.space.fft(sigma.reshape(self.dofs_shape))
-            )
+            self.Ghat.project(self.space.fft(sigma.reshape(self.dofs_shape)))
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -171,9 +168,7 @@ class Jacobian(eqx.Module):
         deps_flat = deps_flat.reshape(-1)
         dsigma = compute_stress(deps_flat)
         jvp_field = self.space.ifft(
-            self.tensor_op.ddot(
-                self.Ghat, self.space.fft(dsigma.reshape(self.dofs_shape))
-            )
+            self.Ghat.project(self.space.fft(dsigma.reshape(self.dofs_shape)))
         )
         return jnp.real(jvp_field).reshape(-1)
 
