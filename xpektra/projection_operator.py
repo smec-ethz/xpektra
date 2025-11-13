@@ -8,8 +8,9 @@ import equinox as eqx
 from abc import abstractmethod
 import numpy as np
 
-from xpektra.scheme import CartesianScheme
-from xpektra.scheme import SpectralSpace
+from xpektra.scheme import DiagonalScheme
+from xpektra.space import SpectralSpace
+#from xpektra.scheme import SpectralSpace
 
 
 class ProjectionOperator(eqx.Module):
@@ -37,8 +38,8 @@ class GalerkinProjection(eqx.Module):
     the projection on the fly. This saves a massive amount of memory.
     """
 
-    scheme: CartesianScheme
-
+    scheme: DiagonalScheme
+    
     @eqx.filter_jit
     def project(self, field_hat: Array) -> Array:
         """

@@ -4,6 +4,7 @@ from jax import Array
 import equinox as eqx
 from typing import Optional
 
+from xpektra.transform import Transform
 
 class SpectralSpace(eqx.Module):
     """Defines the spectral space
@@ -26,38 +27,22 @@ class SpectralSpace(eqx.Module):
         >>> space.differential_vector(jnp.array([1.0, 2.0, 3.0, 4.0]), "forward_difference")
     """
 
-    size: int
-    dim: int
-    length: float
-    iota: Optional[complex] = 1j
+    lengths: tuple[float, ...] = eqx.field(static=True)
+    transform: Transform = eqx.field(static=True)
 
-    def fft(self, x: Array) -> Array:
-        axes_to_transform = range(self.dim)
-        return jnp.fft.fftshift(
-            jnp.fft.fftn(
-                jnp.fft.ifftshift(x),
-                s=[self.size] * self.dim,
-                axes=axes_to_transform,
-            )
-        )
 
-    def ifft(self, x: Array) -> Array:
-        axes_to_transform = range(self.dim)
-        return jnp.fft.fftshift(
-            jnp.fft.ifftn(
-                jnp.fft.ifftshift(x),
-                s=[self.size] * self.dim,
-                axes=axes_to_transform,
-            )
-        )
+    def get_wavenumber_mesh(self) -> list[Array]:
+        """Creates a list of coordinate arrays for the wavenumbers."""
+        #ξ = self.transform.get_wavenumber_vector()
+        #if self.dim == 1:
+        #    return [ξ]
+        #else:
+        #    return list(
+        #        jnp.meshgrid(*([ξ] * self.dim), indexing="ij")
+        #    )
 
-    def frequency_vector(self) -> Array:
-        freq = (
-            jnp.arange(-(self.size - 1) / 2, +(self.size + 1) / 2, dtype="int64")
-            / self.length
-        )
-        return freq
-
-    def wavenumber_vector(self) -> Array:
-        freq = self.frequency_vector()
-        return 2 * jnp.pi * freq
+        k_vecs = [
+            self.transform.get_wavenumber_vector(n, l) 
+            for n, l in zip(self.transform.shape, self.lengths)
+        ]
+        return list(jnp.meshgrid(*k_vecs, indexing='ij'))
