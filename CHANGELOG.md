@@ -1,3 +1,12 @@
+## v0.3.1 (2025-11-13)
+
+### Fix
+
+- transform now agnostic of shape, examples adapted to new design (8e2fb12)
+- **examples**: adpating examples based on restructed projectors (2edc262)
+- **projection operator**: reimplements fourier-galerkin projection operator as matrix-free for better memory utilization (3aa78d0)
+- removing tensor operator as imput to Galerkin projection (6c63e2b)
+
 ## v0.3.0 (2025-11-08)
 
 ### Feat
