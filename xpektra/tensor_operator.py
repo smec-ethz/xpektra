@@ -58,6 +58,8 @@ class TensorOperator(eqx.Module):
 
     @eqx.filter_jit
     def dot(self, A: Array, B: Array) -> Array:
+        """Computes the dot product between tensors A and B."""
+
         rank_A = self._get_rank(A)
         rank_B = self._get_rank(B)
         einsum_str = DOT_EINSUM_DISPATCH.get((rank_A, rank_B))
@@ -67,11 +69,11 @@ class TensorOperator(eqx.Module):
             )
         return jnp.einsum(einsum_str, A, B, optimize="optimal")
 
-    # The other methods (ddot, trace, etc.) follow the exact same pattern
-    # Just replace the dispatch dictionary and the error message string.
 
     @eqx.filter_jit
     def ddot(self, A: Array, B: Array) -> Array:
+        """Computes the double dot product between tensors A and B."""
+
         rank_A = self._get_rank(A)
         rank_B = self._get_rank(B)
         einsum_str = DDOT_EINSUM_DISPATCH.get((rank_A, rank_B))
@@ -83,6 +85,8 @@ class TensorOperator(eqx.Module):
 
     @eqx.filter_jit
     def trace(self, A: Array) -> Array:
+        """Computes the trace of tensor A."""
+
         rank_A = self._get_rank(A)
         einsum_str = TRACE_EINSUM_DISPATCH.get(rank_A)
         if einsum_str is None:
@@ -93,6 +97,8 @@ class TensorOperator(eqx.Module):
 
     @eqx.filter_jit
     def trans(self, A: Array) -> Array:
+        """Computes the transpose of tensor A."""
+
         rank_A = self._get_rank(A)
         einsum_str = TRANS_EINSUM_DISPATCH.get(rank_A)
         if einsum_str is None:
@@ -103,6 +109,8 @@ class TensorOperator(eqx.Module):
 
     @eqx.filter_jit
     def dyad(self, A: Array, B: Array) -> Array:
+        """Computes the dyadic product between tensors A and B."""
+        
         rank_A = self._get_rank(A)
         rank_B = self._get_rank(B)
         einsum_str = DYAD_EINSUM_DISPATCH.get((rank_A, rank_B))
