@@ -35,36 +35,36 @@ class Scheme(eqx.Module):
         Checks if the scheme is compatible with the given transform.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def apply_gradient(self, u_hat: Array) -> Array:
         """
         Applies the gradient operator on the fly.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def apply_divergence(self, u_hat: Array) -> Array:
         """
         Applies the gradient operator on the fly.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def apply_symmetric_gradient(self, u_hat: Array) -> Array:
         """
         Applies the symmetric gradient operator on the fly.
         """
         raise NotImplementedError
-    
 
 
 class DiagonalScheme(Scheme):
     """
-    Base class for schemes operating on a uniform Cartesian grid where the differentiation is diagonal in Fourier space.
+    Base class for schemes operating on a uniform Cartesian grid
+    where the differentiation is diagonal in Fourier space.
     """
 
-    dim : int = eqx.field(static=True)
+    dim: int = eqx.field(static=True)
     gradient_operator: Array
     space: SpectralSpace = eqx.field(static=True)
 
@@ -77,8 +77,9 @@ class DiagonalScheme(Scheme):
         self.space = space
         self.dim = len(self.space.lengths)
         wavenumbers_mesh = space.get_wavenumber_mesh()
-        self.gradient_operator = self.compute_gradient_operator(wavenumbers_mesh=wavenumbers_mesh)
-
+        self.gradient_operator = self.compute_gradient_operator(
+            wavenumbers_mesh=wavenumbers_mesh
+        )
 
     def is_compatible(self, transform):
         return isinstance(transform, FFTTransform)
@@ -90,8 +91,8 @@ class DiagonalScheme(Scheme):
         Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
         """
         Dξs = self.gradient_operator
-        term1 = jnp.einsum('...i,...j->...ij', Dξs, u_hat) # D_i * u_j
-        term2 = jnp.einsum('...j,...i->...ij', Dξs, u_hat) # D_j * u_i
+        term1 = jnp.einsum("...i,...j->...ij", Dξs, u_hat)  # D_i * u_j
+        term2 = jnp.einsum("...j,...i->...ij", Dξs, u_hat)  # D_j * u_i
         return 0.5 * (term1 + term2)
 
     @eqx.filter_jit
@@ -102,8 +103,8 @@ class DiagonalScheme(Scheme):
         """
         Dξs = self.gradient_operator
         # Note: We must transpose sigma_hat for the ddot
-        return jnp.einsum('...j,...ji->...i', Dξs, u_hat)
-    
+        return jnp.einsum("...j,...ji->...i", Dξs, u_hat)
+
     @eqx.filter_jit
     def apply_gradient(self, u_hat: Array) -> Array:
         """
@@ -111,35 +112,31 @@ class DiagonalScheme(Scheme):
         Computes: grad_hat_ij = Dξ_i * u_hat_j
         """
         Dξs = self.gradient_operator
-        return jnp.einsum('...i,...j->...ij', Dξs, u_hat)
-
+        return jnp.einsum("...i,...j->...ij", Dξs, u_hat)
 
     def compute_gradient_operator(self, wavenumbers_mesh) -> Array:
         """Builds the full gradient operator field using the scheme's formula."""
         # This factor is needed for certain schemes like 'rotated_difference'
 
-        #wavenumbers_mesh = self.create_wavenumber_mesh()
         factor = 1.0
-        #Δ = self.space.length / self.space.size
-        
         if self.dim > 1:
             # Note: A scheme's formula must handle this factor if it needs it.
             for j in range(self.dim):
-                Δ = self.space.lengths[j] / self.space.transform.shape[j]
+                Δ = self.space.lengths[j] / self.space.shape[j]
                 factor *= 0.5 * (1 + np.exp(iota * wavenumbers_mesh[j] * Δ))
 
         diff_vectors = []
         for i in range(self.dim):
             Dξ_i = self.formula(
                 xi=wavenumbers_mesh[i],
-                dx=self.space.lengths[i] / self.space.transform.shape[i],
+                dx=self.space.lengths[i] / self.space.shape[i],
                 iota=iota,
                 factor=factor,
             )
             diff_vectors.append(Dξ_i)
 
         return np.stack(diff_vectors, axis=-1)
-    
+
     @abstractmethod
     def formula(self, xi, dx, iota, factor):
         """
@@ -151,10 +148,12 @@ class DiagonalScheme(Scheme):
 
 # --- Concrete Finite Difference Implementations ---
 
+
 class FourierScheme(DiagonalScheme):
     """
     Class implementing the standard spectral 'Fourier' derivative.
     """
+
     def formula(self, xi, dx, iota, factor):
         return iota * xi
 
@@ -221,7 +220,6 @@ class EighthOrderCentralDifference(DiagonalScheme):
         )
 
 
-
 ''' 
 class MatrixScheme(Scheme):
     """Base for Chebyshev, Legendre, etc."""
@@ -244,4 +242,4 @@ class MatrixScheme(Scheme):
         div_x = jnp.einsum("ij, j... -> i...", self.diff_matrices[0], v_hat[..., 0])
         div_y = jnp.einsum("ij, ...j -> ...i", self.diff_matrices[1], v_hat[..., 1])
         return div_x + div_y
-''' 
+'''

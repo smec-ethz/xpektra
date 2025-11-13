@@ -25,40 +25,37 @@ class Transform(eqx.Module):
 
 
 class FFTTransform(Transform):
-    """The standard, JAX-native Fast Fourier Transform."""
+    """
+    The standard, JAX-native Fast Fourier Transform.
+    
+    Args: 
+        dim: Number of spatial dimensions to transform over.
 
-    shape: tuple[int, ...]
+    Returns:
+        The FFT transform object.
+
+    Example:
+        >>> fft_transform = FFTTransform(dim=2)
+        >>> x_hat = fft_transform.forward(x)
+        >>> x = fft_transform.inverse(x_hat)
+    """
+
     dim: int = eqx.field(static=True)
-
-    def __init__(self, shape: tuple[int, ...]):
-        self.shape = shape
-        self.dim = len(shape)
 
     @eqx.filter_jit
     def forward(self, x: Array) -> Array:
         """
         Computes the centered FFT.
-        
+
         Args:
             x: Input array of shape (Nx, Ny, ..., d, d)
         Returns:
             x_hat: Transformed array of the same shape
         """
-        
+
         # Transform only the spatial axes (0 to dim-1)
         axes = range(self.dim)
-        
-        # ifftshift moves zero-freq from center to corners (standard FFT input)
-        # fftn performs the transform
-        # fftshift moves zero-freq back to center (for visualization/filtering)
-        return jnp.fft.fftshift(
-            jnp.fft.fftn(
-                jnp.fft.ifftshift(x, axes=axes), 
-                s=self.shape, 
-                axes=axes
-            ),
-            axes=axes
-        )
+        return jnp.fft.fftn(x, axes=axes)
 
     @eqx.filter_jit
     def inverse(self, x_hat: Array) -> Array:
@@ -71,20 +68,12 @@ class FFTTransform(Transform):
             x: Inverse transformed array of the same shape
         """
         axes = range(self.dim)
-        return jnp.fft.fftshift(
-            jnp.fft.ifftn(
-                jnp.fft.ifftshift(x_hat, axes=axes), 
-                s=self.shape, 
-                axes=axes
-            ),
-            axes=axes
-        )
-
+        return jnp.fft.ifftn(x_hat, axes=axes)
 
     def get_wavenumber_vector(self, size, length) -> Array:
         """
-        Returns the real-valued wavenumber ξ. 
-        
+        Returns the real-valued wavenumber ξ.
+
         For an FFT on N points over length L, the wavenumbers are:
         ξ = 2π * [0, 1, ..., N/2-1, -N/2, ..., -1] / L
 
@@ -97,12 +86,8 @@ class FFTTransform(Transform):
         """
 
         # Standard FFT frequencies: [0, 1, ..., -N/2, ..., -1]
-        freqs = jnp.fft.fftfreq(size, d=length/size)
-        
-        # Shifted frequencies: [-N/2, ..., 0, ..., N/2]
-        # This aligns the k-vector with the data returned by forward()
-        k = jnp.fft.fftshift(freqs) * 2 * jnp.pi
-        return k
+        freqs = jnp.fft.fftfreq(size, d=length / size)
+        return freqs * 2 * jnp.pi
 
 
 '''

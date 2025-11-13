@@ -37,7 +37,6 @@ import equinox as eqx
 # %%
 from xpektra import (
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
 from xpektra.scheme import RotatedDifference
@@ -46,6 +45,8 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
 )
+from xpektra.transform import FFTTransform
+from xpektra.spectral_operator import SpectralOperator
 
 
 # %% [markdown]
@@ -59,7 +60,7 @@ from xpektra.solvers.nonlinear import (  # noqa: E402
 # We define the grid size and the length of the RVE and construct the structure of the RVE.
 
 # %%
-N = 99
+N = 199
 ndim = 2
 length = 1
 
@@ -79,14 +80,24 @@ else:
 # ## Definin the tensor operator and the spectral space
 
 # %%
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
+# tensor = TensorOperator(dim=ndim)
+# space = SpectralSpace(size=N, dim=ndim, length=length)
+
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(
+    lengths=(length,) * ndim, shape=phase.shape, transform=fft_transform
+)
+rotated_scheme = RotatedDifference(space=space)
+
+op = SpectralOperator(
+    scheme=rotated_scheme,
+    space=space,
+)
 
 # %% [markdown]
 # Next, we define the material parameters.
 
 # %%
-
 # Material parameters [grids of scalars, shape (N,N,N)]
 lambda1, lambda2 = 10.0, 1000.0
 mu1, mu2 = 0.25, 2.5
@@ -110,9 +121,9 @@ dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
 @eqx.filter_jit
 def strain_energy(eps_flat: Array) -> Array:
     eps = eps_flat.reshape(dofs_shape)
-    eps_sym = 0.5 * (eps + tensor.trans(eps))
-    energy = 0.5 * jnp.multiply(lambdas, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        mu, tensor.trace(tensor.dot(eps_sym, eps_sym))
+    eps_sym = 0.5 * (eps + op.trans(eps))
+    energy = 0.5 * jnp.multiply(lambdas, op.trace(eps_sym) ** 2) + jnp.multiply(
+        mu, op.trace(op.dot(eps_sym, eps_sym))
     )
     return energy.sum()
 
@@ -120,7 +131,7 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 # %%
-Ghat = GalerkinProjection(scheme=RotatedDifference(space=space))
+Ghat = GalerkinProjection(scheme=rotated_scheme)
 
 
 # %%
@@ -128,8 +139,6 @@ class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
     Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
     dofs_shape: tuple = eqx.field(static=True)
 
     # We can even pre-define the stress function if it's always the same
@@ -144,8 +153,8 @@ class Residual(eqx.Module):
         """
         eps_flat = eps_flat.reshape(-1)
         sigma = compute_stress(eps_flat)
-        residual_field = self.space.ifft(
-            self.Ghat.project(self.space.fft(sigma.reshape(self.dofs_shape)))
+        residual_field = op.inverse(
+            Ghat.project(op.forward(sigma.reshape(self.dofs_shape)))
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -154,8 +163,6 @@ class Jacobian(eqx.Module):
     """A callable module that represents the Jacobian operator (tangent)."""
 
     Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
     dofs_shape: tuple = eqx.field(static=True)
 
     @eqx.filter_jit
@@ -167,8 +174,8 @@ class Jacobian(eqx.Module):
 
         deps_flat = deps_flat.reshape(-1)
         dsigma = compute_stress(deps_flat)
-        jvp_field = self.space.ifft(
-            self.Ghat.project(self.space.fft(dsigma.reshape(self.dofs_shape)))
+        jvp_field = op.inverse(
+            Ghat.project(op.forward(dsigma.reshape(self.dofs_shape)))
         )
         return jnp.real(jvp_field).reshape(-1)
 
@@ -179,8 +186,8 @@ applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
 deps = make_field(dim=2, N=N, rank=2)
 eps = make_field(dim=2, N=N, rank=2)
 
-residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
+residual_fn = Residual(Ghat=Ghat, dofs_shape=eps.shape)
+jacobian_fn = Jacobian(Ghat=Ghat, dofs_shape=eps.shape)
 
 
 # %%

@@ -36,6 +36,17 @@ class GalerkinProjection(eqx.Module):
     the full 4th-order Ghat tensor. Instead, it stores the
     gradient operator (Dξs) and its inverse (Dξ_inv) and computes
     the projection on the fly. This saves a massive amount of memory.
+
+    Args:
+        scheme: The differential scheme providing the gradient operator.
+    
+    Returns:
+        The Galerkin projection operator.
+
+    Example:
+        >>> projection = GalerkinProjection(scheme)
+        >>> eps_hat = projection.project(field_hat)
+    
     """
 
     scheme: DiagonalScheme
@@ -46,6 +57,11 @@ class GalerkinProjection(eqx.Module):
         Applies the projection on the fly. This is the core of the class.
 
         Computes: eps_hat = [δ_im * Dξ_j * Dξ_inv_l] * sigma_hat_lm
+
+        Args:
+            field_hat: The input field in Fourier space, shape (..., dim, dim).
+        Returns:
+            The projected field in Fourier space, shape (..., dim, dim).
         """
         Dξs = self.scheme.gradient_operator
 

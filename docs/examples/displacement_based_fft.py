@@ -16,7 +16,9 @@
 # %% [markdown]
 # # Linear Elasticity
 #
-# In this example, we solve a displacement-based FFT problem for a heterogeneous material.
+# In this example, we solve a displacement-based FFT problem for a heterogeneous
+# material.
+#
 
 # %%
 import jax
@@ -34,10 +36,11 @@ import numpy as np
 # %%
 from xpektra import (
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
-from xpektra.scheme import Fourier
+from xpektra.transform import FFTTransform
+from xpektra.scheme import FourierScheme
+from xpektra.spectral_operator import SpectralOperator
 from xpektra.solvers.nonlinear import (  # noqa: E402
     newton_krylov_solver,
     preconditioned_conjugate_gradient,
@@ -55,7 +58,9 @@ import matplotlib.pyplot as plt
 # \mathbb{M}(\xi) = [ \xi \cdot \mathbb{C} \cdot \xi ]^{-1}
 # $$
 #
-# where $\mathbb{C}$ is the homogeneous elasticity tensor and $\xi$ is the wavenumber vector.
+# where $\mathbb{C}$ is the homogeneous elasticity tensor and $\xi$ is the
+# wavenumber vector.
+#
 
 # %%
 class HomogeneousPreconditioner(eqx.Module):
@@ -74,11 +79,14 @@ class HomogeneousPreconditioner(eqx.Module):
         self.space = space
         self.u_shape = u_shape
 
-        xi_vec = space.wavenumber_vector()
-        if space.dim == 1:
-            meshes = [xi_vec]
-        else:
-            meshes = np.meshgrid(*([xi_vec] * space.dim), indexing="ij")
+        dim = len(space.lengths)
+
+        # xi_vec = space.wavenumber_vector()
+        # if space.dim == 1:
+        #    meshes = [xi_vec]
+        # else:
+        #    meshes = np.meshgrid(*([xi_vec] * space.dim), indexing="ij")
+        meshes = self.space.get_wavenumber_mesh()
 
         # xi_field is our 'ξ' field, shape (N, N, d)
         xi_field = jnp.stack(meshes, axis=-1)
@@ -87,7 +95,7 @@ class HomogeneousPreconditioner(eqx.Module):
         M = jnp.einsum("...j,...k,ijkl->...il", xi_field, xi_field, C0, optimize=True)
 
         # Invert the K matrix at every point
-        M_reg = M + jnp.eye(space.dim) * 1e-12
+        M_reg = M + jnp.eye(dim) * 1e-12
         M_inv = jnp.linalg.inv(M_reg)
 
         xi_dot_xi = jnp.sum(xi_field * xi_field, axis=-1, keepdims=True)
@@ -97,12 +105,12 @@ class HomogeneousPreconditioner(eqx.Module):
     def __call__(self, r_flat: Array) -> Array:
         """Applies the preconditioner: z = M⁻¹ * r"""
         r = r_flat.reshape(self.u_shape)
-        r_hat = self.space.fft(r)
+        r_hat = self.space.transform.forward(r)
 
         # z_hat = M_inv * r_hat  (z_i = K_inv_il * r_l)
         z_hat = jnp.einsum("...il,...l->...i", self.M_inv, r_hat, optimize=True)
 
-        z = self.space.ifft(z_hat).real
+        z = self.space.transform.inverse(z_hat).real
         return z.reshape(-1)
 
 
@@ -129,29 +137,43 @@ plt.show()
 
 
 # %% [markdown]
-# Similar to the examples for `Fourier-Galerkin` and `Moulinec-Suquet` tutorials, we define the `SpectralSpace` and `TensorOperator` objects.
+# Similar to the examples for `Fourier-Galerkin` and `Moulinec-Suquet` tutorials,
+# we define the `SpectralSpace` and `TensorOperator` objects.
+#
 
 # %%
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
+# tensor = TensorOperator(dim=ndim)
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(
+    lengths=(length,) * ndim, shape=phase.shape, transform=fft_transform
+)
+fourier_scheme = FourierScheme(space=space)
 
+op = SpectralOperator(
+    scheme=fourier_scheme,
+    space=space,
+)
 
 u_shape = make_field(dim=ndim, N=N, rank=1).shape
 eps_shape = make_field(dim=ndim, N=N, rank=2).shape
 
 # %% [markdown]
-# Unlike `Fourier-Galerkin` and `Moulinec-Suquet` schemes, displacement-based FFT scheme doesnot require any projection operators. Since it solves the strong form of the problem, we need to define a symmetric gradient and divergence operators in Fourier space.
+# Unlike `Fourier-Galerkin` and `Moulinec-Suquet` schemes, displacement-based FFT
+# scheme doesnot require any projection operators. Since it solves the strong form
+# of the problem, we need to define a symmetric gradient and divergence operators
+# in Fourier space.
 #
 
 # %%
-scheme = Fourier(space=space)
+# scheme = Fourier(space=space)
 
 # nabla = scheme.gradient_operator
-#nabla_sym = scheme.symmetric_gradient_operator
-#div = scheme.divergence_operator
+# nabla_sym = scheme.symmetric_gradient_operator
+# div = scheme.divergence_operator
 
 # %% [markdown]
 # Defining the material parameters.
+#
 
 # %%
 # Material parameters [grids of scalars, shape (N,N,N)]
@@ -161,7 +183,10 @@ lambdas = lambda1 * (1.0 - phase) + lambda2 * phase
 mu = mu1 * (1.0 - phase) + mu2 * phase
 
 # %% [markdown]
-# Now we can construct our preconditioner. We need to define a reference tensor $\mathbb{C}_0$ and pass it to the preconditioner. The reference tensor is defined as the average of the material parameters over the domain.
+# Now we can construct our preconditioner. We need to define a reference tensor
+# $\mathbb{C}_0$ and pass it to the preconditioner. The reference tensor is
+# defined as the average of the material parameters over the domain.
+#
 
 # %%
 # --- Create a C0 reference tensor ---
@@ -184,21 +209,23 @@ krylov_solver_fn = eqx.Partial(
 
 # %% [markdown]
 # ## Defining the strain and strain energy functions.
+#
 
 # %%
 @eqx.filter_jit
 def compute_strain(u: Array) -> Array:
     u = u.reshape(u_shape)
-    u_hat = space.fft(u)
-    return space.ifft(scheme.symm_grad(u_hat)).real
+    # u_hat = space.fft(u)
+    # return space.ifft(scheme.symm_grad(u_hat)).real
+    return op.sym_grad(u)
 
 
 @eqx.filter_jit
 def strain_energy(eps: Array) -> Array:
     eps = eps.reshape(eps_shape)
-    eps_sym = 0.5 * (eps + tensor.trans(eps))
-    energy = 0.5 * jnp.multiply(lambdas, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        mu, tensor.trace(tensor.dot(eps_sym, eps_sym))
+    eps_sym = 0.5 * (eps + op.trans(eps))
+    energy = 0.5 * jnp.multiply(lambdas, op.trace(eps_sym) ** 2) + jnp.multiply(
+        mu, op.trace(op.dot(eps_sym, eps_sym))
     )
     return energy.sum()
 
@@ -210,8 +237,8 @@ compute_stress = jax.jacrev(strain_energy)
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
-    scheme: Fourier
-    space: SpectralSpace = eqx.field(static=True)
+    # scheme: Fourier
+    # space: SpectralSpace = eqx.field(static=True)
     u_shape: tuple = eqx.field(static=True)
 
     # We can even pre-define the stress function if it's always the same
@@ -227,17 +254,19 @@ class Residual(eqx.Module):
         u = u_flat.reshape(self.u_shape)
         eps = compute_strain(u)
         sigma = compute_stress(eps + eps_macro)
-        sigma_hat = self.space.fft(sigma)
-        residual_hat = self.scheme.div(sigma_hat)
-        residual = self.space.ifft(residual_hat).real
+        # sigma_hat = self.space.fft(sigma)
+        # residual_hat = self.scheme.div(sigma_hat)
+        # residual = self.space.ifft(residual_hat).real
+        # return residual.reshape(-1)
+        residual = op.div(sigma)
         return residual.reshape(-1)
 
 
 class Jacobian(eqx.Module):
     """A callable module that represents the Jacobian operator (tangent)."""
 
-    scheme: Fourier
-    space: SpectralSpace = eqx.field(static=True)
+    # scheme: Fourier
+    # space: SpectralSpace = eqx.field(static=True)
     u_shape: tuple = eqx.field(static=True)
 
     @eqx.filter_jit
@@ -249,10 +278,12 @@ class Jacobian(eqx.Module):
         du = du_flat.reshape(self.u_shape)
         deps = compute_strain(du)
         dsigma = compute_stress(deps)
-        dsigma_hat = self.space.fft(dsigma)
-        jvp_hat = self.scheme.div(dsigma_hat)
-        jvp = self.space.ifft(jvp_hat).real
-        return jvp.reshape(-1)
+        # dsigma_hat = self.space.fft(dsigma)
+        # jvp_hat = self.scheme.div(dsigma_hat)
+        # jvp = self.space.ifft(jvp_hat).real
+        # return jvp.reshape(-1)
+        tangent = op.div(dsigma)
+        return tangent.reshape(-1)
 
 
 
@@ -262,8 +293,8 @@ u = make_field(dim=2, N=N, rank=1)
 
 eps_macro = make_field(dim=2, N=N, rank=2)
 
-residual_fn = Residual(scheme=scheme, space=space, u_shape=u_shape)
-jacobian_fn = Jacobian(scheme=scheme, space=space, u_shape=u_shape)
+residual_fn = Residual(u_shape=u_shape)
+jacobian_fn = Jacobian(u_shape=u_shape)
 
 
 applied_strains = jnp.linspace(0, 1e-2, num=5)
@@ -297,6 +328,7 @@ sig = compute_stress(eps)
 
 # %% [markdown]
 # Let us now plot the stresses and displacement fields
+#
 
 # %%
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -305,13 +337,17 @@ fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3), layout="constrained")
 cb1 = ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
 divider = make_axes_locatable(ax1)
 cax = divider.append_axes("top", size="10%", pad=0.2)
-fig.colorbar(cb1, cax=cax, label=r"$\sigma_{xx}$", orientation="horizontal", location="top")
+fig.colorbar(
+    cb1, cax=cax, label=r"$\sigma_{xx}$", orientation="horizontal", location="top"
+)
 
 
 cb2 = ax2.imshow(u.at[:, :, 1].get(), cmap="managua_r")
 divider = make_axes_locatable(ax2)
 cax = divider.append_axes("top", size="10%", pad=0.2)
-fig.colorbar(cb2, cax=cax, label="Displacement", orientation="horizontal", location="top")
+fig.colorbar(
+    cb2, cax=cax, label="Displacement", orientation="horizontal", location="top"
+)
 
 ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
 ax_twin = ax3.twinx()

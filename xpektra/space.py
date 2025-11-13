@@ -1,48 +1,39 @@
-import jax
 import jax.numpy as jnp  # type: ignore
 from jax import Array
 import equinox as eqx
-from typing import Optional
 
 from xpektra.transform import Transform
+
 
 class SpectralSpace(eqx.Module):
     """Defines the spectral space
 
     Args:
-        size: The size of the spectral space.
-        dim: The dimension of the spectral space.
-        length: The length of the spectral space.
-        iota: The imaginary unit.
+        shape: The shape of the spectral space.
+        lengths: The lengths of the spectral space.
+        transform: The transform to be used in the spectral space.
 
     Returns:
         The spectral space.
 
     Example:
-        >>> space = SpectralSpace(size=10, dim=1, length=1.0)
-        >>> space.fft(jnp.array([1.0, 2.0, 3.0, 4.0]))
-        >>> space.ifft(jnp.array([ 5. +0.j, -5.+10.j], dtype=complex64))
-        >>> space.frequency_vector()
-        >>> space.wavenumber_vector()
-        >>> space.differential_vector(jnp.array([1.0, 2.0, 3.0, 4.0]), "forward_difference")
+        >>> space = SpectralSpace(shape=(10,), lengths=(1.0,), transform=FFTTransform(dim=1))
+        >>> space.get_wavenumber_vector()
     """
 
     lengths: tuple[float, ...] = eqx.field(static=True)
+    shape: tuple[int, ...] = eqx.field(static=True)
     transform: Transform = eqx.field(static=True)
 
-
     def get_wavenumber_mesh(self) -> list[Array]:
-        """Creates a list of coordinate arrays for the wavenumbers."""
-        #ξ = self.transform.get_wavenumber_vector()
-        #if self.dim == 1:
-        #    return [ξ]
-        #else:
-        #    return list(
-        #        jnp.meshgrid(*([ξ] * self.dim), indexing="ij")
-        #    )
+        """
+        Creates a list of coordinate arrays for the wavenumbers.
 
+        Returns:
+            A list of arrays representing the wavenumber meshgrid.
+        """
         k_vecs = [
-            self.transform.get_wavenumber_vector(n, l) 
-            for n, l in zip(self.transform.shape, self.lengths)
+            self.transform.get_wavenumber_vector(n, length)
+            for n, length in zip(self.shape, self.lengths)
         ]
-        return list(jnp.meshgrid(*k_vecs, indexing='ij'))
+        return list(jnp.meshgrid(*k_vecs, indexing="ij"))

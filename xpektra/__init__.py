@@ -4,7 +4,7 @@ import numpy as np
 
 
 
-def make_field(dim: int, N: int, rank: int, dtype: np.dtype = float) -> np.ndarray:
+def make_field(dim: int, shape: tuple, rank: int, dtype: np.dtype = float) -> np.ndarray:
     """
     Creates a zero-filled tensor field with the (spatial..., tensor...) memory layout.
 
@@ -16,7 +16,7 @@ def make_field(dim: int, N: int, rank: int, dtype: np.dtype = float) -> np.ndarr
     Returns:
         A NumPy array with the correct shape.
     """
-    spatial_shape = (N,) * dim
+    spatial_shape = shape  # Shape of the spatial dimensions
     tensor_shape = (dim,) * rank  # Assumes tensor dimensions are size `dim`
 
     return np.zeros(spatial_shape + tensor_shape, dtype=dtype)
