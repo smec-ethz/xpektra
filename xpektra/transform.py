@@ -14,7 +14,7 @@ class Transform(eqx.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def backward(self, x_hat: Array) -> Array:
+    def inverse(self, x_hat: Array) -> Array:
         """Perform the inverse transform (e.g., iFFT, iDCT)."""
         raise NotImplementedError
 
@@ -39,7 +39,7 @@ class FFTTransform(Transform):
         )
 
     @eqx.filter_jit
-    def backward(self, x_hat: Array) -> Array:
+    def inverse(self, x_hat: Array) -> Array:
         axes = range(self.dim)
         return jnp.fft.fftshift(
             jnp.fft.ifftn(jnp.fft.ifftshift(x_hat), s=[self.size] * self.dim, axes=axes)
