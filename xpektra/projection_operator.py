@@ -5,27 +5,9 @@ Projection operators for the spectral methods.
 import jax.numpy as jnp
 from jax import Array
 import equinox as eqx
-from abc import abstractmethod
-import numpy as np
 
 from xpektra.scheme import DiagonalScheme
 from xpektra.space import SpectralSpace
-#from xpektra.scheme import SpectralSpace
-
-
-class ProjectionOperator(eqx.Module):
-    """
-    An 'abstract' base class for operators that project fields.
-
-    It uses a `Scheme` to construct a 4th-order tensor that
-    enforces mechanical constraints in Fourier space.
-
-    """
-
-    @abstractmethod
-    def compute_operator(self) -> Array:
-        """Abstract method to compute the 4th-order operator tensor."""
-        raise NotImplementedError
 
 
 class GalerkinProjection(eqx.Module):
@@ -39,18 +21,18 @@ class GalerkinProjection(eqx.Module):
 
     Args:
         scheme: The differential scheme providing the gradient operator.
-    
+
     Returns:
         The Galerkin projection operator.
 
     Example:
         >>> projection = GalerkinProjection(scheme)
         >>> eps_hat = projection.project(field_hat)
-    
+
     """
 
     scheme: DiagonalScheme
-    
+
     @eqx.filter_jit
     def project(self, field_hat: Array) -> Array:
         """
@@ -88,11 +70,22 @@ class GalerkinProjection(eqx.Module):
         return eps_hat
 
 
-class MoulinecSuquetProjection(ProjectionOperator):
+class MoulinecSuquetProjection(eqx.Module):
     """
-    A subclass of `ProjectionOperator` implementing the Moulinec-Suquet (MS) Green's operator,
+    A class implementing the Moulinec-Suquet (MS) Green's operator,
     which depends on a homogeneous isotropic reference material.
-    """
+
+    Args:
+        space: The spectral space defining the grid and transform.
+        lambda0: The first Lamé parameter of the reference material.
+        mu0: The second Lamé parameter (shear modulus) of the reference material.
+    Returns:
+        The Moulinec-Suquet projection operator.
+
+    Example:
+        >>> Ghat = MoulinecSuquetProjection(space, lambda0, mu0).compute_operator()
+   
+     """
 
     space: SpectralSpace
     lambda0: Array
@@ -102,20 +95,20 @@ class MoulinecSuquetProjection(ProjectionOperator):
         """
         Implements the Moulinec-Suquet projection operator.
 
-        ```python
-        Ghat = MoulinecSuquetProjection(space, lambda0, mu0).compute_operator()
-        ```
+        Returns:
+            The Green's operator Ghat, shape (..., dim, dim, dim, dim).
         """
+
         # Get grid properties from the scheme's space
-        ndim = self.space.dim
+        ndim = len(self.space.shape)
 
         # Get the frequency grid 'q' (which is ξ), shape (N, N, N, 3)
-        freq_vec = self.space.frequency_vector()
-        meshes = np.meshgrid(*([freq_vec] * ndim), indexing="ij")
+        meshes = self.space.get_wavenumber_mesh()
         q = jnp.stack(meshes, axis=-1)
 
         # Pre-calculate scalar terms, ensuring no division by zero
         q_dot_q = jnp.sum(q * q, axis=-1, keepdims=True)
+        
         # Use jnp.where to safely handle the zero-frequency mode
         q_dot_q_safe = jnp.where(q_dot_q == 0, 1.0, q_dot_q)
 

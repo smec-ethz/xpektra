@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.18.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: xpektra
 #     language: python
 #     name: python3
 # ---
@@ -36,9 +36,11 @@ import matplotlib.pyplot as plt
 # %%
 from xpektra import (
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
+from xpektra.transform import FFTTransform
+from xpektra.scheme import FourierScheme
+from xpektra.spectral_operator import SpectralOperator
 from xpektra.projection_operator import MoulinecSuquetProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
@@ -90,23 +92,29 @@ mu = mu1 * (1.0 - phase) + mu2 * phase
 #
 
 # %%
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(
+    lengths=(length,) * ndim, shape=phase.shape, transform=fft_transform
+)
+fourier_scheme = FourierScheme(space=space)
+
+op = SpectralOperator(
+    scheme=fourier_scheme,
+    space=space,
+)
 
 
 # %% [markdown]
 # ## Defining the constitutive law
 
 # %%
-
 @eqx.filter_jit
 def _strain_energy(eps: Array, lambdas: Array, mu: Array) -> Array:
-    eps_sym = 0.5 * (eps + tensor.trans(eps))
-    energy = 0.5 * jnp.multiply(lambdas, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        mu, tensor.trace(tensor.dot(eps_sym, eps_sym))
+    eps_sym = 0.5 * (eps + op.trans(eps))
+    energy = 0.5 * jnp.multiply(lambdas, op.trace(eps_sym) ** 2) + jnp.multiply(
+        mu, op.trace(op.dot(eps_sym, eps_sym))
     )
     return energy.sum()
-
 
 
 # %% [markdown]
@@ -130,7 +138,7 @@ compute_reference_stress = jax.jacrev(reference_energy)
 
 # %%
 i = jnp.eye(ndim)
-I = make_field(dim=ndim, N=N, rank=2) + i  # Add i to broadcast
+I = make_field(dim=ndim, shape=(N, N), rank=2) + i  # Add i to broadcast
 
 I4 = jnp.einsum("il,jk->ijkl", i, i)
 I4rt = jnp.einsum("ik,jl->ijkl", i, i)
@@ -140,14 +148,15 @@ II = jnp.einsum("...ij,...kl->...ijkl", I, I)
 # Build the constant C0 reference tensor [shape (3,3,3,3)]
 C0 = lambda0 * II + 2.0 * mu0 * I4s
 
-assert np.allclose(tensor.ddot(C0, I), compute_reference_stress(I)), "Reference stress computation is incorrect"
+assert np.allclose(op.ddot(C0, I), compute_reference_stress(I)), (
+    "Reference stress computation is incorrect"
+)
 
 
 # %% [markdown]
 # We can now define the Moulinec-Suquet projection operator.
 
 # %%
-
 Ghat = MoulinecSuquetProjection(
     space=space, lambda0=lambda0, mu0=mu0
 ).compute_operator()
@@ -161,8 +170,6 @@ class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
     Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
     dofs_shape: tuple = eqx.field(static=True)
 
     # We can even pre-define the stress function if it's always the same
@@ -176,10 +183,10 @@ class Residual(eqx.Module):
         It takes only the flattened vector of unknowns, as required by the solver.
         """
         eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps) 
-        sigma0 = compute_reference_stress(eps) 
+        sigma = compute_stress(eps)
+        sigma0 = compute_reference_stress(eps)
         tau = sigma - sigma0
-        eps_fluc = self.space.ifft(self.tensor_op.ddot(self.Ghat, self.space.fft(tau)))
+        eps_fluc = op.inverse(op.ddot(self.Ghat, op.forward(tau)))
 
         residual_field = eps - eps_macro + jnp.real(eps_fluc)
 
@@ -190,8 +197,6 @@ class Jacobian(eqx.Module):
     """A callable module that represents the Jacobian operator (tangent)."""
 
     Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
     dofs_shape: tuple = eqx.field(static=True)
 
     @eqx.filter_jit
@@ -204,11 +209,9 @@ class Jacobian(eqx.Module):
         deps = deps_flat.reshape(self.dofs_shape)
 
         dsigma = compute_stress(deps)
-        dsigma0 = compute_reference_stress(deps) 
+        dsigma0 = compute_reference_stress(deps)
         dtau = dsigma - dsigma0
-        jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(dtau))
-        )
+        jvp_field = op.inverse(op.ddot(self.Ghat, op.forward(dtau)))
         jvp_field = jnp.real(jvp_field) + deps
         return jvp_field.reshape(-1)
 
@@ -217,12 +220,12 @@ class Jacobian(eqx.Module):
 # %%
 applied_strains = jnp.linspace(0, 1e-2, num=5)
 
-eps = make_field(dim=2, N=N, rank=2)
-deps = make_field(dim=2, N=N, rank=2)
-eps_macro = make_field(dim=2, N=N, rank=2)
+eps = make_field(dim=2, shape=(N, N), rank=2)
+deps = make_field(dim=2, shape=(N, N), rank=2)
+eps_macro = make_field(dim=2, shape=(N, N), rank=2)
 
-residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
+residual_fn = Residual(Ghat=Ghat, dofs_shape=eps.shape)
+jacobian_fn = Jacobian(Ghat=Ghat, dofs_shape=eps.shape)
 
 
 for inc, eps_avg in enumerate(applied_strains):
@@ -273,5 +276,3 @@ ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()
 
-
-# %%

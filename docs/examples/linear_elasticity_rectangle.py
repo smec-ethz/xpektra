@@ -60,20 +60,23 @@ from xpektra.spectral_operator import SpectralOperator
 # We define the grid size and the length of the RVE and construct the structure of the RVE.
 
 # %%
-N = 199
+Nx = 151
+Ny = 199
 ndim = 2
-length = 1
-
+lx = 0.75
+ly = 1.0
 
 
 # Create phase indicator (cylinder)
-x = np.linspace(-0.5, 0.5, N)
+x = np.linspace(-lx/2, lx/2, Nx)
+y = np.linspace(-ly/2, ly/2, Ny)
+
 
 if ndim == 3:
-    Y, X, Z = np.meshgrid(x, x, x, indexing="ij")  # (N, N, N) grid
+    Y, X, Z = np.meshgrid(x, y, x, indexing="ij")  # (N, N, N) grid
     phase = jnp.where(X**2 + Z**2 <= (0.2 / np.pi), 1.0, 0.0)  # 20% vol frac
 else:
-    X, Y = np.meshgrid(x, x, indexing="ij")  # (N, N) grid
+    X, Y = np.meshgrid(x, y, indexing="ij")  # (N, N) grid
     phase = jnp.where(X**2 + Y**2 <= (0.2 / np.pi), 1.0, 0.0)
 
 # %% [markdown]
@@ -85,7 +88,7 @@ else:
 
 fft_transform = FFTTransform(dim=ndim)
 space = SpectralSpace(
-    lengths=(length,) * ndim, shape=phase.shape, transform=fft_transform
+    lengths=(lx, ly), shape=phase.shape, transform=fft_transform
 )
 rotated_scheme = RotatedDifference(space=space)
 
@@ -232,9 +235,9 @@ divider = make_axes_locatable(ax2)
 cax = divider.append_axes("top", size="10%", pad=0.2)
 fig.colorbar(cb2, cax=cax, label=r"$\varepsilon_{xy}$", orientation="horizontal", location="top")
 
-ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
+ax3.plot(sig.at[:, :, 0, 0].get()[int(Nx / 2), :])
 ax_twin = ax3.twinx()
-ax_twin.plot(phase[int(N / 2), :], color="gray")
+ax_twin.plot(phase[int(Nx / 2), :], color="gray")
 plt.show()
 
 
