@@ -80,6 +80,20 @@ class SpectralOperator(eqx.Module):
         sym_grad_u_hat = self.scheme.apply_symmetric_gradient(u_hat)
         sym_grad_u = self.space.transform.inverse(sym_grad_u_hat)
         return sym_grad_u.real
+    
+    @eqx.filter_jit
+    def laplacian(self, u: Array) -> Array:
+        """Applies the Laplacian operator to the input real-valued array u.
+
+        Args:
+            u: A real-valued array of shape (N,)*dim.
+        Returns:
+            The Laplacian of u, a real-valued array of shape (N,)*dim.
+        """
+        u_hat = self.space.transform.forward(u)
+        lap_u_hat = self.scheme.apply_laplacian(u_hat)
+        lap_u = self.space.transform.inverse(lap_u_hat)
+        return lap_u.real
 
     @eqx.filter_jit
     def forward(self, u: Array) -> Array:
