@@ -27,6 +27,7 @@ examples = [
     "scikit-image>=0.25.2",
     "matplotlib",
     "optax>=0.2.6",
+    "jaxopt>=0.8.5",
 ]
 dev = [
     "cmap>=0.6.2",
@@ -43,6 +44,7 @@ docs = [
     "mkdocs-material>=9.6.23",
     "mkdocstrings-python>=1.18.2",
 ]
+example = []
 
 
 [build-system]
