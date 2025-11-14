@@ -20,8 +20,6 @@ class Scheme(eqx.Module):
     discrete gradient operator based on a given spectral space.
     """
 
-    # space: eqx.AbstractVar[SpectralSpace]
-
     @abstractmethod
     def compute_gradient_operator(self) -> Array:
         """
@@ -127,7 +125,8 @@ class DiagonalScheme(Scheme):
         Dξs = self.gradient_operator
         if self.dim == 1:
             return Dξs * u_hat
-        return jnp.einsum("...i,...j->...ij", Dξs, u_hat)
+
+        return Dξs * u_hat[..., None]
     
     @eqx.filter_jit
     def apply_laplacian(self, u_hat: Array) -> Array:
@@ -177,8 +176,6 @@ class DiagonalScheme(Scheme):
         """
         raise NotImplementedError
 
-
-# --- Concrete Finite Difference Implementations ---
 
 
 class FourierScheme(DiagonalScheme):

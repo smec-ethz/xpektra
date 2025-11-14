@@ -26,6 +26,7 @@ examples = [
     "ipykernel>=6.30.0",
     "scikit-image>=0.25.2",
     "matplotlib",
+    "optax>=0.2.6",
 ]
 dev = [
     "cmap>=0.6.2",

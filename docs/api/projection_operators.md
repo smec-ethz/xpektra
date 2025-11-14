@@ -1,16 +1,10 @@
 # Projection Operators
 
-::: xpektra.projection_operator.ProjectionOperator
-    options:
-        members: 
-            - compute_operator
-            - scheme
-            - tensor_op
 
 ::: xpektra.projection_operator.GalerkinProjection
     options:
         members: 
-            - compute_operator
+            - project
 
 The formula is given by: <br>
 

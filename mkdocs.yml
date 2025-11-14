@@ -91,3 +91,4 @@ nav:
     - Basic API:
         - 'api/projection_operators.md'
         - 'api/scheme_api.md'
+        - 'api/spectral_operator_api.md'

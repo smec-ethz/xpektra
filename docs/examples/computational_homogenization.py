@@ -17,8 +17,10 @@ from xpektra import (
     make_field,
 )
 
-from xpektra.scheme import RotatedDifference, Fourier
-from xpektra.green_functions import fourier_galerkin
+from xpektra import SpectralSpace, make_field
+from xpektra.transform import FFTTransform
+from xpektra.scheme import RotatedDifference, FourierScheme
+from xpektra.spectral_operator import SpectralOperator
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
@@ -32,7 +34,7 @@ volume_fraction_percentage = 0.007
 
 # %%
 length = 0.1
-H, L = (255, 255)
+H, L = (299, 299)
 
 dx = length / H
 dy = length / L
@@ -51,8 +53,10 @@ structure[Hmid - r : Hmid + 1 + r, Lmid - r : Lmid + 1 + r] += disk(r)
 ndim = len(structure.shape)
 N = structure.shape[0]
 
+
 def param(X, inclusion, solid):
     return inclusion * jnp.ones_like(X) * (X) + solid * jnp.ones_like(X) * (1 - X)
+
 
 # material parameters
 # lames constant
@@ -74,33 +78,40 @@ bulk_modulus["inclusion"] = (
 K0 = param(structure, inclusion=bulk_modulus["inclusion"], solid=bulk_modulus["solid"])
 
 
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(
+    lengths=(length,) * ndim, shape=structure.shape, transform=fft_transform
+)
+diff_scheme = RotatedDifference(space=space)
+
+op = SpectralOperator(
+    scheme=diff_scheme,
+    space=space,
+)
+
+dofs_shape = make_field(dim=2, shape=structure.shape, rank=2).shape
 
 @eqx.filter_jit
-def strain_energy(eps):
-    eps_sym = 0.5 * (eps + tensor.trans(eps))
-    energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
+def strain_energy(eps_flat: Array) -> Array:
+    eps = eps_flat.reshape(dofs_shape)
+    eps_sym = 0.5 * (eps + op.trans(eps))
+    energy = 0.5 * jnp.multiply(λ0, op.trace(eps_sym) ** 2) + jnp.multiply(
+        μ0, op.trace(op.dot(eps_sym, eps_sym))
     )
     return energy.sum()
 
 
 compute_stress = jax.jit(jax.jacrev(strain_energy))
 
-Ghat = GalerkinProjection(
-    scheme=RotatedDifference(space=space), tensor_op=tensor
-).compute_operator()
+Ghat = GalerkinProjection(scheme=diff_scheme)
 
 
-eps = make_field(dim=2, N=N, rank=2)
+eps = make_field(dim=2, shape=structure.shape, rank=2)
 
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
     Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
     dofs_shape: tuple = eqx.field(static=True)
 
     # We can even pre-define the stress function if it's always the same
@@ -113,10 +124,10 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
-        residual_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma))
+        eps_flat = eps_flat.reshape(-1)
+        sigma = compute_stress(eps_flat)
+        residual_field = op.inverse(
+            Ghat.project(op.forward(sigma.reshape(self.dofs_shape)))
         )
         return jnp.real(residual_field).reshape(-1)
 
@@ -125,8 +136,6 @@ class Jacobian(eqx.Module):
     """A callable module that represents the Jacobian operator (tangent)."""
 
     Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
     dofs_shape: tuple = eqx.field(static=True)
 
     @eqx.filter_jit
@@ -135,24 +144,23 @@ class Jacobian(eqx.Module):
         The Jacobian is a linear operator, so its __call__ method
         represents the Jacobian-vector product.
         """
-        deps = deps_flat.reshape(self.dofs_shape)
-        # Assuming linear elasticity, the tangent is the same as the residual operator
-        dsigma = compute_stress(deps)
-        jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma))
+
+        deps_flat = deps_flat.reshape(-1)
+        dsigma = compute_stress(deps_flat)
+        jvp_field = op.inverse(
+            Ghat.project(op.forward(dsigma.reshape(self.dofs_shape)))
         )
         return jnp.real(jvp_field).reshape(-1)
 
-
-residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
+residual_fn = Residual(Ghat=Ghat, dofs_shape=eps.shape)
+jacobian_fn = Jacobian(Ghat=Ghat, dofs_shape=eps.shape)
 
 
 @eqx.filter_jit
 def local_constitutive_update(macro_strain):
     # ----------------------------- NEWTON ITERATIONS -----------------------------
     # initialize stress and strain tensor                         [grid of tensors]
-    eps = make_field(dim=2, N=N, rank=2)
+    eps = make_field(dim=2, shape=structure.shape, rank=2)
     # set macroscopic loading
     DE = jnp.zeros_like(eps)
     DE = DE.at[:, :, 0, 0].set(macro_strain[0])
@@ -195,6 +203,7 @@ def local_constitutive_update(macro_strain):
 
     return macro_sigma, (macro_sigma, sig, eps)
 
+
 tangent_operator_and_state = jax.jit(
     jax.jacfwd(local_constitutive_update, argnums=0, has_aux=True)
 )
@@ -206,4 +215,3 @@ end_time = time.time()
 print(f"Time taken: {end_time - start_time} seconds")
 
 print(tangent)
-

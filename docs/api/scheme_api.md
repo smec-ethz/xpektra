@@ -11,24 +11,26 @@ In order to facilitate this, we define a base class `Scheme` which provides the 
     options:
         members: 
             - compute_gradient_operator
-            - create_wavenumber_mesh
+            - is_compatible
+
 
 The `Scheme` class is a base class for all the discretization schemes. One can create different discretization schemes by subclassing the `Scheme` class and implementing the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **Xpektra**, we have implemented the `CartesianScheme` which takes a regular grid in physical space and returns the gradient operator field in spectral space.
 
-::: xpektra.scheme.CartesianScheme
+::: xpektra.scheme.DiagonalScheme
     options:
         members: 
             - __init__
-            - gradient_operator
-            - symmetric_gradient_operator
-            - divergence_operator
+            - apply_gradient
+            - apply_symmetric_gradient
+            - apply_divergence
+            - apply_laplacian
             - compute_gradient_operator
-            - create_wavenumber_mesh
+            - is_compatible
             - formula
 
 To define the differentiation formula, we need to implement the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **Xpektra**, we have various differentiation schemes available which can be used to define the differentiation formula.
 
-::: xpektra.scheme.Fourier
+::: xpektra.scheme.FourierScheme
     options:
         members: 
             - formula  

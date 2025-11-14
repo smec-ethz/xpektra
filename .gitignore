@@ -19,3 +19,5 @@ arguments-*
 *.egg-info*
 site/
 *uv.lock*
+*.html
+*api_files*
