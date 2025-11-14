@@ -87,6 +87,7 @@ nav:
           - 'examples/moulinec_suquet_newton_krylov.ipynb'
         - Displacement-based FFT:
           - 'examples/displacement_based_fft.ipynb'
+    - 'examples/phasefield_localization_1D.ipynb'
     - Basic API:
         - 'api/projection_operators.md'
         - 'api/scheme_api.md'

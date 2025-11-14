@@ -56,6 +56,13 @@ class Scheme(eqx.Module):
         Applies the symmetric gradient operator on the fly.
         """
         raise NotImplementedError
+    
+    @abstractmethod
+    def apply_laplacian(self, u_hat: Array) -> Array:
+        """
+        Applies the Laplacian operator on the fly.
+        """
+        raise NotImplementedError
 
 
 class DiagonalScheme(Scheme):
@@ -91,6 +98,9 @@ class DiagonalScheme(Scheme):
         Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
         """
         Dξs = self.gradient_operator
+        if self.dim == 1:
+            return Dξs * u_hat  # In 1D, symmetric gradient is just the gradient
+
         term1 = jnp.einsum("...i,...j->...ij", Dξs, u_hat)  # D_i * u_j
         term2 = jnp.einsum("...j,...i->...ij", Dξs, u_hat)  # D_j * u_i
         return 0.5 * (term1 + term2)
@@ -102,6 +112,9 @@ class DiagonalScheme(Scheme):
         Computes: div_hat_i = Dξ_j * u_hat_ji
         """
         Dξs = self.gradient_operator
+        if self.dim == 1:
+            return Dξs * u_hat
+
         # Note: We must transpose sigma_hat for the ddot
         return jnp.einsum("...j,...ji->...i", Dξs, u_hat)
 
@@ -112,7 +125,23 @@ class DiagonalScheme(Scheme):
         Computes: grad_hat_ij = Dξ_i * u_hat_j
         """
         Dξs = self.gradient_operator
+        if self.dim == 1:
+            return Dξs * u_hat
         return jnp.einsum("...i,...j->...ij", Dξs, u_hat)
+    
+    @eqx.filter_jit
+    def apply_laplacian(self, u_hat: Array) -> Array:
+        """
+        Applies the Laplacian operator on the fly.
+        Computes: lap_hat = -|Dξ|^2 * u_hat
+        """
+        Dξs = self.gradient_operator
+        if self.dim == 1:
+            lap_op_hat = Dξs * Dξs  # |Dξ|^2
+            return lap_op_hat * u_hat
+        
+        lap_op_hat = jnp.einsum("...i,...i->...", Dξs, Dξs)  # |Dξ|^2
+        return lap_op_hat * u_hat
 
     def compute_gradient_operator(self, wavenumbers_mesh) -> Array:
         """Builds the full gradient operator field using the scheme's formula."""
@@ -135,7 +164,10 @@ class DiagonalScheme(Scheme):
             )
             diff_vectors.append(Dξ_i)
 
-        return np.stack(diff_vectors, axis=-1)
+        if self.dim == 1:
+            return diff_vectors[0]
+        else:
+            return np.stack(diff_vectors, axis=-1)
 
     @abstractmethod
     def formula(self, xi, dx, iota, factor):
