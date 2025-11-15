@@ -13,7 +13,6 @@ from functools import partial
 from skimage.morphology import disk
 from xpektra import (
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
 

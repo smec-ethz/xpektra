@@ -28,6 +28,7 @@ examples = [
     "matplotlib",
     "optax>=0.2.6",
     "jaxopt>=0.8.5",
+    "tatva",
 ]
 dev = [
     "cmap>=0.6.2",
@@ -72,3 +73,6 @@ modules = [
 
 [tool.uv]
 constraint-dependencies = []
+
+[tool.uv.sources]
+tatva = { path = "../tatva", editable = true }
