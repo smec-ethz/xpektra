@@ -1,8 +1,9 @@
-import equinox as eqx
-from jax import Array
-import jax.numpy as jnp
 from abc import abstractmethod
-from jax.scipy.fft import dctn, idctn
+
+import equinox as eqx
+import jax.numpy as jnp
+from jax import Array
+from jax.scipy.fft import dctn, idctn  # noqa: F401
 
 
 class Transform(eqx.Module):
@@ -19,7 +20,7 @@ class Transform(eqx.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def get_wavenumber_vector(self) -> Array:
+    def get_wavenumber_vector(self, size: int, length: float) -> Array:
         """Get the 1D vector of wavenumbers (e.g., ξ for FFT, k for DCT)."""
         raise NotImplementedError
 
@@ -27,8 +28,8 @@ class Transform(eqx.Module):
 class FFTTransform(Transform):
     """
     The standard, JAX-native Fast Fourier Transform.
-    
-    Args: 
+
+    Args:
         dim: Number of spatial dimensions to transform over.
 
     Returns:
@@ -70,7 +71,7 @@ class FFTTransform(Transform):
         axes = range(self.dim)
         return jnp.fft.ifftn(x_hat, axes=axes)
 
-    def get_wavenumber_vector(self, size, length) -> Array:
+    def get_wavenumber_vector(self, size: int, length: float) -> Array:
         """
         Returns the real-valued wavenumber ξ.
 

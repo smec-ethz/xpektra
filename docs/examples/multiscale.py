@@ -15,9 +15,9 @@
 # %% [markdown]
 # # Multiscale problem: ``xpektra`` + ``tatva``
 #
-# In this example, we demonstrate how to solve a multiscale nonlinear elasticity problem using SpectralSolvers. We consider a macroscale domain with microscale heterogeneities and employ a two-scale approach to capture the material behavior accurately. 
+# In this example, we demonstrate how to solve a multiscale nonlinear elasticity problem using SpectralSolvers. We consider a macroscale domain with microscale heterogeneities and employ a two-scale approach to capture the material behavior accurately.
 #
-# At the microscale, we use `xpektra` to solve the RVE problem using spectral methods, while at the macroscale, we use `tatva` to solve the global problem using Finite Element Method (FEM). 
+# At the microscale, we use `xpektra` to solve the RVE problem using spectral methods, while at the macroscale, we use `tatva` to solve the global problem using Finite Element Method (FEM).
 #
 # We couple the two scales by incorporating the microscale response into the macroscale energy functional.
 #
@@ -29,43 +29,30 @@ import jax
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 jax.config.update("jax_platforms", "cpu")
+import time
+
+import equinox as eqx
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
 from jax import Array
-
 from jax_autovmap import autovmap
-
+from skimage.morphology import disk
 from tatva import Mesh, Operator, element
 from tatva.plotting import plot_nodal_values
 
-
-from skimage.morphology import disk
-from xpektra import (
-    SpectralSpace,
-    make_field,
-)
-
-from xpektra import SpectralSpace, make_field
-from xpektra.transform import FFTTransform
-from xpektra.scheme import RotatedDifference, FourierScheme
-from xpektra.spectral_operator import SpectralOperator
+from xpektra import FFTTransform, SpectralOperator, SpectralSpace, make_field
 from xpektra.projection_operator import GalerkinProjection
+from xpektra.scheme import RotatedDifference
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient,
     newton_krylov_solver,
 )
-import equinox as eqx
-from functools import partial
-
-from typing import Callable, Optional, Tuple
-
-import numpy as np
-
-import matplotlib.pyplot as plt
 
 # %% [markdown]
-# ## Constructing JVP for mechanical problems
+# ## Defining the macroscale problem using Finite Element Method
 #
-# Now let us see how we can construct the JVP function for a mechanical problem. We will use the same example of a square domain stretched in the $x$-direction. 
+# Now let us see how we can construct the JVP function for a mechanical problem. We will use the same example of a square domain stretched in the $x$-direction.
 
 # %%
 mesh = Mesh.unit_square(2, 2)
@@ -99,7 +86,7 @@ plt.show()
 volume_fraction_percentage = 0.2
 
 length = 0.1
-H, L = (49, 49)
+H, L = (99, 99)
 
 dx = length / H
 dy = length / L
@@ -112,8 +99,8 @@ r = (
 )  # Since the rounding off leads to smaller fraction therefore we add 1.
 
 
-structure = np.zeros((H, L))
-structure[Hmid - r : Hmid + 1 + r, Lmid - r : Lmid + 1 + r] += disk(r)
+structure = jnp.zeros((H, L))
+structure = structure.at[Hmid - r : Hmid + 1 + r, Lmid - r : Lmid + 1 + r].add(disk(r))
 
 ndim = len(structure.shape)
 N = structure.shape[0]
@@ -130,14 +117,14 @@ plt.show()
 lambda_solid = 10
 mu_solid = 0.25
 
-lambda_inclusion = 1e-2
+lambda_inclusion = 1.0
 mu_inclusion = 2.5
 
 lambda_field = lambda_solid * (1 - structure) + lambda_inclusion * structure
 mu_field = mu_solid * (1 - structure) + mu_inclusion * structure
 
 # %% [markdown]
-# We can define our transform method to the spectral space, differential scheme, and projection operator. 
+# We can define our transform method to the spectral space, differential scheme, and projection operator.
 #
 # For this example, we will use a Rotated difference scheme, and a Galerkin projection.
 #
@@ -173,6 +160,7 @@ Ghat = GalerkinProjection(scheme=diff_scheme)
 # Another important aspect is the custom `conjugate_gradient` which uses `jax.lax.custom_linear_solve` to define a linear solver with a implicit differentiation. This allows JAX to not unroll the entire CG iterations during backpropagation, leading to significant memory savings. Basically, on the backward pass, JAX knows that to get the gradient, it just needs to call the transpose_solve function to solve the adjoint system $A^T\lambda=g$ at the converged solution, without needing to remember all the intermediate steps of the CG iterations.
 #
 
+
 # %%
 class RVEMaterial(eqx.Module):
     """A simple linear elastic material model."""
@@ -181,22 +169,18 @@ class RVEMaterial(eqx.Module):
     lmbda: Array
     dofs_shape: tuple = eqx.field(static=True)
 
-    
     @eqx.filter_jit
     def compute_strain_energy(self, eps_flat: Array) -> Array:
         eps = eps_flat.reshape(self.dofs_shape)
         eps_sym = 0.5 * (eps + spec_op.trans(eps))
-        energy = 0.5 * jnp.multiply(self.lmbda, spec_op.trace(eps_sym) ** 2) + jnp.multiply(
-            self.mu, spec_op.trace(spec_op.dot(eps_sym, eps_sym))
-        )
+        energy = 0.5 * jnp.multiply(
+            self.lmbda, spec_op.trace(eps_sym) ** 2
+        ) + jnp.multiply(self.mu, spec_op.trace(spec_op.dot(eps_sym, eps_sym)))
         return energy.sum()
-
 
     @eqx.filter_jit
     def compute_rve_stress(self, eps_flat: Array) -> Array:
         return jax.jacrev(self.compute_strain_energy)(eps_flat)
-
-
 
     @eqx.filter_jit
     def jacobian(self, eps_flat: Array) -> Array:
@@ -210,7 +194,6 @@ class RVEMaterial(eqx.Module):
             Ghat.project(spec_op.forward(sigma.reshape(self.dofs_shape)))
         )
         return jnp.real(residual_field).reshape(-1)
-
 
     @eqx.filter_jit
     def hessian(self, deps_flat: Array) -> Array:
@@ -226,15 +209,11 @@ class RVEMaterial(eqx.Module):
         )
         return jnp.real(jvp_field).reshape(-1)
 
-
-    @partial(jax.checkpoint, static_argnums=(0,))
+    # @partial(jax.checkpoint, static_argnums=(0,))
+    @eqx.filter_jit
     def compute_macro_stress(self, macro_strain):
-        # ----------------------------- NEWTON ITERATIONS -----------------------------
-        # initialize stress and strain tensor                         [grid of tensors]
-        rve_eps = make_field(dim=2, shape=structure.shape, rank=2)
-        
         # set macroscopic loading
-        DE = jnp.zeros_like(rve_eps)
+        DE = jnp.array(make_field(dim=2, shape=structure.shape, rank=2))
         DE = DE.at[:, :, 0, 0].set(macro_strain[0, 0])
         DE = DE.at[:, :, 1, 1].set(macro_strain[1, 1])
         DE = DE.at[:, :, 0, 1].set(macro_strain[0, 1])
@@ -242,10 +221,10 @@ class RVEMaterial(eqx.Module):
 
         # initial residual: distribute "DE" over grid using "K4"
         b = -self.jacobian(DE)
-        rve_eps = jax.lax.add(rve_eps, DE)
 
-        final_state = newton_krylov_solver(
-            state=(DE, b, rve_eps),
+        eps = newton_krylov_solver(
+            x=DE,
+            b=b,
             gradient=self.jacobian,
             jacobian=self.hessian,
             tol=1e-8,
@@ -255,20 +234,19 @@ class RVEMaterial(eqx.Module):
             krylov_max_iter=20,
         )
 
-        DE, b, rve_eps = final_state
-        rve_sig = self.compute_rve_stress(rve_eps)
+        rve_sig = self.compute_rve_stress(eps)
 
         # get the macro stress
-        macro_sigma = jnp.sum(rve_sig * dx * dy, axis=(0, 1))/(length**2)
+        macro_sigma = jnp.sum(rve_sig * dx * dy, axis=(0, 1)) / (length**2)
 
-        macro_sigma = macro_sigma
+        del rve_sig
 
         return macro_sigma
-    
 
     def compute_tangent(self, macro_strain):
         tangent = jax.jacfwd(self.compute_macro_stress)
         return tangent(macro_strain)
+
 
 # %% [markdown]
 # Now  we can define our rve material with the defined structure and material properties.
@@ -278,8 +256,6 @@ rvematerial = RVEMaterial(mu=mu_field, lmbda=lambda_field, dofs_shape=dofs_shape
 
 # %% [markdown]
 # ## Defining the energy functional at macroscale
-
-# %% [markdown]
 # We now define the total energy functional at the macroscale. This functional computes the total energy of the system given the macroscale strain and macroscale stress computed from the RVE material.
 #
 # $$
@@ -293,15 +269,17 @@ rvematerial = RVEMaterial(mu=mu_field, lmbda=lambda_field, dofs_shape=dofs_shape
 # $$
 #
 #
-# he macroscale strain is computed from the macroscale displacement gradient.
+# the macroscale strain is computed from the macroscale displacement gradient.
 #
 # $$
-# \boldsymbol{\varepsilon}_\text{macro} = \frac{1}{2} (\nabla \boldsymbol{u} + \nabla \boldsymbol{u}^T)
+# \varepsilon_\text{macro} = \frac{1}{2} (\nabla u + \nabla u^T)
 # $$
 
 # %%
+
 tri = element.Tri3()
 op = Operator(mesh, tri)
+
 
 @autovmap(grad_u=2)
 def compute_strain(grad_u: Array) -> Array:
@@ -314,9 +292,8 @@ def strain_energy(grad_u: Array) -> Array:
     """Compute the strain energy density."""
     eps = compute_strain(grad_u)
     tangent = rvematerial.compute_tangent(eps)
-    sig = jnp.einsum('ijkl, kl->ij', tangent, eps)
+    sig = jnp.einsum("ijkl, kl->ij", tangent, eps)
     return 0.5 * jnp.einsum("ij,ij->", sig, eps)
-
 
 
 @jax.jit
@@ -326,7 +303,16 @@ def total_energy(u_flat):
     energy_density = strain_energy(u_grad)
     return op.integrate(energy_density)
 
+
 gradient = jax.jacrev(total_energy)
+
+@eqx.filter_jit
+def compute_gradient(u):
+    u_flat = u.reshape(-1)
+    grad = gradient(u_flat)
+    return grad, grad
+
+gradient_with_hessian = jax.jacfwd(compute_gradient, has_aux=True)
 
 # %% [markdown]
 # The above was coupling the macroscale and microscale. The use of JAX's automatic differentiation and custom linear solvers allows us to efficiently compute the necessary derivatives necessary for linking the two scales together.
@@ -348,25 +334,20 @@ free_dofs = jnp.setdiff1d(jnp.arange(n_dofs), fixed_dofs)
 
 
 # %% [markdown]
-# ## Using matrix-free conjugate gradient at macroscale
+# ## Using Newton's method at macroscale
 #
-# At macroscale we use matrix-free conjugate gradient to solve the linearized system at each Newton iteration.
+# At macroscale we use Newton's method with the Newton-Raphson method with a direct linear solver to solve the linearized system at each Newton iteration.
+# Below we define the Newton solver. The boundary conditions are applied at each iteration using the lifting approach.
 
 # %%
-def compute_tangent(dx, x):
-    dx_projected = dx.at[fixed_dofs].set(0.0)
-    tangent = jax.jvp(gradient, (x,), (dx_projected,))[1]
-    tangent = tangent.at[fixed_dofs].set(0)
-    return tangent
 
 
 def newton_solver(
     u,
     fext,
-    gradient,
     fixed_dofs,
 ):
-    fint = gradient(u)
+    K, fint = gradient_with_hessian(u)
 
     du = jnp.zeros_like(u)
 
@@ -379,38 +360,32 @@ def newton_solver(
     while norm_res > tol and iiter < max_iter:
         residual = fext - fint
         residual = residual.at[fixed_dofs].set(0)
-        A = eqx.Partial(compute_tangent, x=u)
-        du, cg_iiter = conjugate_gradient(
-            A=A, b=residual, atol=1e-8, max_iter=100
+
+        print("assembling linear system")
+
+        #K = hessian(u)
+        K_lifted = K.at[jnp.ix_(free_dofs, fixed_dofs)].set(0.0)
+        K_lifted = K_lifted.at[jnp.ix_(fixed_dofs, free_dofs)].set(0.0)
+        K_lifted = K_lifted.at[jnp.ix_(fixed_dofs, fixed_dofs)].set(
+            jnp.eye(len(fixed_dofs))
         )
+        du = jnp.linalg.solve(K_lifted, residual)
 
         u = u.at[:].add(du)
-        fint = gradient(u)
+        K, fint = gradient_with_hessian(u)
         residual = fext - fint
         residual = residual.at[fixed_dofs].set(0)
         norm_res = jnp.linalg.norm(residual)
-        print(f"  Residual: {norm_res:.2e}")
+        print(f"Macroscale  Residual: {norm_res:.2e}")
         iiter += 1
 
     return u, norm_res
 
 
 # %% [markdown]
-# Before, we proceed to solve the macroscale problem, let us verify that the JVP implementation is correct by computing the directional derivative of the total energy functional.
-
-# %%
-u = jnp.zeros(n_dofs)
-delta_u = jnp.full_like(u, fill_value=0.01)
-
-print(total_energy(u))
-
-gradient = jax.jacrev(total_energy)
-f_jvp, delta_f_jvp = jax.jvp(gradient, (u,), (delta_u,))
-
-# %% [markdown]
 # ## Solving the macroscale problem
 #
-# We can now solve the macroscale problem using Newton's method with the matrix-free conjugate gradient solver defined earlier.
+# We can now solve the macroscale problem using Newton's method with the newton raphson method with a direct linear solver.
 
 # %%
 u = jnp.zeros(n_dofs)
@@ -419,6 +394,10 @@ fext = jnp.zeros(n_dofs)
 n_steps = 1
 
 du_total = prescribed_values / n_steps  # displacement increment
+
+
+start_time = time.time()
+
 for step in range(n_steps):
     print(f"Step {step + 1}/{n_steps}")
     u = u.at[fixed_dofs].set((step + 1) * du_total[fixed_dofs])
@@ -426,11 +405,16 @@ for step in range(n_steps):
     u_new, rnorm = newton_solver(
         u,
         fext,
-        gradient,
         fixed_dofs,
     )
 
     u = u_new
+
+
+u = u.at[fixed_dofs].set(prescribed_values.at[fixed_dofs].get())
+
+end_time = time.time()
+print(f"Total time taken: {end_time - start_time:.2f} seconds")
 
 u_solution = u.reshape(n_nodes, n_dofs_per_node)
 print("Final displacement field:\n", u_solution)
@@ -462,3 +446,5 @@ ax.set_aspect("equal")
 
 ax.margins(0, 0)
 plt.show()
+
+# %%

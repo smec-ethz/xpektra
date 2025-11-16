@@ -29,6 +29,7 @@ examples = [
     "optax>=0.2.6",
     "jaxopt>=0.8.5",
     "tatva",
+    "optimistix>=0.0.11",
 ]
 dev = [
     "cmap>=0.6.2",

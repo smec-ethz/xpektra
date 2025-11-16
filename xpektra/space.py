@@ -1,6 +1,6 @@
+import equinox as eqx
 import jax.numpy as jnp  # type: ignore
 from jax import Array
-import equinox as eqx
 
 from xpektra.transform import Transform
 
@@ -33,7 +33,7 @@ class SpectralSpace(eqx.Module):
             A list of arrays representing the wavenumber meshgrid.
         """
         k_vecs = [
-            self.transform.get_wavenumber_vector(n, length)
+            self.transform.get_wavenumber_vector(size=n, length=length)
             for n, length in zip(self.shape, self.lengths)
         ]
         return list(jnp.meshgrid(*k_vecs, indexing="ij"))

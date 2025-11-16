@@ -1,8 +1,9 @@
+from typing import Callable
+
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 from jax import Array
-import equinox as eqx
-from typing import Callable
 
 
 @eqx.filter_jit
@@ -33,6 +34,7 @@ def _cg_solver_impl(A: Callable, b: Array, atol=1e-8, max_iter=100) -> Array:
     r = b - A(x)
     p = r
     rsold = jnp.vdot(r, r)
+    # jax.debug.print("CG error = {:.14f}", rsold)
 
     b, p, r, rsold, x, iiter = jax.lax.while_loop(
         cond_fun, body_fun, (b, p, r, rsold, x, iiter)
@@ -66,7 +68,7 @@ def conjugate_gradient(
         symmetric=True,
     )
 
-    # We return a dummy 0 for the iteration count to match your old API
+    # We return a dummy 0 for the iteration count
     return x, 0
 
 
@@ -143,7 +145,7 @@ def conjugate_gradient_scan(A, b, atol, max_iter):
         conjugate_gradient, init=state, xs=jnp.arange(0, max_iter)
     )
 
-    return final_state[-1], None
+    return final_state[-1]  # , None
 
 
 @eqx.filter_jit
@@ -184,7 +186,8 @@ def preconditioned_conjugate_gradient(A, b, M_inv, atol=1e-8, max_iter=100):
 
 @eqx.filter_jit
 def newton_krylov_solver(
-    state: tuple,
+    x: Array,
+    b: Array,
     gradient: Callable,
     jacobian: Callable,
     krylov_solver: Callable,
@@ -194,14 +197,11 @@ def newton_krylov_solver(
     krylov_max_iter: int,
 ):
     def newton_raphson(state, n):
-        dF, b, F = state
+        x, b = state
         error = jnp.linalg.norm(b)
 
         def true_fun(state):
-            dF, b, F = state
-
-            # jacobian_partial = eqx.Partial(jacobian, F_flat=F.reshape(-1))
-
+            x, b = state
             dF, iiter = krylov_solver(
                 A=jacobian,
                 b=b,
@@ -209,11 +209,11 @@ def newton_krylov_solver(
                 max_iter=krylov_max_iter,
             )  # solve linear system
 
-            dF = dF.reshape(F.shape)
-            F = jax.lax.add(F, dF)
-            b = -gradient(F)  # compute residual
+            dF = dF.reshape(x.shape)
+            x = jax.lax.add(x, dF)
+            b = -gradient(x)  # compute residual
 
-            return (dF, b, F)
+            return (x, b)
 
         def false_fun(state):
             return state
@@ -222,7 +222,7 @@ def newton_krylov_solver(
 
     final_state, xs = jax.lax.scan(
         newton_raphson,
-        init=state,
+        init=(x, b),
         xs=jnp.arange(0, max_iter),
     )
 
@@ -237,4 +237,72 @@ def newton_krylov_solver(
     residual = jnp.linalg.norm(final_state[1])
     _ = jax.lax.cond(residual > tol, not_converged, converged, residual)
 
-    return final_state
+    return final_state[0]
+
+
+def _solve_linear_system(J, b):
+    dx = jnp.linalg.solve(J, b)
+    return dx
+
+
+@eqx.filter_jit
+def implicit_newton_solver(
+    x: Array,
+    b: Array,
+    gradient: Callable,
+    jacobian: Callable,
+    krylov_solver: Callable,
+    tol: float,
+    max_iter: int,
+    krylov_tol: float,
+    krylov_max_iter: int,
+):
+    partial_newton_krylov_solver = eqx.Partial(
+        newton_krylov_solver,
+        b=b,
+        jacobian=jacobian,
+        tol=tol,
+        max_iter=max_iter,
+        krylov_solver=krylov_solver,
+        krylov_tol=krylov_tol,
+        krylov_max_iter=krylov_max_iter,
+    )
+
+    def solve(f, x):
+        return partial_newton_krylov_solver(x=x, gradient=f)
+
+    # def tangent_solve(g, y):
+    #    return _solve_linear_system(jax.jacfwd(g)(y), y)
+    def tangent_solve(g, y):
+        """
+        Solve J u = y for u using only JVP/VJP of g (matrix-free).
+        We form the normal-system operator: v -> J^T (J v)
+        and solve (J^T J) u = J^T y with conjugate gradient.
+        """
+
+        # Precompute a pullback closure at y for efficient repeated J^T applications.
+        # vjp_fun will accept a vector 'w' and return tuple (cotangent,)
+        _, vjp_fun = jax.vjp(g, y)
+
+        # matvec for normal eq: v -> J^T (J v)
+        def normal_matvec(v):
+            # compute J v using jax.jvp
+            jv = jax.jvp(g, (y,), (v,))[1]
+            # apply pullback to get J^T jv; vjp_fun returns a tuple of cotangents
+            jt_jv = vjp_fun(jv)[0]
+            return jt_jv
+
+        # right-hand side: J^T y
+        # but 'y' here is the tangent right-hand side (same shape as output of g)
+        jT_y = vjp_fun(y)[0]
+
+        # solve (J^T J) u = J^T y
+        u = _cg_solver_impl(
+            normal_matvec, jT_y, atol=krylov_tol, max_iter=krylov_max_iter
+        )
+
+        return u
+
+    x_sol = jax.lax.custom_root(gradient, x, solve, tangent_solve, has_aux=False)
+
+    return x_sol

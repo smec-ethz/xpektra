@@ -1,13 +1,11 @@
 from abc import abstractmethod
-from typing import List
-import numpy as np
+
+import equinox as eqx
 import jax.numpy as jnp
 from jax import Array
-import equinox as eqx
 
 from xpektra.space import SpectralSpace
 from xpektra.transform import FFTTransform
-
 
 iota = 1j  # Imaginary unit
 
@@ -21,7 +19,7 @@ class Scheme(eqx.Module):
     """
 
     @abstractmethod
-    def compute_gradient_operator(self) -> Array:
+    def compute_gradient_operator(self, wavenumbers_mesh: list[Array]) -> Array:
         """
         The primary output of any scheme. The gradient operator field has shape ( (N,)*dim, (dim,)*rank).
         """
@@ -54,7 +52,7 @@ class Scheme(eqx.Module):
         Applies the symmetric gradient operator on the fly.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def apply_laplacian(self, u_hat: Array) -> Array:
         """
@@ -127,7 +125,7 @@ class DiagonalScheme(Scheme):
             return Dξs * u_hat
 
         return Dξs * u_hat[..., None]
-    
+
     @eqx.filter_jit
     def apply_laplacian(self, u_hat: Array) -> Array:
         """
@@ -138,7 +136,7 @@ class DiagonalScheme(Scheme):
         if self.dim == 1:
             lap_op_hat = Dξs * Dξs  # |Dξ|^2
             return lap_op_hat * u_hat
-        
+
         lap_op_hat = jnp.einsum("...i,...i->...", Dξs, Dξs)  # |Dξ|^2
         return lap_op_hat * u_hat
 
@@ -151,7 +149,7 @@ class DiagonalScheme(Scheme):
             # Note: A scheme's formula must handle this factor if it needs it.
             for j in range(self.dim):
                 Δ = self.space.lengths[j] / self.space.shape[j]
-                factor *= 0.5 * (1 + np.exp(iota * wavenumbers_mesh[j] * Δ))
+                factor *= 0.5 * (1 + jnp.exp(iota * wavenumbers_mesh[j] * Δ))
 
         diff_vectors = []
         for i in range(self.dim):
@@ -166,7 +164,7 @@ class DiagonalScheme(Scheme):
         if self.dim == 1:
             return diff_vectors[0]
         else:
-            return np.stack(diff_vectors, axis=-1)
+            return jnp.stack(diff_vectors, axis=-1)
 
     @abstractmethod
     def formula(self, xi, dx, iota, factor):
@@ -175,7 +173,6 @@ class DiagonalScheme(Scheme):
         Must be implemented by concrete schemes.
         """
         raise NotImplementedError
-
 
 
 class FourierScheme(DiagonalScheme):
@@ -249,12 +246,12 @@ class EighthOrderCentralDifference(DiagonalScheme):
         )
 
 
-''' 
+'''
 class MatrixScheme(Scheme):
     """Base for Chebyshev, Legendre, etc."""
     # Shape: (Nx, Nx, dim) assuming separable dimensions for simplicity
     # or (N_total, N_total) for full density.
-    diff_matrices: Array 
+    diff_matrices: Array
     space: SpectralSpace = eqx.field(static=True)
 
 

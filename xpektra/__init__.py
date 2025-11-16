@@ -1,10 +1,14 @@
-from xpektra.space import SpectralSpace
-from xpektra.tensor_operator import TensorOperator
 import numpy as np
 
+from xpektra.space import SpectralSpace
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.tensor_operator import TensorOperator
+from xpektra.transform import FFTTransform
 
 
-def make_field(dim: int, shape: tuple, rank: int, dtype: np.dtype = float) -> np.ndarray:
+def make_field(
+    dim: int, shape: tuple, rank: int, dtype: np.dtype = float
+) -> np.ndarray:
     """
     Creates a zero-filled tensor field with the (spatial..., tensor...) memory layout.
 

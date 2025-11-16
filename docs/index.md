@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="assets/xpektra_fft.png" alt="drawing" width="500"/>
+<img src="assets/logo-xpektra.png" alt="drawing" width="500"/>
 
 <h3 align="center">Spectral methods made simple</h3>
 
