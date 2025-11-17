@@ -1,9 +1,11 @@
+from functools import partial
 from typing import Callable
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 from jax import Array
+from jax.scipy.sparse import linalg as jax_sparse_linalg
 
 
 @eqx.filter_jit
@@ -30,7 +32,7 @@ def _cg_solver_impl(A: Callable, b: Array, atol=1e-8, max_iter=100) -> Array:
         b, p, r, rsold, x, iiter = state
         return jnp.logical_and(jnp.sqrt(rsold) > atol, iiter < max_iter)
 
-    x = jnp.full_like(b, fill_value=0.0)
+    x = jax.lax.stop_gradient(jnp.full_like(b, fill_value=0.0))
     r = b - A(x)
     p = r
     rsold = jnp.vdot(r, r)
@@ -271,37 +273,12 @@ def implicit_newton_solver(
     def solve(f, x):
         return partial_newton_krylov_solver(x=x, gradient=f)
 
-    # def tangent_solve(g, y):
-    #    return _solve_linear_system(jax.jacfwd(g)(y), y)
     def tangent_solve(g, y):
-        """
-        Solve J u = y for u using only JVP/VJP of g (matrix-free).
-        We form the normal-system operator: v -> J^T (J v)
-        and solve (J^T J) u = J^T y with conjugate gradient.
-        """
+        def j(x):
+            return jax.jvp(g, (y,), (x,))[1]
 
-        # Precompute a pullback closure at y for efficient repeated J^T applications.
-        # vjp_fun will accept a vector 'w' and return tuple (cotangent,)
-        _, vjp_fun = jax.vjp(g, y)
-
-        # matvec for normal eq: v -> J^T (J v)
-        def normal_matvec(v):
-            # compute J v using jax.jvp
-            jv = jax.jvp(g, (y,), (v,))[1]
-            # apply pullback to get J^T jv; vjp_fun returns a tuple of cotangents
-            jt_jv = vjp_fun(jv)[0]
-            return jt_jv
-
-        # right-hand side: J^T y
-        # but 'y' here is the tangent right-hand side (same shape as output of g)
-        jT_y = vjp_fun(y)[0]
-
-        # solve (J^T J) u = J^T y
-        u = _cg_solver_impl(
-            normal_matvec, jT_y, atol=krylov_tol, max_iter=krylov_max_iter
-        )
-
-        return u
+        x = jax.scipy.sparse.linalg.gmres(j, y)
+        return x
 
     x_sol = jax.lax.custom_root(gradient, x, solve, tangent_solve, has_aux=False)
 

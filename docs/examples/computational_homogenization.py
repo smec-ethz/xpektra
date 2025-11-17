@@ -43,6 +43,7 @@ from xpektra.projection_operator import GalerkinProjection
 from xpektra.scheme import RotatedDifference
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient,
+    implicit_newton_solver,
     newton_krylov_solver,
 )
 
@@ -211,9 +212,7 @@ def local_constitutive_update(macro_strain):
 # $$
 
 # %%
-tangent_operator_and_state = jax.jacfwd(
-    local_constitutive_update, argnums=0, has_aux=True
-)
+tangent_operator_and_state = eqx.filter_jacfwd(local_constitutive_update, has_aux=True)
 
 # %%
 deps = jnp.array([1.2, 1.0, 1])
