@@ -161,6 +161,9 @@ def jacobian_fn(deps_flat: Array) -> Array:
 
 
 # %%
+from xpektra.solvers.nonlinear import NewtonSolver
+
+
 @eqx.filter_jit
 def local_constitutive_update(macro_strain):
     # set macroscopic loading
@@ -173,7 +176,18 @@ def local_constitutive_update(macro_strain):
     # initial residual: distribute "deps" over grid
     b = -residual_fn(deps)
 
-    eps = newton_krylov_solver(
+    solver = NewtonSolver(
+        b=-residual_fn(deps),
+        jacobian=jacobian_fn,
+        tol=1e-8,
+        max_iter=20,
+        krylov_solver=conjugate_gradient,
+        krylov_tol=1e-8,
+        krylov_max_iter=20,
+    )
+
+    """
+    eps = implicit_newton_solver(
         x=deps.reshape(-1),
         b=b,
         gradient=residual_fn,
@@ -184,7 +198,8 @@ def local_constitutive_update(macro_strain):
         krylov_tol=1e-8,
         krylov_max_iter=20,
     )
-
+    """
+    eps = solver._solve(x=deps.reshape(-1), f=residual_fn)
     sig = compute_stress(eps).reshape(dofs_shape)
 
     # get the macro stress
@@ -212,7 +227,7 @@ def local_constitutive_update(macro_strain):
 # $$
 
 # %%
-tangent_operator_and_state = eqx.filter_jacfwd(local_constitutive_update, has_aux=True)
+tangent_operator_and_state = jax.jacfwd(local_constitutive_update, has_aux=True)
 
 # %%
 deps = jnp.array([1.2, 1.0, 1])

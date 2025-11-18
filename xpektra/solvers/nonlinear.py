@@ -6,6 +6,8 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 from jax.scipy.sparse import linalg as jax_sparse_linalg
+from jaxlib.mlir.dialects.sparse_tensor import new
+from numpy.ma.core import conjugate
 
 
 @eqx.filter_jit
@@ -242,6 +244,7 @@ def newton_krylov_solver(
     return final_state[0]
 
 
+@partial(jax.jit, static_argnames=("J"))
 def _solve_linear_system(J, b):
     dx = jnp.linalg.solve(J, b)
     return dx
@@ -274,12 +277,56 @@ def implicit_newton_solver(
         return partial_newton_krylov_solver(x=x, gradient=f)
 
     def tangent_solve(g, y):
-        def j(x):
-            return jax.jvp(g, (y,), (x,))[1]
-
-        x = jax.scipy.sparse.linalg.gmres(j, y)
-        return x
+        return _solve_linear_system(g, y)
 
     x_sol = jax.lax.custom_root(gradient, x, solve, tangent_solve, has_aux=False)
 
     return x_sol
+
+
+class NewtonSolver(eqx.Module):
+    b: Array
+    tol: float
+    max_iter: int
+    jacobian: Callable
+    krylov_solver: Callable
+    krylov_tol: float
+    krylov_max_iter: int
+
+    def _solve(self, f, x):
+        return newton_krylov_solver(
+            x=x,
+            b=self.b,
+            gradient=f,
+            jacobian=self.jacobian,
+            tol=self.tol,
+            max_iter=self.max_iter,
+            krylov_solver=self.krylov_solver,
+            krylov_tol=self.krylov_tol,
+            krylov_max_iter=self.krylov_max_iter,
+        )
+
+    def _solve_linear_system(self, g, y):
+        x_sol = jnp.linalg.solve(g, y)
+        return x_sol
+
+    def tangent_solve(self, g, y):
+        # x_sol, _ = self.krylov_solver(g, y)
+
+        # x_sol = self._solve_linear_system(g, y)
+        def j(x):
+            return jax.jvp(g, (y,), (x,))[1]
+
+        x_sol, _ = conjugate_gradient(j, y)
+
+        return x_sol
+
+    def solve(self, f, x):
+        x_sol = jax.lax.custom_root(
+            f=f,
+            initial_guess=x,
+            solve=self._solve,
+            tangent_solve=self.tangent_solve,
+            has_aux=False,
+        )
+        return x_sol
