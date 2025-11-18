@@ -27,6 +27,7 @@ jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import time
+from functools import partial
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -42,9 +43,8 @@ from xpektra import FFTTransform, SpectralOperator, SpectralSpace, make_field
 from xpektra.projection_operator import GalerkinProjection
 from xpektra.scheme import RotatedDifference
 from xpektra.solvers.nonlinear import (  # noqa: E402
+    NewtonSolver,
     conjugate_gradient,
-    implicit_newton_solver,
-    newton_krylov_solver,
 )
 
 # %% [markdown]
@@ -132,12 +132,21 @@ Ghat = GalerkinProjection(scheme=diff_scheme)
 
 # %%
 @eqx.filter_jit
-def residual_fn(eps_flat: Array) -> Array:
+def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     """
     This makes instances of this class behave like a function.
     It takes only the flattened vector of unknowns, as required by the solver.
     """
-    eps_flat = eps_flat.reshape(-1)
+
+    eps_fluc = eps_fluc_flat.reshape(dofs_shape)
+    eps_macro = jnp.zeros(dofs_shape)
+    eps_macro = eps_macro.at[:, :, 0, 0].set(macro_strain[0])
+    eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain[1])
+    eps_macro = eps_macro.at[:, :, 0, 1].set(macro_strain[2] / 2.0)
+    eps_macro = eps_macro.at[:, :, 1, 0].set(macro_strain[2] / 2.0)
+
+    eps_total = eps_fluc + eps_macro
+    eps_flat = eps_total.reshape(-1)
     sigma = compute_stress(eps_flat)
     residual_field = op.inverse(Ghat.project(op.forward(sigma.reshape(dofs_shape))))
     return jnp.real(residual_field).reshape(-1)
@@ -161,24 +170,17 @@ def jacobian_fn(deps_flat: Array) -> Array:
 
 
 # %%
-from xpektra.solvers.nonlinear import NewtonSolver
 
 
 @eqx.filter_jit
 def local_constitutive_update(macro_strain):
-    # set macroscopic loading
-    deps = jnp.array(make_field(dim=2, shape=structure.shape, rank=2))
-    deps = deps.at[:, :, 0, 0].set(macro_strain[0])
-    deps = deps.at[:, :, 1, 1].set(macro_strain[1])
-    deps = deps.at[:, :, 0, 1].set(macro_strain[2] / 2.0)
-    deps = deps.at[:, :, 1, 0].set(macro_strain[2] / 2.0)
+    # set macroscopic loading to the residual
+    # important for the implicit differentiation to work correctly
+    # also, partial from functools and not from equinox
+    residual_fn_partial = jax.jit(partial(residual_fn, macro_strain=macro_strain))
 
-    # initial residual: distribute "deps" over grid
-    b = -residual_fn(deps)
-
+    # define the newton solver with the krylov solver
     solver = NewtonSolver(
-        b=-residual_fn(deps),
-        jacobian=jacobian_fn,
         tol=1e-8,
         max_iter=20,
         krylov_solver=conjugate_gradient,
@@ -186,21 +188,29 @@ def local_constitutive_update(macro_strain):
         krylov_max_iter=20,
     )
 
-    """
-    eps = implicit_newton_solver(
-        x=deps.reshape(-1),
-        b=b,
-        gradient=residual_fn,
-        jacobian=jacobian_fn,
-        tol=1e-8,
-        max_iter=20,
-        krylov_solver=conjugate_gradient,
-        krylov_tol=1e-8,
-        krylov_max_iter=20,
+    # initialize the initial guess for the local strain field
+    eps_init = jnp.array(make_field(dim=2, shape=structure.shape, rank=2))
+
+    # solve for the fluctuation strain field, the residual is the
+    # right hand side is defined based on the initial guess
+    eps_fluc = solver.solve(
+        x=eps_init.reshape(-1),
+        f=residual_fn_partial,
+        b=-residual_fn_partial(eps_init.reshape(-1)),
+        jac=jacobian_fn,
     )
-    """
-    eps = solver._solve(x=deps.reshape(-1), f=residual_fn)
-    sig = compute_stress(eps).reshape(dofs_shape)
+
+    # compute the actual micro strain field
+    # eps fluctuation is added to the initial guess
+    eps_macro = eps_init.at[:, :, 0, 0].set(macro_strain[0])
+    eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain[1])
+    eps_macro = eps_macro.at[:, :, 0, 1].set(macro_strain[2] / 2.0)
+    eps_macro = eps_macro.at[:, :, 1, 0].set(macro_strain[2] / 2.0)
+
+    eps = eps_fluc.reshape(dofs_shape) + eps_macro
+
+    # compute the actual micro stress field
+    sig = compute_stress(eps.reshape(-1)).reshape(dofs_shape)
 
     # get the macro stress
     macro_sigma = jnp.array(
@@ -242,4 +252,18 @@ print(f"Time taken: {end_time - start_time} seconds")
 #
 
 # %%
-print(tangent)
+print(f"tangent: {tangent}")
+
+
+# %% [markdown]
+# Plotting the micro stress field
+
+# $$
+
+plt.figure(figsize=(4, 4))
+plt.imshow(state[1][:, :, 0, 0], cmap="berlin", origin="lower")
+plt.colorbar(label=r"$\sigma_{xx}$")
+plt.title("Micro Stress Field")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.show()

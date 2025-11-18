@@ -5,9 +5,6 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 from jax import Array
-from jax.scipy.sparse import linalg as jax_sparse_linalg
-from jaxlib.mlir.dialects.sparse_tensor import new
-from numpy.ma.core import conjugate
 
 
 @eqx.filter_jit
@@ -244,89 +241,48 @@ def newton_krylov_solver(
     return final_state[0]
 
 
-@partial(jax.jit, static_argnames=("J"))
-def _solve_linear_system(J, b):
-    dx = jnp.linalg.solve(J, b)
-    return dx
-
-
-@eqx.filter_jit
-def implicit_newton_solver(
-    x: Array,
-    b: Array,
-    gradient: Callable,
-    jacobian: Callable,
-    krylov_solver: Callable,
-    tol: float,
-    max_iter: int,
-    krylov_tol: float,
-    krylov_max_iter: int,
-):
-    partial_newton_krylov_solver = eqx.Partial(
-        newton_krylov_solver,
-        b=b,
-        jacobian=jacobian,
-        tol=tol,
-        max_iter=max_iter,
-        krylov_solver=krylov_solver,
-        krylov_tol=krylov_tol,
-        krylov_max_iter=krylov_max_iter,
-    )
-
-    def solve(f, x):
-        return partial_newton_krylov_solver(x=x, gradient=f)
-
-    def tangent_solve(g, y):
-        return _solve_linear_system(g, y)
-
-    x_sol = jax.lax.custom_root(gradient, x, solve, tangent_solve, has_aux=False)
-
-    return x_sol
-
-
 class NewtonSolver(eqx.Module):
-    b: Array
     tol: float
     max_iter: int
-    jacobian: Callable
+    # jacobian: Callable
     krylov_solver: Callable
     krylov_tol: float
     krylov_max_iter: int
 
-    def _solve(self, f, x):
-        return newton_krylov_solver(
-            x=x,
-            b=self.b,
-            gradient=f,
-            jacobian=self.jacobian,
-            tol=self.tol,
-            max_iter=self.max_iter,
-            krylov_solver=self.krylov_solver,
-            krylov_tol=self.krylov_tol,
-            krylov_max_iter=self.krylov_max_iter,
-        )
-
-    def _solve_linear_system(self, g, y):
+    def _tangent_linear_solve(self, g, y):
         x_sol = jnp.linalg.solve(g, y)
         return x_sol
 
-    def tangent_solve(self, g, y):
-        # x_sol, _ = self.krylov_solver(g, y)
-
-        # x_sol = self._solve_linear_system(g, y)
-        def j(x):
-            return jax.jvp(g, (y,), (x,))[1]
-
-        x_sol, _ = conjugate_gradient(j, y)
+    def _tangent_matrix_free_solve(self, g, y):
+        x_sol, _ = conjugate_gradient(
+            A=g,
+            b=y,
+            atol=self.krylov_tol,
+            max_iter=self.krylov_max_iter,
+        )
 
         return x_sol
 
-    def solve(self, f, x):
+    @eqx.filter_jit
+    def solve(self, f, x, b, jac):
+        def _solve(f, x):
+            return newton_krylov_solver(
+                x=x,
+                b=b,
+                gradient=f,
+                jacobian=jac,
+                tol=self.tol,
+                max_iter=self.max_iter,
+                krylov_solver=self.krylov_solver,
+                krylov_tol=self.krylov_tol,
+                krylov_max_iter=self.krylov_max_iter,
+            )
+
         x_sol = jax.lax.custom_root(
             f=f,
             initial_guess=x,
-            solve=self._solve,
-            tangent_solve=self.tangent_solve,
+            solve=_solve,
+            tangent_solve=self._tangent_matrix_free_solve,
             has_aux=False,
         )
         return x_sol
