@@ -126,6 +126,9 @@ def strain_energy(eps_flat: Array) -> Array:
 
 compute_stress = jax.jit(jax.jacrev(strain_energy))
 
+# %% [markdown]
+# We now define the Galerkin projection operator.
+
 # %%
 Ghat = GalerkinProjection(scheme=diff_scheme)
 
@@ -134,8 +137,15 @@ Ghat = GalerkinProjection(scheme=diff_scheme)
 @eqx.filter_jit
 def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     """
-    This makes instances of this class behave like a function.
-    It takes only the flattened vector of unknowns, as required by the solver.
+    A function that computes the residual of the problem based on the given macro strain.
+    It takes only the flattened vector of fluctuation strain and a macro strain.
+
+    Args:
+        eps_fluc_flat: Flattened vector of fluctuation strain.
+        macro_strain: Macro strain.
+
+    Returns:
+        Residual field.
     """
 
     eps_fluc = eps_fluc_flat.reshape(dofs_shape)
@@ -155,8 +165,14 @@ def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
 @eqx.filter_jit
 def jacobian_fn(deps_flat: Array) -> Array:
     """
-    The Jacobian is a linear operator, so its __call__ method
-    represents the Jacobian-vector product.
+    The Jacobian is a linear operator, so its represents the Jacobian-vector product.
+    For this linear elastic problem, we use the stress relation to compute the Jacobian.
+
+    Args:
+        deps_flat: The flattened displacement gradient field.
+
+    Returns:
+        The flattened Jacobian-vector product.
     """
 
     deps_flat = deps_flat.reshape(-1)
@@ -258,7 +274,7 @@ print(f"tangent: {tangent}")
 # %% [markdown]
 # Plotting the micro stress field
 
-# $$
+# %%
 
 plt.figure(figsize=(4, 4))
 plt.imshow(state[1][:, :, 0, 0], cmap="berlin", origin="lower")
@@ -267,3 +283,5 @@ plt.title("Micro Stress Field")
 plt.xlabel("X")
 plt.ylabel("Y")
 plt.show()
+
+# %%
