@@ -2,11 +2,12 @@
 
 <div align="center">
 
-<img src="assets/logo-xpektra.png" alt="drawing" width="500"/>
+<img src="assets/xpektra-jax-color.png" alt="drawing" width="500" height="100"/>
 
 <h3 align="center">Spectral methods made simple</h3>
 
-xpektra is a framework for spectral methods written entirely in Python. It is designed to be a modular and easy to use and extend framework for spectral methods. xpektra is designed to be high-performance and scalable, capable of running on CPUs, GPUs, and TPUs. 
+xpektra is a framework for spectral methods written entirely in Python. It is designed to be a modular and easy to use and extend for spectral methods. xpektra is designed to be high-performance and scalable, capable of running on CPUs, GPUs, and TPUs. 
+
 
 </div>
 

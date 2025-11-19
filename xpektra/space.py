@@ -8,17 +8,20 @@ from xpektra.transform import Transform
 class SpectralSpace(eqx.Module):
     """Defines the spectral space
 
-    Args:
-        shape: The shape of the spectral space.
-        lengths: The lengths of the spectral space.
-        transform: The transform to be used in the spectral space.
+    ***Arguments***
 
-    Returns:
-        The spectral space.
+    - shape: The shape of the spectral space.
+    - lengths: The lengths of the spectral space.
+    - transform: The transform to be used in the spectral space.
 
-    Example:
-        >>> space = SpectralSpace(shape=(10,), lengths=(1.0,), transform=FFTTransform(dim=1))
-        >>> space.get_wavenumber_vector()
+    ***Returns***
+    - The spectral space.
+
+    ```
+    space = SpectralSpace(shape=(10,), lengths=(1.0,), transform=FFTTransform(dim=1))
+    space.get_wavenumber_vector()
+    ```
+
     """
 
     lengths: tuple[float, ...] = eqx.field(static=True)
@@ -29,8 +32,9 @@ class SpectralSpace(eqx.Module):
         """
         Creates a list of coordinate arrays for the wavenumbers.
 
-        Returns:
-            A list of arrays representing the wavenumber meshgrid.
+        ***Returns***
+        - A list of arrays representing the wavenumber meshgrid.
+
         """
         k_vecs = [
             self.transform.get_wavenumber_vector(size=n, length=length)

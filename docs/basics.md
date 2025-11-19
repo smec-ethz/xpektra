@@ -1,227 +1,160 @@
 # Building Blocks of `xpektra`
 
-The `xpektra` library is built on a set of modular, JAX-native components. The core philosophy is to provide a "toolkit" of these blocks, allowing you to assemble different types of spectral solvers (Galerkin, Moulinec-Suquet, displacement-based) with minimal, reusable code.
+The `xpektra` library is built on a set of modular, JAX-native components. The core philosophy is to provide a "toolkit" that separates the **geometry** (grids), the **calculus** (differentiation rules), and the **physics** (equilibrium constraints).
 
-These blocks are:
+The library is organized into a hierarchy. As a user, you will primarily interact with the **`SpectralOperator`**, which acts as a facade for the underlying machinery.
 
-1.  `Tensor Fields`: The data, representing physical quantities on a grid.
-2.  `TensorOperator`: The tools to perform tensor algebra on those fields.
-3.  `SpectralSpace`: The "canvas" that defines the grid and FFT operations.
-4.  `Scheme`: The rules for defining derivatives (e.g., Fourier, Finite Difference).
-5.  `ProjectionOperator`: The core "engine" that enforces mechanical laws.
+1.  **`SpectralSpace`**: The "canvas" that defines the grid and the transform (FFT, DCT).
+2.  **`Scheme`**: The "rulebook" for how derivatives are calculated.
+3.  **`SpectralOperator`**: The **main interface** that combines space and scheme to provide high-level operations (`grad`, `div`, `fft`).
+4.  **`ProjectionOperator`**: The physics engine used to build Green's operators for specific formulations.
+5.  **Tensor Fields & Operators**: The underlying data structures and algebra engine.
 
 
-## Tensor Fields
+## Tensor Fields (The Data)
 
-In **Xpektra**, all physical fields (like stress, strain, or displacement) are represented as JAX or NumPy arrays. The library follows a consistent `(spatial..., tensor...)` memory layout for all fields.
+In **Xpektra**, physical quantities like stress, strain, or displacement are represented as JAX arrays. The library enforces a consistent **`(spatial..., tensor...)`** memory layout.
 
 This means the spatial grid dimensions `(N_x, N_y, ...)` always come first, followed by the tensor component dimensions `(d, d, ...)`.
 
-  * **Rank 0 (Scalar) Field** in 2D: `(N, N)`
-  * **Rank 1 (Vector) Field** in 2D: `(N, N, 2)`
-  * **Rank 2 (Tensor) Field** in 2D: `(N, N, 2, 2)`
-  * **Rank 2 (Tensor) Field** in 3D: `(N, N, N, 3, 3)`
+  * **Scalar Field (Rank 0)** in 2D: `(N, N)`
+  * **Vector Field (Rank 1)** in 2D: `(N, N, 2)`
+  * **Tensor Field (Rank 2)** in 2D: `(N, N, 2, 2)`
 
-**Xpektra** provides a convenience function `make_field` to create an empty tensor field with the correct shape.
+**Xpektra** provides a helper function `make_field` to create fields with the correct shape.
 
 ```python
-from xpektra import make_field  
+from xpektra import make_field
 
 # Create a rank-2 (2x2) tensor field on a 128x128 grid
-stress_field = make_field(dim=2, N=128, rank=2)
-print(stress_field.shape)
-# Output: (128, 128, 2, 2)
-
-# Create a rank-1 (vector) field on a 64x64x64 grid
-displacement_field = make_field(dim=3, N=64, rank=1)
-print(displacement_field.shape)
-# Output: (64, 64, 64, 3)
+stress = make_field(dim=2, N=128, rank=2)
+print(stress.shape) # Output: (128, 128, 2, 2)
 ```
 
+## The Foundation: `SpectralSpace` and `Transform`
 
-## Tensor Operations on Grid
-
-To perform tensor algebra on these fields, **Xpektra** provides the `TensorOperator` class. This class is a lightweight helper that provides methods like `dot`, `ddot`, `trace`, etc., which automatically handle the spatial dimensions using optimized `einsum` operations.
-
-You only need to initialize it with the spatial dimension `dim`.
-
-```python
-from xpektra import TensorOperator, make_field
-
-tensor_op = TensorOperator(dim=2)
-```
-
-The `TensorOperator` uses pre-defined `einsum` rules to perform the correct contraction based on the ranks of the input fields.
-
-### Common Operations
-
-#### Dot Product: `.dot()`
-
-Performs a single tensor contraction.
-
-  * **Tensor-Tensor (`...ij,...jk->...ik`)**:
-    ```python
-    A = make_field(dim=2, N=12, rank=2)
-    B = make_field(dim=2, N=12, rank=2)
-    C = tensor_op.dot(A, B)
-    # C.shape = (12, 12, 2, 2)
-    ```
-  * **Tensor-Vector (`...ij,...j->...i`)**:
-    ```python
-    A = make_field(dim=2, N=12, rank=2)
-    v = make_field(dim=2, N=12, rank=1)
-    w = tensor_op.dot(A, v)
-    # w.shape = (12, 12, 2)
-    ```
-
-#### Double Dot Product: `.ddot()`
-
-Performs a double tensor contraction.
-
-  * **4th-Order-2nd-Order (`...ijkl,...lk->...ij`)**:
-    ```python
-    C4 = make_field(dim=2, N=12, rank=4)
-    eps = make_field(dim=2, N=12, rank=2)
-    sig = tensor_op.ddot(C4, eps)
-    # sig.shape = (12, 12, 2, 2)
-    ```
-
-#### Dyadic Product: `.dyad()`
-
-Creates a higher-rank tensor from two lower-rank tensors.
-
-  * **Vector-Vector (`...i,...j->...ij`)**:
-    ```python
-    v1 = make_field(dim=2, N=12, rank=1)
-    v2 = make_field(dim=2, N=12, rank=1)
-    A = tensor_op.dyad(v1, v2)
-    # A.shape = (12, 12, 2, 2)
-    ```
-
-#### Trace: `.trace()`
-
-Calculates the trace of a tensor.
-
-  * **Trace of Rank-2 Tensor (`...ii->...`)**:
-    ```python
-    A = make_field(dim=2, N=12, rank=2)
-    tr_A = tensor_op.trace(A)
-    # tr_A.shape = (12, 12)
-    ```
-
-#### Transpose: `.trans()`
-
-Calculates the transpose of a tensor.
-
-  * **Transpose of Rank-2 Tensor (`...ij->...ji`)**:
-    ```python
-    A = make_field(dim=2, N=12, rank=2)
-    A_T = tensor_op.trans(A)
-    # A_T.shape = (12, 12, 2, 2)
-    ```
-
-
-## Spectral Space
-
-The `SpectralSpace` class is the canvas for all operations. It defines the grid's properties (size, dimensions, length) and provides the JAX-native `fft` and `ifft` methods.
-
-These methods are crucial as they correctly apply the transform along the spatial axes (`(N, N, ...)`) while leaving the tensor component axes (`(..., d, d)`) untouched.
+The `SpectralSpace` class defines the geometry of your problem. It holds the physical dimensions, the grid resolution, and the **Transform strategy** (e.g., FFT or DCT) used to move between real and spectral space. We define the transform strategy in the `Transform` class.
 
 ```python
 from xpektra import SpectralSpace
+from xpektra.transform import FFTTransform
 
-space = SpectralSpace(dim=2, size=128, length=1.0)
+# 1. Choose a Transform Strategy
+transform = FFTTransform(dim=2)
+
+# 2. Define the Space
+space = SpectralSpace(lengths =(1, 10), shape=(64, 256), transform=transform)
 ```
 
-Its key attributes and methods are:
+!!! tip "Non-Square/Non-Cube Grids"
 
-  * `dim`: The number of spatial dimensions (e.g., 2).
-  * `size`: The number of grid points per dimension (e.g., 128).
-  * `length`: The physical length of the domain.
-  * `wavenumber_vector()`: Returns the real-valued wavenumber vector $\xi$.
-  * `frequency_vector()`: Returns the integer frequency vector.
-  * `fft(field)`: Performs the forward FFT on a tensor field.
-  * `ifft(field_hat)`: Performs the inverse FFT on a tensor field.
+    The `SpectralSpace` class is defined for rectangular/square grids in 2D and cuboid grids in 3D.
 
+    
+## The Calculus: `Scheme`
 
-## Discretization Schemes
+Discretization is handled by `Scheme` objects. These define *how* derivatives are computed. In `xpektra` we have divided the scheme based on the type of grid and how the differentiation looks in Fourier space. 
 
-Discretization is handled by `Scheme` objects. These objects are the "rulebook" for how to calculate derivatives.
+Currently, we support cartersian based schemes with diagonalized differentiation operator in Fourier space.Some of the available schemes include:
 
-The library uses an **abstract-or-final** design pattern. As a user, you will typically just instantiate one of the **final** schemes provided. The scheme object's primary purpose is to provide the **gradient operator** (`.gradient_operator`) in Fourier space, which is used to build the final projection operator.
+  * **`Fourier`**: The standard spectral derivative ($D_k = i \xi_k$). Accurate but prone to Gibbs ringing.
+  * **`CentralDifference`**: A robust finite difference scheme ($D_k = i \sin(\xi_k h)/h$). Equivalent to Linear Finite Elements; eliminates ringing.
+  * **`RotatedDifference`**: An advanced finite difference scheme (Willot, 2015) offering high stability.
 
-Available schemes include:
-
-  * `Fourier`: The standard spectral derivative $D_k = i \xi_k$.
-  * `CentralDifference`: Finite difference $D_k = i \sin(\xi_k \Delta x) / \Delta x$.
-  * `RotatedDifference`: The scheme used by Willot (2015).
-  * And other common finite difference stencils.
 
 
 ```python
-from xpektra import SpectralSpace
-from xpektra.scheme import Fourier, CentralDifference
+from xpektra.scheme import RotatedDifference
 
-space = SpectralSpace(dim=2, size=128)
-
-# --- Choose a discretization scheme ---
-
-# Use the standard spectral derivative
-scheme_fourier = Fourier(space)
-
-# Use a central difference (LFE-equivalent) scheme
-scheme_fd = CentralDifference(space)
-
-# Get the gradient operator in Fourier space (shape (128, 128, 2))
-grad_op = scheme_fd.gradient_operator
+# Create a scheme attached to your space
+scheme = RotatedDifference(space=space)
 ```
 
-## Green's Operators (Projection Operators)
+!!! tip "Extending to Non-Cartesian grids or non-diagonalized differentiation"
 
-The `ProjectionOperator` is the core "engine" of the solver. It's an abstract class for operators that enforce the mechanical constraints (like equilibrium and compatibility). These operators are pre-computed in Fourier space and are represented as a 4th-order tensor field `Ghat`.
+    We are actively working on extending `xpektra` to support non-Cartesian grids and non-diagonalized differentiation operators. But one can easily implement their own scheme by subclassing the `Scheme` class as shown in [hello][extensibility.md]
 
-You will typically instantiate one of the **final** implementations.
 
-### Fourier-Galerkin Operator
+## The Interface: `SpectralOperator`
 
-This is the standard, material-independent projection operator $G_{hat}$ used in the Galerkin formulation. It is implemented by the `GalerkinProjection` class.
+The **`SpectralOperator`** is the heart of the library. It combines the `Space` and the `Scheme` into a single, powerful toolkit.
 
-It is constructed simply by passing it the `Scheme` and `TensorOperator` you've already defined.
+Instead of managing transforms and derivatives manually, you use this operator to perform high-level mathematical operations on your fields.
+
+```python
+from xpektra.spectral_operator import SpectralOperator
+
+# Initialize the main operator
+op = SpectralOperator(space=space, scheme=scheme)
+
+# --- Calculus Operations ---
+grad_u = op.grad(u)       # Computes gradient of scalar u
+div_v  = op.div(v)        # Computes divergence of vector v
+sym_grad = op.sym_grad(u) # Computes symmetric gradient (strain)
+
+# --- Transform Operations ---
+u_hat = op.forward(u)     # Forward transform (FFT/DCT)
+u_real = op.inverse(u_hat) # Inverse transform
+```
+
+The `SpectralOperator` is "smart"—it delegates the math to the specific `Scheme` you chose, ensuring consistency.
+
+
+## The Physics: `ProjectionOperator`
+
+For solvers based on the Lippmann-Schwinger equation or Galerkin methods, you need a **`ProjectionOperator`**. This component pre-computes the 4th-order Green's operator ($\hat{\mathbb{\Gamma}}^0$ or $\hat{\mathbb{G}}$) in spectral space, which enforces equilibrium constraints.
+
+You typically instantiate a specific type of projection based on your formulation:
+
+### Galerkin Projection
+
+Used for the material-independent variational formulation (recommended for Newton-Krylov solvers).
 
 ```python
 from xpektra.projection_operator import GalerkinProjection
 
-# Build the Galerkin operator from the chosen scheme
-projection = GalerkinProjection(scheme=scheme_fd, tensor_op=tensor_op)
+# Build the operator from your scheme
+projection = GalerkinProjection(scheme=scheme)
 
-# Get the pre-computed 4th-order operator
-Ghat = projection.Ghat
-# Ghat.shape = (128, 128, 2, 2, 2, 2)
+# Apply projection: P(sigma_hat)
+residual_hat = projection.project(sigma_hat)
 ```
+!!! tip "Matrix-free Galerkin Projection"
 
-This `projection` object can now be used in a solver to project any stress field $\hat{\sigma}$ onto the compatible strain space: `eps_hat = projection.project(sigma_hat)`.
+    `xpektra` implements a matrix-free `GalerkinProjection` that means the projection is applied without explicitly forming the matrix, which can be memory-intensive for large problems.
 
-### Moulinec-Suquet Operator
 
-This is the Green's operator $\Gamma^0$ used in the Lippmann-Schwinger equation. It depends on a homogeneous isotropic reference material $C_0$ (defined by Lamé parameters $\lambda_0$ and $\mu_0$). It is implemented by the `MoulinecSuquetProjection` class.
+### Moulinec-Suquet Projection
+
+Used for the classic fixed-point scheme with a reference material ($\mathbb{C}_0$). This Moulinec-Suquet projection is used to solve the Lippmann-Schwinger equation: $\varepsilon^{k+1} = \bar{E} - \Gamma^0 * (\sigma(\varepsilon^k) - C_0 : \varepsilon^k)$.
+
 
 ```python
 from xpektra.projection_operator import MoulinecSuquetProjection
 
-# Define reference material properties
-lambda0 = 100.0
-mu0 = 25.0
-
-# Build the MS operator
-ms_operator = MoulinecSuquetProjection(
-    scheme=scheme_fourier, 
-    tensor_op=tensor_op, 
-    lambda0=lambda0, 
-    mu0=mu0
+# Build with reference material properties
+ms_proj = MoulinecSuquetProjection(
+    scheme=scheme, 
+    lambda0=100.0, 
+    mu0=25.0
 )
-
-# Get the pre-computed operator
-Ghat_ms = ms_operator.Ghat
 ```
 
-This `ms_operator` object can be used to solve the Lippmann-Schwinger equation: $\varepsilon^{k+1} = \bar{E} - \Gamma^0 * (\sigma(\varepsilon^k) - C_0 : \varepsilon^k)$.
+## The Algebra: `TensorOperator`
+
+The `TensorOperator` is the low-level engine handling tensor contractions (dot products, traces) on the grid.
+
+While it powers the library internally, you rarely need to instantiate it yourself. The **`SpectralOperator`** exposes the most common tensor operations directly for convenience:
+
+```python
+# Dot product (contraction)
+C = op.dot(A, B) 
+
+# Double dot product (A : B)
+energy = op.ddot(sigma, epsilon)
+
+# Transpose
+grad_u_T = op.trans(grad_u)
+```
+
+If you need advanced tensor manipulations, the underlying engine is available via `op.tensor_op`.

@@ -72,7 +72,6 @@ plugins:
 nav:
   - "index.md"
   - "basics.md"
-  - "theory.md"
   - "extensibility.md"
   - Tutorials:
       - Elasticity:
@@ -94,3 +93,4 @@ nav:
       - "api/projection_operators.md"
       - "api/scheme_api.md"
       - "api/spectral_operator_api.md"
+      - "api/spectral_space_api.md"

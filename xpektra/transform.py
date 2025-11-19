@@ -29,16 +29,20 @@ class FFTTransform(Transform):
     """
     The standard, JAX-native Fast Fourier Transform.
 
-    Args:
-        dim: Number of spatial dimensions to transform over.
+    ***Arguments***
+    - dim: Number of spatial dimensions to transform over.
 
-    Returns:
-        The FFT transform object.
+    ***Returns***
+    - The FFT transform object.
 
     Example:
-        >>> fft_transform = FFTTransform(dim=2)
-        >>> x_hat = fft_transform.forward(x)
-        >>> x = fft_transform.inverse(x_hat)
+
+    ```
+    fft_transform = FFTTransform(dim=2)
+    x_hat = fft_transform.forward(x)
+    x = fft_transform.inverse(x_hat)
+    ```
+
     """
 
     dim: int = eqx.field(static=True)
@@ -48,10 +52,10 @@ class FFTTransform(Transform):
         """
         Computes the centered FFT.
 
-        Args:
-            x: Input array of shape (Nx, Ny, ..., d, d)
-        Returns:
-            x_hat: Transformed array of the same shape
+        ***Arguments***
+        - x: Input array of shape (Nx, Ny, ..., d, d)
+        ***Returns***
+        - x_hat: Transformed array of the same shape
         """
 
         # Transform only the spatial axes (0 to dim-1)
@@ -63,10 +67,10 @@ class FFTTransform(Transform):
         """
         Computes the inverse centered FFT.
 
-        Args:
-            x_hat: Input array in frequency space of shape (Nx, Ny, ..., d, d)
-        Returns:
-            x: Inverse transformed array of the same shape
+        ***Arguments***
+        - x_hat: Input array in frequency space of shape (Nx, Ny, ..., d, d)
+        ***Returns***
+        - x: Inverse transformed array of the same shape
         """
         axes = range(self.dim)
         return jnp.fft.ifftn(x_hat, axes=axes)
@@ -78,11 +82,12 @@ class FFTTransform(Transform):
         For an FFT on N points over length L, the wavenumbers are:
         ξ = 2π * [0, 1, ..., N/2-1, -N/2, ..., -1] / L
 
-        Args:
-            size: Number of points in the spatial dimension.
-            length: Length of the spatial domain.
-        Returns:
-            k: Real-valued wavenumber vector of shape (size,).
+        ***Arguments***
+        - size: Number of points in the spatial dimension.
+
+        - length: Length of the spatial domain.
+        ***Returns***
+        - k: Real-valued wavenumber vector of shape (size,).
 
         """
 

@@ -25,24 +25,23 @@ jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
 
-import jax.numpy as jnp
-from jax import Array
+import time
+from functools import partial
 
+import equinox as eqx
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
+from jax import Array
 
 from xpektra import (
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
 from xpektra.projection_operator import MoulinecSuquetProjection
-
-import equinox as eqx
-from functools import partial
-
-import time
-import matplotlib.pyplot as plt
-
+from xpektra.scheme import FourierScheme
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.transform import FFTTransform
 
 # %% [markdown]
 # Let us start by defining the RVE geometry. We will consider a 2D square RVE with a circular inclusion.
@@ -64,8 +63,6 @@ else:
     phase = jnp.where(X**2 + Y**2 <= (0.2 / np.pi), 1.0, 0.0)
 
 
-
-
 # %% [markdown]
 # ## Define the material parameters
 #
@@ -84,13 +81,20 @@ mu = mu1 * (1.0 - phase) + mu2 * phase
 
 
 # %%
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(lengths=(length, length), shape=(N, N), transform=fft_transform)
+
+diff_scheme = FourierScheme(space=space)
+
+op = SpectralOperator(
+    scheme=diff_scheme,
+    space=space,
+)
 
 
 # %%
 i = jnp.eye(ndim)
-I = make_field(dim=ndim, N=N, rank=2) + i  # Add i to broadcast
+I = make_field(dim=ndim, shape=(N, N), rank=2) + i  # Add i to broadcast
 
 I4 = jnp.einsum("il,jk->ijkl", i, i)
 I4rt = jnp.einsum("ik,jl->ijkl", i, i)
@@ -105,7 +109,7 @@ C4 = (
 
 # Use average properties for the reference material
 lambda0 = (lambda1 + lambda2) / 2.0
-mu0 =  (mu1 + mu2) / 2.0
+mu0 = (mu1 + mu2) / 2.0
 
 # Build the constant C0 reference tensor [shape (3,3,3,3)]
 C0 = lambda0 * II + 2.0 * mu0 * I4s
@@ -136,14 +140,14 @@ def fixed_point_iteration(
         eps_k, _, k = state
 
         # Calculate stress and polarization
-        sigma = tensor.ddot(C4, eps_k)
-        sigma0 = tensor.ddot(C0, eps_k)
+        sigma = op.ddot(C4, eps_k)
+        sigma0 = op.ddot(C0, eps_k)
         tau = sigma - sigma0  # Polarization field tau = σ - C0:ε
 
         # Apply Green's operator: ε_fluc = G^0 * tau
-        tau_hat = space.fft(tau)
-        eps_fluc_hat = tensor.ddot(Ghat, tau_hat)  # project(Ghat, tau_hat)
-        eps_fluc = jnp.real(space.ifft(eps_fluc_hat))
+        tau_hat = op.forward(tau)
+        eps_fluc_hat = op.ddot(Ghat, tau_hat)  # project(Ghat, tau_hat)
+        eps_fluc = jnp.real(op.inverse(eps_fluc_hat))
 
         # Update total strain: ε_new = E_macro - ε_fluc
         eps_new = E_macro - eps_fluc
@@ -156,7 +160,6 @@ def fixed_point_iteration(
 
     # jax.debug.print("Converged in {i} iterations", i=num_iters)
     return eps_final
-
 
 
 # %%
@@ -206,7 +209,7 @@ else:
 print("Starting homogenization...")
 for i, E_voigt in enumerate(E_list):
     # Create the full E_macro field (broadcasts E_voigt)
-    E_macro = make_field(dim=ndim, N=N, rank=2) + E_voigt
+    E_macro = make_field(dim=ndim, shape=(N, N), rank=2) + E_voigt
 
     # Solve the RVE problem
     eps_final = fixed_point_iteration(
@@ -214,7 +217,7 @@ for i, E_voigt in enumerate(E_list):
     )
 
     # Compute the final stress field
-    sig_final = tensor.ddot(C4, eps_final)
+    sig_final = op.ddot(C4, eps_final)
 
     # Homogenize (average over the volume)
     if ndim == 3:

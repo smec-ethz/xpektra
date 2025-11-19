@@ -275,7 +275,6 @@ print(f"tangent: {tangent}")
 # Plotting the micro stress field
 
 # %%
-
 plt.figure(figsize=(4, 4))
 plt.imshow(state[1][:, :, 0, 0], cmap="berlin", origin="lower")
 plt.colorbar(label=r"$\sigma_{xx}$")

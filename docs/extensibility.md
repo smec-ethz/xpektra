@@ -6,16 +6,16 @@ The library's abstract classes (`Scheme`, `CartesianScheme`, `ProjectionOperator
 
 Here are a few examples of how you could extend the library.
 
-### Example 1: Implementing a New Discretization `Scheme`
+!!! example "Implementing a New Discretization `Scheme`"
 
-**Goal:** You want to implement a specific finite difference scheme, like the `TETRA2` method, which is known for its stability.
+    **Goal:** You want to implement a specific finite difference scheme, like the `TETRA2` method, which is known for its stability.
 
-**How:** You create a new class that inherits from `CartesianScheme`. Because the `TETRA2` logic is complex and non-separable, you would override the entire `_compute_gradient_operator` method to implement its unique mixing formula.
+    **How:** You create a new class that inherits from `Scheme` if it is not cartesian or diagonal, otherwise you inherit from `DiagonalScheme`. Because the `TETRA2` logic is complex and non-separable, you would override the entire `_compute_gradient_operator` method to implement its unique mixing formula.
 
 ```python
-from xpektra.scheme import CartesianScheme
+from xpektra.scheme import DiagonalSchem
 
-class TETRA2(CartesianScheme):
+class TETRA2(DiagonalSchem):
     """
     Implements the TETRA2 finite difference scheme by overriding
     the gradient operator computation.
@@ -43,11 +43,11 @@ class TETRA2(CartesianScheme):
 
 The rest of the library (`GalerkinProjection`, `NewtonKrylovSolver`) will now use your new scheme without any changes.
 
-### Example 2: Implementing a New `ProjectionOperator`
+!!! example "Implementing a New `ProjectionOperator`"
 
-**Goal:** You want to implement an accelerated fixed-point solver, like the `Eyre-Milton (EM)` or `Augmented Lagrangian (ADMM)` method. These methods use a different Green's operator $\Gamma^\gamma$ that is "polarized" by a parameter $\gamma$.
+    **Goal:** You want to implement an accelerated fixed-point solver, like the `Eyre-Milton (EM)` or `Augmented Lagrangian (ADMM)` method. These methods use a different Green's operator $\Gamma^\gamma$ that is "polarized" by a parameter $\gamma$.
 
-**How:** You create a new class that inherits from `ProjectionOperator` and implements the `_compute_operator` method to build this new $\Gamma^\gamma$ tensor.
+    **How:** You create a new class that inherits from `ProjectionOperator` and implements the `_compute_operator` method to build this new $\Gamma^\gamma$ tensor.
 
 ```python
 from xpektra.projection_operator import ProjectionOperator
@@ -67,11 +67,11 @@ class EyreMiltonProjection(ProjectionOperator):
         pass # Your implementation here
 ```
 
-### Example 3: Implementing a New Solver Strategy
+!!! example "Implementing a New Solver Strategy"
 
-**Goal:** You aren't satisfied with the basic fixed-point or Newton-Krylov solvers and want to use `Anderson Acceleration` to solve the root-finding problem $R(\varepsilon) = 0$.
+    **Goal:** You aren't satisfied with the basic fixed-point or Newton-Krylov solvers and want to use `Anderson Acceleration` to solve the root-finding problem $R(\varepsilon) = 0$.
 
-**How:** `xpektra` provides the residual calculation as a self-contained, JIT-able object (like the `Residual` class in the DBFFT example). You don't need to change any `xpektra` class. You simply write your own solver function that accepts this `Residual` object as an argument.
+    **How:** `xpektra` provides the residual calculation as a self-contained, JIT-able object (like the `Residual` class in the DBFFT example). You don't need to change any `xpektra` class. You simply write your own solver function that accepts this `Residual` object as an argument.
 
 ```python
 import jax

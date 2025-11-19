@@ -24,29 +24,25 @@ jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
 
-import jax.numpy as jnp
-from jax import Array
-
-import numpy as np
 import equinox as eqx
-
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
-
+import numpy as np
+from jax import Array
 
 # %%
 from xpektra import (
     SpectralSpace,
     make_field,
 )
-from xpektra.transform import FFTTransform
-from xpektra.scheme import FourierScheme
-from xpektra.spectral_operator import SpectralOperator
 from xpektra.projection_operator import MoulinecSuquetProjection
+from xpektra.scheme import FourierScheme
 from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient_while,
+    conjugate_gradient,
     newton_krylov_solver,
 )
-
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.transform import FFTTransform
 
 # %% [markdown]
 # Let us start by defining the RVE geometry. We will consider a 2D square RVE with a circular inclusion.
@@ -107,6 +103,7 @@ op = SpectralOperator(
 # %% [markdown]
 # ## Defining the constitutive law
 
+
 # %%
 @eqx.filter_jit
 def _strain_energy(eps: Array, lambdas: Array, mu: Array) -> Array:
@@ -165,6 +162,7 @@ Ghat = MoulinecSuquetProjection(
 # %% [markdown]
 # ## Defining the residual and Jacobian
 
+
 # %%
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
@@ -214,7 +212,6 @@ class Jacobian(eqx.Module):
         jvp_field = op.inverse(op.ddot(self.Ghat, op.forward(dtau)))
         jvp_field = jnp.real(jvp_field) + deps
         return jvp_field.reshape(-1)
-
 
 
 # %%
@@ -275,4 +272,3 @@ ax3.plot(sig.at[:, :, 0, 0].get()[:, int(N / 2)])
 ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()
-
