@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="assets/xpektra-trans.png" alt="drawing" width="400" height="100"/>
+<img src="assets/xpektra-trans-low.png" alt="drawing" width="400" height="100"/>
 
 <h3 align="center">Spectral methods made simple</h3>
 
