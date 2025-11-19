@@ -1,6 +1,6 @@
 
 <div align="center">
-<img src="docs/assets/logo-xpektra.png" alt="drawing" width="400"/>
+<img src="docs/assets/xpektra-trans.png" alt="drawing" width="400"/>
 <h3 align="center">xpektra : Modular framework for spectral methods</h3>
 
 
