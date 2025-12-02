@@ -9,6 +9,7 @@
 
 </div>
 
+[![Documentation](https://github.com/smec-ethz/xpektra/actions/workflows/build_docs.yml/badge.svg)](https://github.com/smec-ethz/xpektra/actions/workflows/build_docs.yml)
 
 ## License
 `xpektra` is distributed under the GNU Lesser General Public License v3.0 or later. See `COPYING` and `COPYING.LESSER` for the complete terms. © 2025 ETH Zurich (Mohit Pundir).
@@ -30,7 +31,7 @@ pip install xpektra
 For development work, clone the repository and install it in editable mode (use your preferred virtual environment tool such as `uv` or `venv`):
 
 ```bash
-git clone https://gitlab.ethz.ch/smec/software/xpektra.git
+git clone https://github.com/smec-ethz/xpektra.git
 cd xpektra
 pip install -e .
 ```

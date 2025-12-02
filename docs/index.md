@@ -4,9 +4,11 @@
 
 <img src="assets/xpektra-trans-low.png" alt="drawing" width="400" height="100"/>
 
-<h3 align="center">Spectral methods made simple</h3>
+<h3 align="center">xpektra: Modular framework for spectral methods</h3>
 
-xpektra is a framework for spectral methods written entirely in Python. It is designed to be a modular and easy to use and extend for spectral methods. xpektra is designed to be high-performance and scalable, capable of running on CPUs, GPUs, and TPUs. 
+
+`xpektra` is a Python library that provides a modularframework for spectral methods.  `xpektra` provide fundamental mathematical building blocks which can be used to construct complex spectral methods. It is built on top of JAX and Equinox, making it easy to use spectral methods in a differentiable way.
+
 
 
 </div>
@@ -18,13 +20,10 @@ xpektra is a framework for spectral methods written entirely in Python. It is de
 
 ## Features
 
-The features of `xpektra` are:
-
-- runnable on CPUs, GPUs, and TPUs
-- modular and easy to use and extend
-- fully differentiable
-
-`xpektra` is built on top of the differentiable libraries such as  **JAX** and **Equinox**. 
+- Modular building blocks for spectral methods which can be easily combined to create complex solid mechanics problems.
+- Extensible design allowing users to define their own operators and spaces such as Fourier-Galerkin, Moulinec and Suquet, Displacement-based, etc.
+- Differentiable operations using JAX
+- Implicit differentiation support which allows for computationally efficient Homogenization and Multiscale simulations.
 
 
 ## Installation
