@@ -1,3 +1,13 @@
+## v0.3.2 (2025-12-02)
+
+### Fix
+
+- **solvers**: adds newton solver with implicit differentiation using matrix free solve (db184ea)
+- modify multiscale problem to be more optimized and computationally efficient, corrected inconsistenty in typing (d21abd8)
+- attempt at multiscale by coupling tatva and xpektra, add cg with implicit differentiation (85d3797)
+- **spectral_operator**: add laplacian operator (48662ac)
+- **scheme**: adapt scheme for computing gradients for 1D domain, adds phasefield locaization as an example (b585c4e)
+
 ## v0.3.1 (2025-11-13)
 
 ### Fix

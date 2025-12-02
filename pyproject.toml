@@ -1,6 +1,6 @@
 [project]
 name = "xpektra"
-version = "0.3.1"
+version = "0.3.2"
 description = "Functional programming and differentiable framework for spectral methods"
 authors = [
     { name = "Mohit Pundir", email = "mpundir@ethz.ch" },
