@@ -14,10 +14,11 @@
 
 ## Features
 
-- Functional programming interface for spectral methods
+- Modular building blocks for spectral methods which can be easily combined to create complex solid mechanics problems.
+- Extensible design allowing users to define their own operators and spaces such as Fourier-Galerkin, Moulinec and Suquet, Displacement-based, etc.
 - Differentiable operations using JAX
-- Support for FFT and other spectral transforms
-- Easy integration with machine learning frameworks
+- Implicit differentiation support which allows for computationally efficient Homogenization and Multiscale simulations.
+
 
 ## Installation
 Install the current release from PyPI:
@@ -43,146 +44,13 @@ pip install -e .
 - `make_field`: Defines the field on which the methods are defined, this includes the field operations and the field creation.
 - `ProjectionOperator`: Defines the projection operator which projects the stress field onto the spectral space. Currently, `GalerkinProjection` is the only projection operator available but one can easily define new projection operators by subclassing the `ProjectionOperator` class.
 
-```python
-from xpektra import (
-    SpectralSpace,
-    TensorOperator,
-    make_field,
-)
-from xpektra.scheme import RotatedDifference, Fourier
-from xpektra.projection_operator import GalerkinProjection
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient_while,
-    newton_krylov_solver,
-)
 
+## 👉 Where to contribute
 
-N = 199
-shape = (N, N)
-length = 1.0
-ndim = 2
+If you have a suggestion that would make this better, please fork the repo and create a pull request on [**github.com/smec-ethz/xpektra**](https://github.com/smec-ethz/xpektra). Please use that repository to open issues or submit merge requests. You can also simply open an issue with the tag "enhancement". Don't forget to give the project a star! Thanks again!
 
-
-def create_structure(N):
-    Hmid = int(N / 2)
-    Lmid = int(N / 2)
-    r = int(N / 4)
-
-    structure = np.ones((N, N))
-    structure[Hmid - r : Hmid + r + 1, Lmid - r : Lmid + r + 1] -= disk(r)
-
-    return structure
-
-
-structure = create_structure(N)
-
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
-
-
-def param(X, inclusion, solid):
-    props = inclusion * jnp.ones_like(X) * (1 - X) + solid * jnp.ones_like(X) * (X)
-    return props
-
-
-phase_contrast = 1./1e3
-
-# lames constant
-lambda_modulus = {"solid": 1.0, "inclusion": phase_contrast}
-shear_modulus = {"solid": 1.0, "inclusion": phase_contrast}
-
-bulk_modulus = {}
-bulk_modulus["solid"] = lambda_modulus["solid"] + 2 * shear_modulus["solid"] / 3
-bulk_modulus["inclusion"] = (
-    lambda_modulus["inclusion"] + 2 * shear_modulus["inclusion"] / 3
-)
-
-λ0 = param(
-    structure, inclusion=lambda_modulus["inclusion"], solid=lambda_modulus["solid"]
-)  # lame parameter
-μ0 = param(
-    structure, inclusion=shear_modulus["inclusion"], solid=shear_modulus["solid"]
-)  # lame parameter
-K0 = param(structure, inclusion=bulk_modulus["inclusion"], solid=bulk_modulus["solid"])
-
-
-@eqx.filter_jit
-def strain_energy(eps):
-    eps_sym = 0.5 * (eps + tensor.trans(eps))
-    energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-        μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
-    )
-    return energy.sum()
-
-
-I = make_field(dim=ndim, N=N, rank=2)
-I[:, :, 0, 0] = 1
-I[:, :, 1, 1] = 1
-
-
-def compute_stress(eps):
-    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
-        "..., ...ij->...ij", μ0, eps
-    )
-
-
-Ghat = GalerkinProjection(
-    scheme=RotatedDifference(space=space), tensor_op=tensor
-).compute_operator()
-
-eps = make_field(dim=2, N=N, rank=2)
-
-
-class Residual(eqx.Module):
-    """A callable module that computes the residual vector."""
-
-    Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
-    dofs_shape: tuple = eqx.field(static=True)
-
-    # We can even pre-define the stress function if it's always the same
-    # For this example, we'll keep your original `compute_stress` function
-    # available in the global scope.
-
-    @eqx.filter_jit
-    def __call__(self, eps_flat: Array) -> Array:
-        """
-        This makes instances of this class behave like a function.
-        It takes only the flattened vector of unknowns, as required by the solver.
-        """
-        eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps)  # Assumes compute_stress is defined elsewhere
-        residual_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(sigma))
-        )
-        return jnp.real(residual_field).reshape(-1)
-
-
-class Jacobian(eqx.Module):
-    """A callable module that represents the Jacobian operator (tangent)."""
-
-    Ghat: Array
-    space: SpectralSpace = eqx.field(static=True)
-    tensor_op: TensorOperator = eqx.field(static=True)
-    dofs_shape: tuple = eqx.field(static=True)
-
-    @eqx.filter_jit
-    def __call__(self, deps_flat: Array) -> Array:
-        """
-        The Jacobian is a linear operator, so its __call__ method
-        represents the Jacobian-vector product.
-        """
-        deps = deps_flat.reshape(self.dofs_shape)
-        # Assuming linear elasticity, the tangent is the same as the residual operator
-        dsigma = compute_stress(deps)
-        jvp_field = self.space.ifft(
-            self.tensor_op.ddot(self.Ghat, self.space.fft(dsigma))
-        )
-        return jnp.real(jvp_field).reshape(-1)
-
-
-residual_fn = Residual(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape)
-
-```
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
