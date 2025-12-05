@@ -46,7 +46,6 @@ docs = [
     "mkdocs-material>=9.6.23",
     "mkdocstrings-python>=1.18.2",
 ]
-example = []
 
 
 [build-system]
@@ -74,6 +73,3 @@ modules = [
 
 [tool.uv]
 constraint-dependencies = []
-
-[tool.uv.sources]
-tatva = { path = "../tatva", editable = true }
