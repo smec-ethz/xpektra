@@ -84,7 +84,7 @@ nav:
       - Elasticity:
           - Fourier-Galerkin:
               - "examples/linear_elasticity.ipynb"
-              - "examples/gent.ipynb"
+              - "examples/st_venant_kirchhoff.ipynb"
               - "examples/j2_plasticity.ipynb"
               - "examples/multiphase_material.ipynb"
               - "examples/differential_operator.ipynb"
