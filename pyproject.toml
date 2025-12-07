@@ -14,11 +14,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "jax==0.8.0",
-    "equinox<=0.13.0",
+    "jax>=0.8.0",
+    "equinox >=0.13.0",
     "numpy",
     "scipy",
-    "jax-autovmap>=0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -30,9 +29,9 @@ examples = [
     "jaxopt>=0.8.5",
     "tatva",
     "optimistix>=0.0.11",
+    "cmap>=0.6.2",
 ]
 dev = [
-    "cmap>=0.6.2",
     "commitizen>=4.9.1",
     "pytest>=8.4.2",
 ]

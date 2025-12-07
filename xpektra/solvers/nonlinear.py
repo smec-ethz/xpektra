@@ -244,7 +244,6 @@ def newton_krylov_solver(
 class NewtonSolver(eqx.Module):
     tol: float
     max_iter: int
-    # jacobian: Callable
     krylov_solver: Callable
     krylov_tol: float
     krylov_max_iter: int
