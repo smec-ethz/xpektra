@@ -1,6 +1,6 @@
 # Discretization Schemes
 
-In **Xpektra**, we define a discretization scheme which allows us to correctly define various differentiation operators. To do so, we need two information:
+In **`xpektra`**, we define a discretization scheme which allows us to correctly define various differentiation operators. To do so, we need two information:
 
 - The underlying grid in the physical space _i.e_ if regular, staggered, etc.
 - The differentiation formula to be used.
@@ -14,7 +14,7 @@ In order to facilitate this, we define a base class `Scheme` which provides the 
             - is_compatible
 
 
-The `Scheme` class is a base class for all the discretization schemes. One can create different discretization schemes by subclassing the `Scheme` class and implementing the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **Xpektra**, we have implemented the `CartesianScheme` which takes a regular grid in physical space and returns the gradient operator field in spectral space.
+The `Scheme` class is a base class for all the discretization schemes. One can create different discretization schemes by subclassing the `Scheme` class and implementing the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **`xpektra`**, we have implemented the `CartesianScheme` which takes a regular grid in physical space and returns the gradient operator field in spectral space.
 
 ::: xpektra.scheme.DiagonalScheme
     options:
@@ -28,7 +28,7 @@ The `Scheme` class is a base class for all the discretization schemes. One can c
             - is_compatible
             - formula
 
-To define the differentiation formula, we need to implement the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **Xpektra**, we have various differentiation schemes available which can be used to define the differentiation formula.
+To define the differentiation formula, we need to implement the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **`xpektra`**, we have various differentiation schemes available which can be used to define the differentiation formula.
 
 ::: xpektra.scheme.FourierScheme
     options:

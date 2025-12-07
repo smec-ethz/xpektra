@@ -4,24 +4,24 @@ The `xpektra` library is built on a set of modular, JAX-native components. The c
 
 The library is organized into a hierarchy. As a user, you will primarily interact with the **`SpectralOperator`**, which acts as a facade for the underlying machinery.
 
-1.  **`SpectralSpace`**: The "canvas" that defines the grid and the transform (FFT, DCT).
-2.  **`Scheme`**: The "rulebook" for how derivatives are calculated.
-3.  **`SpectralOperator`**: The **main interface** that combines space and scheme to provide high-level operations (`grad`, `div`, `fft`).
+1.  **`TensorFields`**: The underlying data structures and algebra engine.
+2.  **`SpectralSpace & Transform`**: The "canvas" that defines the grid and the transform (FFT, DCT).
+3.  **`Scheme`**: The "rulebook" for how derivatives are calculated.
 4.  **`ProjectionOperator`**: The physics engine used to build Green's operators for specific formulations.
-5.  **Tensor Fields & Operators**: The underlying data structures and algebra engine.
+5.  **`SpectralOperator`**: The **main interface** that combines space and scheme to provide high-level operations (`grad`, `div`, `fft`).
 
 
-## Tensor Fields (The Data)
+## The Data: `Tensor Fields`
 
-In **Xpektra**, physical quantities like stress, strain, or displacement are represented as JAX arrays. The library enforces a consistent **`(spatial..., tensor...)`** memory layout.
+In **`xpektra`**, physical quantities like stress, strain, or displacement are represented as JAX arrays. The library enforces a consistent **`(spatial..., tensor...)`** memory layout.
 
 This means the spatial grid dimensions `(N_x, N_y, ...)` always come first, followed by the tensor component dimensions `(d, d, ...)`.
 
-  * **Scalar Field (Rank 0)** in 2D: `(N, N)`
-  * **Vector Field (Rank 1)** in 2D: `(N, N, 2)`
-  * **Tensor Field (Rank 2)** in 2D: `(N, N, 2, 2)`
+  * **`Scalar Field (Rank 0)`** in 2D: `(N, N)`
+  * **`Vector Field (Rank 1)`** in 2D: `(N, N, 2)`
+  * **`Tensor Field (Rank 2)`** in 2D: `(N, N, 2, 2)`
 
-**Xpektra** provides a helper function `make_field` to create fields with the correct shape.
+**`xpektra`** provides a helper function `make_field` to create fields with the correct shape.
 
 ```python
 from xpektra import make_field
@@ -33,7 +33,7 @@ print(stress.shape) # Output: (128, 128, 2, 2)
 
 ## The Foundation: `SpectralSpace` and `Transform`
 
-The `SpectralSpace` class defines the geometry of your problem. It holds the physical dimensions, the grid resolution, and the **Transform strategy** (e.g., FFT or DCT) used to move between real and spectral space. We define the transform strategy in the `Transform` class.
+The `SpectralSpace` class defines the geometry of your problem. It holds the physical dimensions, the grid resolution, and the **transform strategy** (e.g., FFT or DCT) used to move between real and spectral space. We define the transform strategy in the `Transform` class.
 
 ```python
 from xpektra import SpectralSpace
@@ -72,7 +72,7 @@ scheme = RotatedDifference(space=space)
 
 !!! tip "Extending to Non-Cartesian grids or non-diagonalized differentiation"
 
-    We are actively working on extending `xpektra` to support non-Cartesian grids and non-diagonalized differentiation operators. But one can easily implement their own scheme by subclassing the `Scheme` class as shown in [hello][extensibility.md]
+    We are actively working on extending `xpektra` to support non-Cartesian grids and non-diagonalized differentiation operators. But one can easily implement their own scheme by subclassing the `Scheme` class as shown in the documentation.
 
 
 ## The Interface: `SpectralOperator`
@@ -97,7 +97,26 @@ u_hat = op.forward(u)     # Forward transform (FFT/DCT)
 u_real = op.inverse(u_hat) # Inverse transform
 ```
 
-The `SpectralOperator` is "smart"—it delegates the math to the specific `Scheme` you chose, ensuring consistency.
+The `SpectralOperator` is "smart" that means it delegates the math to the specific `Scheme` you chose, ensuring consistency.
+
+## The Algebra: `TensorOperator`
+
+The `TensorOperator` is the low-level engine handling tensor contractions (dot products, traces) on the grid.
+
+While it powers the library internally, you rarely need to instantiate it yourself. The **`SpectralOperator`** exposes the most common tensor operations directly for convenience:
+
+```python
+# Dot product (contraction)
+C = op.dot(A, B) 
+
+# Double dot product (A : B)
+energy = op.ddot(sigma, epsilon)
+
+# Transpose
+grad_u_T = op.trans(grad_u)
+```
+
+If you need advanced tensor manipulations, the underlying engine is available via `op.tensor_op`.
 
 
 ## The Physics: `ProjectionOperator`
@@ -139,22 +158,3 @@ ms_proj = MoulinecSuquetProjection(
     mu0=25.0
 )
 ```
-
-## The Algebra: `TensorOperator`
-
-The `TensorOperator` is the low-level engine handling tensor contractions (dot products, traces) on the grid.
-
-While it powers the library internally, you rarely need to instantiate it yourself. The **`SpectralOperator`** exposes the most common tensor operations directly for convenience:
-
-```python
-# Dot product (contraction)
-C = op.dot(A, B) 
-
-# Double dot product (A : B)
-energy = op.ddot(sigma, epsilon)
-
-# Transpose
-grad_u_T = op.trans(grad_u)
-```
-
-If you need advanced tensor manipulations, the underlying engine is available via `op.tensor_op`.

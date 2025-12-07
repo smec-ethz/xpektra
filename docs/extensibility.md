@@ -13,9 +13,9 @@ Here are a few examples of how you could extend the library.
     **How:** You create a new class that inherits from `Scheme` if it is not cartesian or diagonal, otherwise you inherit from `DiagonalScheme`. Because the `TETRA2` logic is complex and non-separable, you would override the entire `_compute_gradient_operator` method to implement its unique mixing formula.
 
 ```python
-from xpektra.scheme import DiagonalSchem
+from xpektra.scheme import DiagonalScheme
 
-class TETRA2(DiagonalSchem):
+class TETRA2(DiagonalScheme):
     """
     Implements the TETRA2 finite difference scheme by overriding
     the gradient operator computation.

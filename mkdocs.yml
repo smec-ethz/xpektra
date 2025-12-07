@@ -17,10 +17,17 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
+  favicon: "_static/favicon-xpektra.png"
+  logo: "_static/favicon-xpektra.png"
+  icon:
+    repo: fontawesome/brands/github # GitHub logo in top right
 
 site_name: xpektra
 site_description: The documentation for xpektra software package
 site_author: Mohit Pundir
+
+repo_url: https://github.com/smec-ethz/xpektra
+repo_name: smec-ethz/xpektra
 
 extra_javascript:
   # The below two make MathJax work, see https://squidfunk.github.io/mkdocs-material/reference/mathjax/
@@ -50,7 +57,7 @@ plugins:
       include:
         - ".htaccess"
       exclude:
-        - "_overrides"
+        - "docs/_overrides/**"
         - "assets/*.svg"
   - mkdocstrings:
       handlers:

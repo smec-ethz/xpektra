@@ -1,31 +1,33 @@
+# %%
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-import jax.numpy as jnp
-import numpy as np
-from jax import Array
-import equinox as eqx
-
-
 from functools import partial
 
+import equinox as eqx
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import numpy as np
+from jax import Array
+from jax_autovmap import autovmap
 from skimage.morphology import disk
+
 from xpektra import (
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
-from xpektra.scheme import RotatedDifference, Fourier
 from xpektra.projection_operator import GalerkinProjection
+from xpektra.scheme import FourierScheme, RotatedDifference
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient_while,
     newton_krylov_solver,
 )
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.transform import FFTTransform
 
-from jax_autovmap import autovmap
+# %%
 
 N = 199
 shape = (N, N)
@@ -50,14 +52,16 @@ mask = structure == 1
 mask_eps = mask[..., None, None]
 
 
-
-tensor = TensorOperator(dim=ndim)
-space = SpectralSpace(size=N, dim=ndim, length=length)
-
-
 def param(X, inclusion, solid):
     props = inclusion * jnp.ones_like(X) * (1 - X) + solid * jnp.ones_like(X) * (X)
     return props
+
+
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(
+    lengths=(length,) * ndim, shape=phase.shape, transform=fft_transform
+)
+rotated_scheme = RotatedDifference(space=space)
 
 
 phase_contrast = 1.0 / 1e3
@@ -94,12 +98,12 @@ def strain_energy(eps_flat: Array) -> Array:
     return energy.sum()
 
 
-#I = make_field(dim=ndim, N=N, rank=2)
-#I[:, :, 0, 0] = 1
-#I[:, :, 1, 1] = 1
+# I = make_field(dim=ndim, N=N, rank=2)
+# I[:, :, 0, 0] = 1
+# I[:, :, 1, 1] = 1
 
 
-#def compute_stress(eps):
+# def compute_stress(eps):
 #    return jnp.einsum("..., ...ij->...ij", λ0 * tensor.trace(eps), I) + 2 * jnp.einsum(
 #        "..., ...ij->...ij", μ0, eps
 #    )
@@ -135,7 +139,9 @@ class Residual(eqx.Module):
         This makes instances of this class behave like a function.
         It takes only the flattened vector of unknowns, as required by the solver.
         """
-        sigma_flat = compute_stress_autovmap(eps_flat)  # Assumes compute_stress is defined elsewhere
+        sigma_flat = compute_stress_autovmap(
+            eps_flat
+        )  # Assumes compute_stress is defined elsewhere
         sigma = sigma_flat.reshape(self.dofs_shape)
 
         residual_field = self.space.ifft(
@@ -178,7 +184,7 @@ deps = make_field(dim=2, N=N, rank=2)
 for inc, deps_avg in enumerate(applied_strains):
     # solving for elasticity
     deps[:, :, 0, 0] = deps_avg
-    b = -residual_fn(deps.reshape(-1,  2, 2))
+    b = -residual_fn(deps.reshape(-1, 2, 2))
     eps = eps + deps
 
     final_state = newton_krylov_solver(

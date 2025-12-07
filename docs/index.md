@@ -6,12 +6,10 @@
 
 <h3 align="center">xpektra: Modular framework for spectral methods</h3>
 
+</div>
 
 `xpektra` is a Python library that provides a modularframework for spectral methods.  `xpektra` provide fundamental mathematical building blocks which can be used to construct complex spectral methods. It is built on top of JAX and Equinox, making it easy to use spectral methods in a differentiable way.
 
-
-
-</div>
 
 ## License
 
