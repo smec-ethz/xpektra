@@ -11,6 +11,7 @@
 
 [![Documentation](https://github.com/smec-ethz/xpektra/actions/workflows/build_docs.yml/badge.svg)](https://github.com/smec-ethz/xpektra/actions/workflows/build_docs.yml)
 [![Tests](https://github.com/smec-ethz/xpektra/actions/workflows/run_tests.yml/badge.svg)](https://github.com/smec-ethz/xpektra/actions/workflows/run_tests.yml)
+[![Nightly Benchmarks](https://github.com/smec-ethz/xpektra-benchmark/actions/workflows/run_benchmark.yml/badge.svg)](https://github.com/smec-ethz/xpektra-benchmark/actions/workflows/run_benchmark.yml)
 
 ## License
 `xpektra` is distributed under the GNU Lesser General Public License v3.0 or later. See `COPYING` and `COPYING.LESSER` for the complete terms. © 2025 ETH Zurich (Mohit Pundir).
@@ -21,7 +22,6 @@
 - Extensible design allowing users to define their own operators and spaces such as Fourier-Galerkin, Moulinec and Suquet, Displacement-based, etc.
 - Differentiable operations using JAX
 - Implicit differentiation support which allows for computationally efficient Homogenization and Multiscale simulations.
-
 
 ## Installation
 Install the current release from PyPI:
@@ -46,6 +46,10 @@ pip install -e .
 - `Scheme`: Defines the scheme for discretization which is then used to construct the gradient operator. Currently, `CartesianScheme` is the only scheme available but one can easily define new schemes by subclassing the `Scheme` class.
 - `make_field`: Defines the field on which the methods are defined, this includes the field operations and the field creation.
 - `ProjectionOperator`: Defines the projection operator which projects the stress field onto the spectral space. Currently, `GalerkinProjection` is the only projection operator available but one can easily define new projection operators by subclassing the `ProjectionOperator` class.
+
+## Benchmarking
+
+Check the Live Benchmark Dashboard to see the performance of `xpektra` at [Live Benchmark Dashboard](https://smec-ethz.github.io/xpektra-benchmark/).
 
 
 ## 👉 Where to contribute
