@@ -1,0 +1,2303 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The documentation for xpektra software package">
+      
+      
+        <meta name="author" content="Mohit Pundir">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../_static/favicon-xpektra.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>phasefield fracture 2D - xpektra</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../_static/custom_css.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#elasticity-subproblem" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="xpektra" class="md-header__button md-logo" aria-label="xpektra" data-md-component="logo">
+      
+  <img src="../../_static/favicon-xpektra.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xpektra
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              phasefield fracture 2D
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/smec-ethz/xpektra" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smec-ethz/xpektra
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="xpektra" class="md-nav__button md-logo" aria-label="xpektra" data-md-component="logo">
+      
+  <img src="../../_static/favicon-xpektra.png" alt="logo">
+
+    </a>
+    xpektra
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/smec-ethz/xpektra" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smec-ethz/xpektra
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Blocks of xpektra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extensibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extensibility: Building Your Own Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elasticity
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Elasticity
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_1" id="__nav_4_1_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fourier-Galerkin
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fourier-Galerkin
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linear_elasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../st_venant_kirchhoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    St venant kirchhoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../j2_plasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    J2 plasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphase_material/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D Multi-phase Material
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../differential_operator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gibbs Ringing Artifact
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_2" id="__nav_4_1_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Moulinec-Suquet
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Moulinec-Suquet
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moulinec_suquet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixed-point iteration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moulinec_suquet_newton_krylov/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Moulinec-Suquet as Newton-Krylov solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_3" id="__nav_4_1_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Displacement-based FFT
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Displacement-based FFT
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../displacement_based_fft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear Elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../phasefield_localization_1D/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Phasefield Localization in 1D
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../computational_homogenization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homogenization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiscale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale problem: xpektra + tatva
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Basic API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/projection_operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projection Operators
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/scheme_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discretization Schemes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spectral_operator_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spectral Operator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spectral_space_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spectral Space
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+  <h1>phasefield fracture 2D</h1>
+
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>  <span class="c1"># use double-precision</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_persistent_cache_min_compile_time_secs&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_platforms&quot;</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">footprint_rectangle</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">xpektra</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectralSpace</span><span class="p">,</span> <span class="n">make_field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">FFTTransform</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.spectral_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectralOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.scheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">FourierScheme</span><span class="p">,</span> <span class="n">RotatedDifference</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.projection_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">GalerkinProjection</span>
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.solvers.nonlinear</span><span class="w"> </span><span class="kn">import</span> <span class="n">newton_krylov_solver</span><span class="p">,</span> <span class="n">conjugate_gradient_while</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">N</span> <span class="o">=</span> <span class="mi">99</span>
+<span class="n">ndim</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">length</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">length</span> <span class="o">/</span> <span class="n">N</span>
+<span class="n">ell</span> <span class="o">=</span> <span class="mf">0.2</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_structure</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="n">Hmid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">N</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">Lmid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">N</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">N</span> <span class="o">/</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="n">structure</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+    <span class="n">structure</span><span class="p">[</span><span class="n">Hmid</span> <span class="p">:</span> <span class="n">Hmid</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">Lmid</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">r</span> <span class="p">:</span> <span class="n">Lmid</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">r</span><span class="p">]</span> <span class="o">+=</span> <span class="n">footprint_rectangle</span><span class="p">(</span>
+        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">structure</span>
+
+
+<span class="n">structure</span> <span class="o">=</span> <span class="n">create_structure</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">cb</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/6afa04523d584214a7dfb8d8d07f4448.png" /></p>
+<p>Spatial and FFT operators that we need for solving of frature problem. </p>
+<div class="highlight"><pre><span></span><code><span class="n">fft_transform</span> <span class="o">=</span> <span class="n">FFTTransform</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
+<span class="n">space</span> <span class="o">=</span> <span class="n">SpectralSpace</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">lengths</span><span class="o">=</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">length</span><span class="p">),</span> <span class="n">transform</span><span class="o">=</span><span class="n">fft_transform</span><span class="p">)</span>
+<span class="n">diff_scheme</span> <span class="o">=</span> <span class="n">RotatedDifference</span><span class="p">(</span><span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">)</span>
+<span class="n">op</span> <span class="o">=</span> <span class="n">SpectralOperator</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="n">diff_scheme</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">)</span>
+</code></pre></div>
+<p>The total energy of the material undergoing fracture can be given as </p>
+<div class="arithmatex">\[\begin{align}
+\psi(\varepsilon_{ij}) &amp;= \psi_{elastic} + \psi_{fracture} \\
+\psi &amp;= g(\alpha)\psi_{e}^{+} + \psi_{e}^{-} + \dfrac{G_{c}}{c_w}(\dfrac{w(\alpha)}{l} + l|\nabla\alpha|^{2})
+\end{align}\]</div>
+<p>Defining the elastic strain energy with degradation of only <code>positive</code> energy part, we use the <code>volumetric-deviatoric</code> split to define the positive and negative part.</p>
+<h3 id="elasticity-subproblem">Elasticity subproblem<a class="headerlink" href="#elasticity-subproblem" title="Permanent link">¤</a></h3>
+<p>Now, we divided the problem into two subproblems: elastic and fracture. taking the first variation of functional <span class="arithmatex">\(\psi\)</span> with respect to <span class="arithmatex">\(\varepsilon\)</span> and <span class="arithmatex">\(\alpha\)</span>. The first  variation of functional <span class="arithmatex">\(F[u]\)</span> is defined as :</p>
+<p>\begin{align}
+\delta F[u] &amp;= \lim_{\epsilon\to 0} \dfrac{F[u+\epsilon\delta u] - F[u]}{\epsilon} = \lim_{\epsilon\to0} \dfrac{\text{d}}{\text{d}\epsilon} I[u+\epsilon\delta u]
+\end{align}
+The above is also called Gateaux derivative. </p>
+<p>For functional form that may involve <span class="arithmatex">\(u\)</span> as well as  its partial derivatives, we can define the first variation as follows:</p>
+<div class="arithmatex">\[\begin{align}
+I[u] &amp;= \int f(u, \nabla u, ...) dV \to \delta I[u] = \int \big( \dfrac{\partial f}{\partial u_i}\delta u_{i} + \dfrac{\partial f}{\partial u_{i,j}}\delta u_{i, j} + ....\big) dV 
+\end{align}\]</div>
+<p>The first variation of <span class="arithmatex">\(\psi\)</span> with respect to <span class="arithmatex">\(\varepsilon\)</span></p>
+<div class="arithmatex">\[\begin{align}
+\delta \psi(\varepsilon) &amp;= \int \dfrac{\partial \psi}{\partial \varepsilon}\delta\varepsilon dV \\
+&amp;= \int \underbrace{\Big(g(\alpha) \dfrac{\partial \psi_e^{+}}{\partial \varepsilon} + \dfrac{\partial \psi_{e}^{-}}{\partial \varepsilon}\Big)}_{\sigma}\delta \varepsilon dV
+\end{align}\]</div>
+<p>For this subproblem,we solve the weak form given as </p>
+<div class="arithmatex">\[\delta \psi(\epsilon) = \int \sigma \delta \epsilon dV = 0\]</div>
+<p>and we use  the Fourier-Galerkin method for that. </p>
+<p>For FFT scheme, we define the above strain expression for each grid point (<span class="arithmatex">\(x,y\)</span>)</p>
+<div class="arithmatex">\[\psi_{xy} = \dfrac{1}{2}(\text{tr}(\varepsilon_{iixy})^2 + \mu \text{tr}(\varepsilon_{ijxy}\varepsilon_{jkxy} ) $$
+$$\sigma_{ijxy} = \dfrac{\partial \psi_{xy}}{\partial \varepsilon_{ijxy}}\]</div>
+<div class="highlight"><pre><span></span><code><span class="n">E_solid</span> <span class="o">=</span> <span class="mf">1.</span>
+<span class="n">E_void</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">nu</span> <span class="o">=</span> <span class="mf">0.3</span>
+
+<span class="n">Gc</span> <span class="o">=</span> <span class="mf">1e-2</span>
+<span class="n">lambda_solid</span> <span class="o">=</span> <span class="n">E_solid</span> <span class="o">*</span> <span class="n">nu</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">nu</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nu</span><span class="p">))</span>
+<span class="n">lambda_void</span> <span class="o">=</span> <span class="n">E_void</span> <span class="o">*</span> <span class="n">nu</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">nu</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nu</span><span class="p">))</span>
+<span class="n">mu_solid</span> <span class="o">=</span> <span class="n">E_solid</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">nu</span><span class="p">))</span>
+<span class="n">mu_void</span> <span class="o">=</span> <span class="n">E_void</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">nu</span><span class="p">))</span>
+
+<span class="n">lambda_field</span> <span class="o">=</span> <span class="n">lambda_solid</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">structure</span><span class="p">)</span> <span class="o">+</span> <span class="n">lambda_void</span> <span class="o">*</span> <span class="n">structure</span>
+<span class="n">mu_field</span> <span class="o">=</span> <span class="n">mu_solid</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">structure</span><span class="p">)</span> <span class="o">+</span> <span class="n">mu_void</span> <span class="o">*</span> <span class="n">structure</span>
+<span class="n">bulk_field</span> <span class="o">=</span> <span class="n">lambda_field</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">mu_field</span> <span class="o">/</span> <span class="mi">3</span>
+
+
+<span class="n">elasticity_dofs_shape</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+<span class="n">fracture_dofs_shape</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">i</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
+<span class="n">I</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">i</span>
+
+<span class="n">cw</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">3.0</span>
+<span class="n">kappa</span> <span class="o">=</span> <span class="mf">1e-1</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">kappa</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">w</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">alpha</span>  <span class="c1"># 0.5*alpha**2 # alpha</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">no_split</span><span class="p">(</span><span class="n">eps</span><span class="p">):</span>
+    <span class="n">eps_sym</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">lambda_field</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span>
+        <span class="n">mu_field</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">,</span> <span class="n">eps_sym</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">energy</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">vol_dev_split</span><span class="p">(</span><span class="n">eps</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">macluay_plus</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">macluay_minus</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+
+    <span class="n">esp_plus</span> <span class="o">=</span> <span class="n">macluay_plus</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span>
+    <span class="n">esp_minus</span> <span class="o">=</span> <span class="n">macluay_minus</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span>
+    <span class="n">eps_dev</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">eps</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij, ...-&gt;...ij&quot;</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">ndim</span><span class="p">),</span> <span class="n">op</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="mi">3</span>
+    <span class="p">)</span>  <span class="c1"># deviatoric strain</span>
+
+    <span class="n">strain_energy_plus</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span>
+        <span class="n">bulk_field</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">esp_plus</span><span class="p">,</span> <span class="n">esp_plus</span><span class="p">)</span>
+    <span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">mu_field</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">ddot</span><span class="p">(</span><span class="n">eps_dev</span><span class="p">,</span> <span class="n">eps_dev</span><span class="p">))</span>
+    <span class="n">strain_energy_minus</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span>
+        <span class="n">mu_field</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">esp_minus</span><span class="p">,</span> <span class="n">esp_minus</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">strain_energy_plus</span><span class="p">,</span> <span class="n">strain_energy_minus</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">spectral_split</span><span class="p">(</span><span class="n">eps</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">macluay_plus</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">macluay_minus</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+
+    <span class="n">eps_eg</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">strain_energy</span><span class="p">(</span><span class="n">eps_flat</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="p">):</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">eps_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">elasticity_dofs_shape</span><span class="p">)</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fracture_dofs_shape</span><span class="p">)</span>
+    <span class="n">eps_sym</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span>
+    <span class="n">strain_energy_plus</span><span class="p">,</span> <span class="n">strain_energy_minus</span> <span class="o">=</span> <span class="n">vol_dev_split</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">)</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="n">g</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">strain_energy_plus</span> <span class="o">+</span> <span class="n">strain_energy_minus</span>
+    <span class="c1"># strain_energy = no_split(eps_sym)</span>
+    <span class="c1"># energy = g(alpha)*strain_energy</span>
+    <span class="k">return</span> <span class="n">energy</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+
+<span class="n">compute_stress</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacrev</span><span class="p">(</span><span class="n">strain_energy</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">Ghat</span> <span class="o">=</span> <span class="n">GalerkinProjection</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="n">diff_scheme</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">Array</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ElasticityResidual</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A callable module that computes the residual vector.&quot;&quot;&quot;</span>
+
+    <span class="n">dofs_shape</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># We can even pre-define the stress function if it&#39;s always the same</span>
+    <span class="c1"># For this example, we&#39;ll keep your original `compute_stress` function</span>
+    <span class="c1"># available in the global scope.</span>
+
+    <span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eps_flat</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="p">:</span> <span class="n">Array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This makes instances of this class behave like a function.</span>
+<span class="sd">        It takes only the flattened vector of unknowns, as required by the solver.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eps_flat</span> <span class="o">=</span> <span class="n">eps_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">alpha_flat</span> <span class="o">=</span> <span class="n">alpha_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sigma</span> <span class="o">=</span> <span class="n">compute_stress</span><span class="p">(</span><span class="n">eps_flat</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="p">)</span>
+        <span class="n">residual_field</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inverse</span><span class="p">(</span>
+            <span class="n">Ghat</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">sigma</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dofs_shape</span><span class="p">)))</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">residual_field</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ElasticityJacobian</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A callable module that represents the Jacobian operator (tangent).&quot;&quot;&quot;</span>
+
+    <span class="n">dofs_shape</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deps_flat</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="p">:</span> <span class="n">Array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The Jacobian is a linear operator, so its __call__ method</span>
+<span class="sd">        represents the Jacobian-vector product.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">deps_flat</span> <span class="o">=</span> <span class="n">deps_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">alpha_flat</span> <span class="o">=</span> <span class="n">alpha_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">dsigma</span> <span class="o">=</span> <span class="n">compute_stress</span><span class="p">(</span><span class="n">deps_flat</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="p">)</span>
+        <span class="n">jvp_field</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inverse</span><span class="p">(</span>
+            <span class="n">Ghat</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">dsigma</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dofs_shape</span><span class="p">)))</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">jvp_field</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">alpha0</span>    <span class="o">=</span> <span class="n">structure</span> 
+
+<span class="n">applied_strains</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="n">deps</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">residual_fn</span> <span class="o">=</span> <span class="n">ElasticityResidual</span><span class="p">(</span><span class="n">dofs_shape</span><span class="o">=</span><span class="n">eps</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">jacobian_fn</span> <span class="o">=</span> <span class="n">ElasticityJacobian</span><span class="p">(</span><span class="n">dofs_shape</span><span class="o">=</span><span class="n">eps</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+
+<span class="k">for</span> <span class="n">inc</span><span class="p">,</span> <span class="n">deps_avg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">applied_strains</span><span class="p">):</span>
+
+    <span class="c1"># solving for elasticity</span>
+    <span class="n">deps</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">deps_avg</span>
+
+    <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">jacobian_fn</span><span class="p">(</span><span class="n">deps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">alpha_flat</span><span class="o">=</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">+</span> <span class="n">deps</span>
+
+
+    <span class="n">residual_partial</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">residual_fn</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="o">=</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">jacobian_partial</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">jacobian_fn</span><span class="p">,</span> <span class="n">alpha_flat</span><span class="o">=</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">final_state</span> <span class="o">=</span> <span class="n">newton_krylov_solver</span><span class="p">(</span>
+        <span class="n">state</span><span class="o">=</span><span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">),</span>
+        <span class="n">gradient</span><span class="o">=</span><span class="n">residual_partial</span><span class="p">,</span>
+        <span class="n">jacobian</span><span class="o">=</span><span class="n">jacobian_partial</span><span class="p">,</span>
+        <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
+        <span class="n">max_iter</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">krylov_solver</span><span class="o">=</span><span class="n">conjugate_gradient_while</span><span class="p">,</span>
+        <span class="n">krylov_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
+        <span class="n">krylov_max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">final_state</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+<span class="n">eps</span> <span class="o">=</span> <span class="n">final_state</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">elasticity_dofs_shape</span><span class="p">)</span>
+<span class="n">sig</span> <span class="o">=</span> <span class="n">compute_stress</span><span class="p">(</span><span class="n">final_state</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">alpha_flat</span><span class="o">=</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">elasticity_dofs_shape</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>CG error = 0.00006655978748
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>CG error = 0.00042089973622
+CG error = 0.00007554364467
+CG error = 0.00001522675664
+CG error = 0.00000352423017
+CG error = 0.00000077934000
+CG error = 0.00000017491980
+CG error = 0.00000003847124
+CG error = 0.00000000975842
+CG error = 0.00000000225270
+CG error = 0.00000000055261
+CG error = 0.00000000012713
+CG error = 0.00000000003065
+CG error = 0.00000000000702
+CG error = 0.00000000000166
+CG error = 0.00000000000038
+CG error = 0.00000000000009
+CG error = 0.00000000000002
+CG error = 0.00000000000000
+CG error = 0.00000000000000
+Didnot converge, Residual value : 2.3441717668617714e-08
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">cb</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">at</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;managua&quot;</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax1</span><span class="p">)</span>
+
+<span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">at</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()[</span><span class="n">N</span><span class="o">//</span><span class="mi">2</span><span class="p">,</span> <span class="p">:])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/ecb68a3ac3ea4b42800a08381391257e.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="n">op</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">alpha0</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>(99, 99, 2)
+</code></pre></div>
+<h2 id="phasefield-subproblem">phasefield subproblem<a class="headerlink" href="#phasefield-subproblem" title="Permanent link">¤</a></h2>
+<p>The first variation of <span class="arithmatex">\(\psi\)</span> with respect to <span class="arithmatex">\(\alpha\)</span> </p>
+<div class="arithmatex">\[\begin{align}
+\delta \psi(\alpha) &amp;= \int \big( \dfrac{\partial \psi}{\partial \alpha}\delta \alpha + \dfrac{\partial \psi}{\partial \nabla \alpha}\delta \nabla \alpha \big) dV \\
+&amp;= \int \Big ( \psi_{e}^{+}\dfrac{\partial g(\alpha)}{\partial \alpha}\delta \alpha + \dfrac{G_{c}}{c_w}\dfrac{1}{l}\dfrac{\partial w(\alpha)}{\partial \alpha}\delta \alpha + 2\dfrac{G_{c}}{c_w}\nabla\alpha \delta\nabla \alpha\Big) dV
+\end{align}\]</div>
+<p>We can apply intergation by parts to the last term</p>
+<div class="arithmatex">\[ \int \nabla \alpha \delta \nabla \alpha dV =  \nabla \alpha \delta \alpha |_{\Gamma} - \int \nabla ( \nabla \alpha ) \delta \alpha~ dV  \]</div>
+<p>and since <span class="arithmatex">\(\delta \alpha=0\)</span> at the boundaries we can say that the first variation of <span class="arithmatex">\(\psi\)</span> w.r.t <span class="arithmatex">\(\alpha\)</span></p>
+<div class="arithmatex">\[ \delta \psi(\alpha) =  \int \Big ( \psi_{e}^{+}\dfrac{\partial g(\alpha)}{\partial \alpha} + \dfrac{G_{c}}{c_w}\dfrac{1}{l}\dfrac{\partial w(\alpha)}{\partial \alpha} - 2\ell\dfrac{G_{c}}{c_w}\nabla \cdot{} \nabla \alpha  \Big) \delta \alpha dV = 0\]</div>
+<p>For this subproblem we chose to solve the strong form rather than the above weak form. The strong form is given from the above weak form. Since the above equation holds for any <span class="arithmatex">\(\delta \alpha\)</span> therefore, we can say </p>
+<div class="arithmatex">\[ \psi_{e}^{+}\dfrac{\partial g(\alpha)}{\partial \alpha} + \dfrac{G_{c}}{c_w}\dfrac{1}{l}\dfrac{\partial w(\alpha)}{\partial \alpha} - 2\ell \dfrac{G_{c}}{c_w}\nabla \cdot{} \nabla \alpha = 0 \]</div>
+<p>We use <code>AT1</code> phasefield formulation for the phasefield degradation function. </p>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">g_sum</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">g</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">w_sum</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">w</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+
+<span class="n">dgdalpha</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">g_sum</span><span class="p">))</span>
+<span class="n">dwdalpha</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">w_sum</span><span class="p">))</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fracture_energy</span><span class="p">(</span><span class="n">alpha_flat</span><span class="p">,</span> <span class="n">eps_flat</span><span class="p">):</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">eps_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">elasticity_dofs_shape</span><span class="p">)</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fracture_dofs_shape</span><span class="p">)</span>
+    <span class="n">eps_sym</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span>
+    <span class="n">strain_energy_plus</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vol_dev_split</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">)</span>
+    <span class="n">elastic_energy</span> <span class="o">=</span> <span class="n">g</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">strain_energy_plus</span>
+
+    <span class="n">energy</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">elastic_energy</span>
+        <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">Gc</span><span class="p">,</span> <span class="n">w</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="n">cw</span>
+        <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span>
+            <span class="n">Gc</span><span class="p">,</span>
+            <span class="n">ell</span> <span class="o">*</span> <span class="n">ell</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;...ij,...ij-&gt;...&quot;</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span> <span class="n">op</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">alpha</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="o">/</span> <span class="n">cw</span>
+    <span class="p">)</span>
+    <span class="c1"># strain_energy = no_split(eps_sym)</span>
+    <span class="c1"># energy = g(alpha)*strain_energy</span>
+    <span class="k">return</span> <span class="n">energy</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fracture_strong_form</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">):</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+
+    <span class="n">eps_sym</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">epsilon</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">epsilon</span><span class="p">))</span>
+    <span class="n">strain_energy_plus</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vol_dev_split</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">)</span>
+
+    <span class="n">res</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">strain_energy_plus</span><span class="p">,</span> <span class="n">dgdalpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span>
+        <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">Gc</span><span class="p">,</span> <span class="n">dwdalpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="n">ell</span> <span class="o">/</span> <span class="n">cw</span>
+        <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ell</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">Gc</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">laplacian</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="n">cw</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>The phasefield subproblem is a root-finding problem under cosntraints and is given as </p>
+<p>Find $\alpha $ for a given <span class="arithmatex">\(\varepsilon\)</span> such that
+$$ \psi_{e}^{+}\dfrac{\partial g(\alpha)}{\partial \alpha} + \dfrac{G_{c}}{c_w}\dfrac{1}{l}\dfrac{\partial w(\alpha)}{\partial \alpha} - 2\ell\dfrac{G_{c}}{c_w}\nabla \cdot{} \nabla \alpha = 0 $$</p>
+<p>and the constraint is $\alpha_\textsf{prev} &lt; \alpha &lt; 1 $ for irreversibility.</p>
+<div class="highlight"><pre><span></span><code><span class="n">fracture_energy</span><span class="p">(</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Array(419.71454456, dtype=float64)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span><span class="p">,</span> <span class="n">Bounds</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">least_squares_objective</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">F_func</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Computes the scalar objective: 1/2 * ||F(alpha)||^2</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        alpha: The input vector</span>
+<span class="sd">        F_func: Your original function that returns the residual vector</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">residual_vector</span> <span class="o">=</span> <span class="n">F_func</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">residual_vector</span><span class="p">,</span> <span class="n">residual_vector</span><span class="p">)</span>
+
+<span class="n">F</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">fracture_strong_form</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="n">eps</span><span class="p">)</span>
+
+<span class="n">least_squares_objective_partial</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">least_squares_objective</span><span class="p">,</span> <span class="n">F_func</span><span class="o">=</span><span class="n">F</span><span class="p">)</span>
+
+<span class="n">fracture_energy_partial</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">fracture_energy</span><span class="p">,</span> <span class="n">eps_flat</span><span class="o">=</span><span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span><span class="p">,</span> <span class="n">Bounds</span>
+
+
+<span class="c1"># 2. Create the combined value-and-gradient function</span>
+<span class="c1">#    This is the key to connecting JAX to SciPy.</span>
+<span class="c1">#</span>
+<span class="c1">#    NOTE: F_func is passed as a static argument because</span>
+<span class="c1">#    it&#39;s a Python function, not a JAX array.</span>
+<span class="n">value_and_grad_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">value_and_grad</span><span class="p">(</span><span class="n">least_squares_objective_partial</span><span class="p">))</span>
+
+
+<span class="c1"># 3. Create a wrapper for SciPy</span>
+<span class="c1">#    SciPy solvers expect functions that:</span>
+<span class="c1">#    - Accept a 1D NumPy float64 array.</span>
+<span class="c1">#    - Return NumPy float64s.</span>
+<span class="c1">#    This wrapper handles the type conversions.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">scipy_objective_and_grad</span><span class="p">(</span><span class="n">alpha_np</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper for SciPy to call our JIT-compiled JAX function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert NumPy input to JAX array</span>
+    <span class="n">alpha_jax</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">alpha_np</span><span class="p">)</span>
+
+    <span class="c1"># Call the JAX function</span>
+    <span class="n">value_jax</span><span class="p">,</span> <span class="n">grad_jax</span> <span class="o">=</span> <span class="n">value_and_grad_jax</span><span class="p">(</span><span class="n">alpha_jax</span><span class="p">)</span>
+    <span class="c1">#value_jax = least_squares_objective_partial(alpha_jax)</span>
+    <span class="c1">#grad_jax = F(alpha_jax)</span>
+
+    <span class="c1"># Convert JAX outputs back to NumPy float64</span>
+    <span class="n">value_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span><span class="n">value_jax</span><span class="p">)</span>
+    <span class="n">grad_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_jax</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">value_np</span><span class="p">,</span> <span class="n">grad_np</span>
+
+
+<span class="c1"># SciPy L-BFGS-B works best with float64</span>
+<span class="c1"># Ensure your initial guess is a flat NumPy array</span>
+<span class="n">alpha0_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">alpha0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+<span class="c1"># Create the SciPy Bounds object</span>
+<span class="n">scipy_bounds</span> <span class="o">=</span> <span class="n">Bounds</span><span class="p">(</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">alpha0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Starting scipy.optimize.minimize (L-BFGS-B) with JAX gradient...&quot;</span><span class="p">)</span>
+
+<span class="c1"># Run the solver!</span>
+<span class="c1"># - fun: The wrapper function</span>
+<span class="c1"># - x0: Initial guess</span>
+<span class="c1"># - args: Extra arguments to pass to our wrapper (F_func)</span>
+<span class="c1"># - method: The solver that worked for you</span>
+<span class="c1"># - jac=True: Tells SciPy that &#39;fun&#39; returns (value, gradient)</span>
+<span class="c1"># - bounds: The constraints</span>
+<span class="c1"># - options: Set &#39;disp&#39; to True for verbose output</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+    <span class="n">fun</span><span class="o">=</span><span class="n">scipy_objective_and_grad</span><span class="p">,</span>
+    <span class="n">x0</span><span class="o">=</span><span class="n">alpha0_np</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span>
+    <span class="n">jac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="o">=</span><span class="n">scipy_bounds</span><span class="p">,</span>
+    <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;disp&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;maxiter&quot;</span><span class="p">:</span> <span class="mi">500</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># --- 5. Check the results ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- SciPy Results ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Success: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Message: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final objective (1/2 ||F||^2): </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">fun</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">final_F_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">result</span><span class="o">.</span><span class="n">fun</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final residual norm ||F||: </span><span class="si">{</span><span class="n">final_F_norm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">F</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)))</span>
+
+<span class="c1"># The final solution vector</span>
+<span class="n">final_alpha</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Starting scipy.optimize.minimize (L-BFGS-B) with JAX gradient...
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>/tmp/ipykernel_5369/2471087639.py:53: DeprecationWarning: scipy.optimize: The `disp` and `iprint` options of the L-BFGS-B solver are deprecated and will be removed in SciPy 1.18.0.
+  result = minimize(
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>--- SciPy Results ---
+Success: True
+Message: CONVERGENCE: RELATIVE REDUCTION OF F &lt;= FACTR*EPSMCH
+Final objective (1/2 ||F||^2): 27.516645377736474
+Final residual norm ||F||: 7.41844260983887
+[[0.0748839  0.07488408 0.07488441 ... 0.07488408 0.0748839  0.07488383]
+ [0.07488384 0.07488405 0.07488435 ... 0.07488405 0.07488384 0.0748838 ]
+ [0.07488377 0.07488393 0.07488428 ... 0.07488393 0.07488377 0.07488368]
+ ...
+ [0.07488377 0.07488393 0.07488428 ... 0.07488393 0.07488377 0.07488368]
+ [0.07488384 0.07488405 0.07488435 ... 0.07488405 0.07488384 0.0748838 ]
+ [0.0748839  0.07488408 0.07488441 ... 0.07488408 0.0748839  0.07488383]]
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">final_alpha</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;managua&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/f31bef36653f44e7bd91c1a5e1eba7eb.png" /></p>
+<h2 id="using-jaxopt">using jaxopt<a class="headerlink" href="#using-jaxopt" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">jaxopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProjectedGradient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jaxopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScipyBoundedMinimize</span> <span class="c1"># &lt;-- Alternative, see below</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jaxopt.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">projection_box</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># We need a new function that returns a scalar to be *minimized*.</span>
+<span class="c1"># The standard choice is the sum of squares of the residual.</span>
+
+<span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">least_squares_objective</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">F_func</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Computes the scalar objective: 1/2 * ||F(alpha)||^2</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        alpha: The input vector</span>
+<span class="sd">        F_func: Your original function that returns the residual vector</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">residual_vector</span> <span class="o">=</span> <span class="n">F_func</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">residual_vector</span><span class="p">,</span> <span class="n">residual_vector</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># --- Create the bounds tuple ---</span>
+<span class="n">bounds</span> <span class="o">=</span> <span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="o">*</span><span class="n">N</span><span class="p">))</span>
+
+<span class="n">least_squares_objective_partial</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">least_squares_objective</span><span class="p">,</span> <span class="n">F_func</span><span class="o">=</span><span class="n">F</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">lbfgsb</span> <span class="o">=</span> <span class="n">ScipyBoundedMinimize</span><span class="p">(</span>
+    <span class="n">fun</span><span class="o">=</span><span class="n">least_squares_objective_partial</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span>
+    <span class="n">maxiter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+    <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;disp&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span> <span class="c1"># Show SciPy&#39;s output</span>
+<span class="p">)</span>
+
+<span class="c1"># &#39;sol&#39; will contain the final &#39;alpha&#39; and solver state</span>
+<span class="n">sol_scipy</span><span class="p">,</span> <span class="n">state_scipy</span> <span class="o">=</span> <span class="n">lbfgsb</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">init_params</span><span class="o">=</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">state_scipy</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>True
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">cb</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">sol_scipy</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;managua&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/c16c3a17f08e4b33b9343abffeee24f3.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax.scipy.sparse.linalg</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jsl</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">projected_gauss_newton</span><span class="p">(</span>
+    <span class="n">F</span><span class="p">,</span>                  <span class="c1"># function F(alpha) -&gt; residual vector (jax array)</span>
+    <span class="n">alpha0</span><span class="p">,</span>             <span class="c1"># initial guess (full-sized vector)</span>
+    <span class="n">lb</span><span class="p">,</span>                 <span class="c1"># lower bound (full-sized vector)</span>
+    <span class="n">ub</span><span class="p">,</span>                 <span class="c1"># upper bound (full-sized vector)</span>
+    <span class="n">max_iter</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+    <span class="n">solver_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>    <span class="c1"># Tolerance for the CG solver</span>
+    <span class="n">solver_maxiter</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># Max iterations for the CG solver</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Solve F(alpha) = 0 subject to lb &lt;= alpha &lt;= ub using a</span>
+<span class="sd">    projected Gauss-Newton method (matching PETSc&#39;s KSP &#39;cg&#39;).</span>
+
+<span class="sd">    This solves the normal equations (J^T J) * delta = -J^T F</span>
+<span class="sd">    in the projected free space.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">solver_maxiter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">solver_maxiter</span> <span class="o">=</span> <span class="n">alpha0</span><span class="o">.</span><span class="n">size</span>
+
+    <span class="c1"># Jacobian-vector product: Jv(v) = J(alpha) @ v</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Jv_full</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">jvp</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,),</span> <span class="p">(</span><span class="n">v</span><span class="p">,))[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Vector-Jacobian product (transpose): vJ(v) = v^T @ J(alpha)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">vJ_full</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+        <span class="c1"># jax.vjp returns (primals_out, vjp_fun)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">vjp_fun</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vjp</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="c1"># vjp_fun(v) returns a tuple of gradients; we want the one for alpha</span>
+        <span class="k">return</span> <span class="n">vjp_fun</span><span class="p">(</span><span class="n">v</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha0</span>
+
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="n">fnorm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iter </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s2">, ||F||=</span><span class="si">{</span><span class="n">fnorm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fnorm</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">alpha</span>
+
+        <span class="c1"># Identify active set</span>
+        <span class="n">eps_proj</span> <span class="o">=</span> <span class="mf">1e-12</span>
+        <span class="n">at_lb</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">&lt;=</span> <span class="n">lb</span> <span class="o">+</span> <span class="n">eps_proj</span><span class="p">)</span>
+        <span class="n">at_ub</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">&gt;=</span> <span class="n">ub</span> <span class="o">-</span> <span class="n">eps_proj</span><span class="p">)</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="n">at_lb</span> <span class="o">|</span> <span class="n">at_ub</span>
+
+        <span class="n">n_free</span> <span class="o">=</span> <span class="n">alpha</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">n_free</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All variables are active; no further progress can be made.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">alpha</span>
+
+        <span class="c1"># --- Define the full-space projected Gauss-Newton operator ---</span>
+        <span class="c1"># This operator A(v) computes (P_F @ J^T @ J @ P_F) @ v</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">projected_JTJ_v</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="c1"># 1. Project input: v_in = P_F @ v</span>
+            <span class="n">v_in</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">active</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+
+            <span class="c1"># 2. Apply J: Jv = J @ v_in</span>
+            <span class="n">Jv</span> <span class="o">=</span> <span class="n">Jv_full</span><span class="p">(</span><span class="n">v_in</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+
+            <span class="c1"># 3. Apply J^T: JTJv = J^T @ Jv</span>
+            <span class="c1"># We don&#39;t need to project Jv because J^T will only</span>
+            <span class="c1"># produce output in the free-space anyway (conceptually).</span>
+            <span class="n">JTJv</span> <span class="o">=</span> <span class="n">vJ_full</span><span class="p">(</span><span class="n">Jv</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+
+            <span class="c1"># 4. Project output: v_out = P_F @ JTJv</span>
+            <span class="n">v_out</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">active</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">JTJv</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">v_out</span>
+
+        <span class="c1"># --- Define the full-space projected right-hand side ---</span>
+        <span class="c1"># This is b = -P_F @ (J^T F)</span>
+        <span class="n">JT_F</span> <span class="o">=</span> <span class="n">vJ_full</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="n">r_full</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">active</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="n">JT_F</span><span class="p">)</span>
+
+        <span class="c1"># --- Solve the (symmetric) projected system using CG ---</span>
+        <span class="n">delta</span><span class="p">,</span> <span class="n">exit_code</span> <span class="o">=</span> <span class="n">jsl</span><span class="o">.</span><span class="n">cg</span><span class="p">(</span>
+            <span class="n">projected_JTJ_v</span><span class="p">,</span> 
+            <span class="n">r_full</span><span class="p">,</span> 
+            <span class="n">tol</span><span class="o">=</span><span class="n">solver_tol</span><span class="p">,</span> 
+            <span class="n">maxiter</span><span class="o">=</span><span class="n">solver_maxiter</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">exit_code</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: CG solver did not converge. Exit code: </span><span class="si">{</span><span class="n">exit_code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># --- TODO: ADD A LINE SEARCH HERE ---</span>
+
+        <span class="n">step</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">fnorm_old_sq</span> <span class="o">=</span> <span class="n">fnorm</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">50</span><span class="p">):</span> <span class="c1"># Max 10 line search steps</span>
+            <span class="n">alpha_new</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="n">step</span> <span class="o">*</span> <span class="n">delta</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
+            <span class="n">res_new</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">alpha_new</span><span class="p">)</span>
+            <span class="n">fnorm_new_sq</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">res_new</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+            <span class="c1"># Armijo condition (sufficient decrease)</span>
+            <span class="k">if</span> <span class="n">fnorm_new_sq</span> <span class="o">&lt;</span> <span class="n">fnorm_old_sq</span><span class="p">:</span> <span class="c1"># (simplified version)</span>
+                <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha_new</span>
+                <span class="k">break</span>
+
+            <span class="n">step</span> <span class="o">/=</span> <span class="mf">2.0</span> <span class="c1"># Decrease step size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Line search failed</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Line search failed to find a better point.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">alpha</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Projected Gauss-Newton failed to converge within max_iter&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">projected_levenberg_marquardt</span><span class="p">(</span>
+    <span class="n">F</span><span class="p">,</span>                  <span class="c1"># function F(alpha) -&gt; residual vector (jax array)</span>
+    <span class="n">alpha0</span><span class="p">,</span>             <span class="c1"># initial guess (full-sized vector)</span>
+    <span class="n">lb</span><span class="p">,</span>                 <span class="c1"># lower bound (full-sized vector)</span>
+    <span class="n">ub</span><span class="p">,</span>                 <span class="c1"># upper bound (full-sized vector)</span>
+    <span class="n">max_iter</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+    <span class="n">solver_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>    <span class="c1"># Tolerance for the CG solver</span>
+    <span class="n">solver_maxiter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">damping</span><span class="o">=</span><span class="mf">1e-4</span>        <span class="c1"># Damping parameter (lambda)</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Solve F(alpha) = 0 subject to lb &lt;= alpha &lt;= ub using a</span>
+<span class="sd">    projected Levenberg-Marquardt method.</span>
+
+<span class="sd">    This solves the damped normal equations</span>
+<span class="sd">    (J^T J + damping*I) * delta = -J^T F</span>
+<span class="sd">    in the projected free space.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">solver_maxiter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">solver_maxiter</span> <span class="o">=</span> <span class="n">alpha0</span><span class="o">.</span><span class="n">size</span>
+
+    <span class="c1"># Jacobian-vector product: Jv(v) = J(alpha) @ v</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Jv_full</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">jvp</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,),</span> <span class="p">(</span><span class="n">v</span><span class="p">,))[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Vector-Jacobian product (transpose): vJ(v) = v^T @ J(alpha)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">vJ_full</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">vjp_fun</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vjp</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">vjp_fun</span><span class="p">(</span><span class="n">v</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha0</span>
+
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="n">fnorm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iter </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s2">, ||F||=</span><span class="si">{</span><span class="n">fnorm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fnorm</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">alpha</span>
+
+        <span class="c1"># Identify active set</span>
+        <span class="n">eps_proj</span> <span class="o">=</span> <span class="mf">1e-12</span>
+        <span class="n">at_lb</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">&lt;=</span> <span class="n">lb</span> <span class="o">+</span> <span class="n">eps_proj</span><span class="p">)</span>
+        <span class="n">at_ub</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">&gt;=</span> <span class="n">ub</span> <span class="o">-</span> <span class="n">eps_proj</span><span class="p">)</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="n">at_lb</span> <span class="o">|</span> <span class="n">at_ub</span>
+
+        <span class="n">n_free</span> <span class="o">=</span> <span class="n">alpha</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">n_free</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All variables are active; no further progress can be made.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">alpha</span>
+
+        <span class="c1"># --- Define the full-space projected Levenberg-Marquardt operator ---</span>
+        <span class="c1"># This operator A(v) computes (P_F @ J^T @ J @ P_F + damping * P_F) @ v</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">projected_LM_v</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="c1"># 1. Project input: v_in = P_F @ v</span>
+            <span class="n">v_in</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">active</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+
+            <span class="c1"># 2. Apply J: Jv = J @ v_in</span>
+            <span class="n">Jv</span> <span class="o">=</span> <span class="n">Jv_full</span><span class="p">(</span><span class="n">v_in</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+
+            <span class="c1"># 3. Apply J^T: JTJv = J^T @ Jv</span>
+            <span class="n">JTJv</span> <span class="o">=</span> <span class="n">vJ_full</span><span class="p">(</span><span class="n">Jv</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+
+            <span class="c1"># 4. Project output and add damping term</span>
+            <span class="c1"># v_out = (P_F @ JTJv) + (damping * v_in)</span>
+            <span class="n">v_out_jtj</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">active</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">JTJv</span><span class="p">)</span>
+            <span class="n">v_out</span> <span class="o">=</span> <span class="n">v_out_jtj</span> <span class="o">+</span> <span class="n">damping</span> <span class="o">*</span> <span class="n">v_in</span>
+
+            <span class="k">return</span> <span class="n">v_out</span>
+
+        <span class="c1"># --- Define the full-space projected right-hand side ---</span>
+        <span class="c1"># This is b = -P_F @ (J^T F)</span>
+        <span class="n">JT_F</span> <span class="o">=</span> <span class="n">vJ_full</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="n">r_full</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">active</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="n">JT_F</span><span class="p">)</span>
+
+        <span class="c1"># --- Solve the (damped, symmetric) projected system using CG ---</span>
+        <span class="n">delta</span><span class="p">,</span> <span class="n">exit_code</span> <span class="o">=</span> <span class="n">jsl</span><span class="o">.</span><span class="n">cg</span><span class="p">(</span>
+            <span class="n">projected_LM_v</span><span class="p">,</span> 
+            <span class="n">r_full</span><span class="p">,</span> 
+            <span class="n">tol</span><span class="o">=</span><span class="n">solver_tol</span><span class="p">,</span> 
+            <span class="n">maxiter</span><span class="o">=</span><span class="n">solver_maxiter</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">exit_code</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: CG solver did not converge. Exit code: </span><span class="si">{</span><span class="n">exit_code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># --- Simple Backtracking Line Search ---</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">fnorm_old_sq</span> <span class="o">=</span> <span class="n">fnorm</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="c1"># We need a JAX-compatible loop for the line search </span>
+        <span class="c1"># to work inside a @jit. Using lax.fori_loop.</span>
+        <span class="c1"># This is more complex, but a simple python loop is fine if not jitting.</span>
+
+        <span class="c1"># --- Python-based Line Search (simple, but not JIT-compatible) ---</span>
+        <span class="n">alpha_new</span> <span class="o">=</span> <span class="n">alpha</span> <span class="c1"># In case line search fails</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span> <span class="c1"># Max 10 line search steps</span>
+            <span class="n">alpha_test</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="n">step</span> <span class="o">*</span> <span class="n">delta</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
+            <span class="n">res_new</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">alpha_test</span><span class="p">)</span>
+            <span class="n">fnorm_new_sq</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">res_new</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+            <span class="c1"># Simple decrease condition</span>
+            <span class="k">if</span> <span class="n">fnorm_new_sq</span> <span class="o">&lt;</span> <span class="n">fnorm_old_sq</span><span class="p">:</span>
+                <span class="n">alpha_new</span> <span class="o">=</span> <span class="n">alpha_test</span>
+                <span class="k">break</span> <span class="c1"># Found a good step</span>
+
+            <span class="n">step</span> <span class="o">/=</span> <span class="mf">2.0</span> <span class="c1"># Decrease step size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Line search failed to find a better point</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Line search failed; stopping.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">alpha</span>
+
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha_new</span>
+
+
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Levenberg-Marquardt failed to converge within max_iter&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">alpha_new</span> <span class="o">=</span> <span class="n">projected_levenberg_marquardt</span><span class="p">(</span>
+    <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span>
+    <span class="n">alpha0</span><span class="o">=</span> <span class="p">(</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">lb</span><span class="o">=</span><span class="n">alpha0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">ub</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">alpha0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+    <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+    <span class="n">damping</span><span class="o">=</span><span class="mf">1e-6</span>
+<span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Iter 0, ||F||=8.576612912588672
+Warning: CG solver did not converge. Exit code: None
+Iter 1, ||F||=7.440102668608955
+Warning: CG solver did not converge. Exit code: None
+Iter 2, ||F||=7.426486839017538
+Warning: CG solver did not converge. Exit code: None
+Iter 3, ||F||=7.4264868383189215
+Warning: CG solver did not converge. Exit code: None
+Line search failed; stopping.
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">alpha_new</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;managua&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/10da686e8c884afb932de10e96985920.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FractureProblem</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="n">epsilon</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="n">N</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span><span class="n">eqx</span><span class="o">.</span><span class="n">Partial</span><span class="p">(</span><span class="n">fracture_strong_form</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="n">epsilon</span><span class="p">)</span>
+        <span class="c1">#self.jac = partial(dFdalpha, epsilon=epsilon)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">snes</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">F</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">getArray</span><span class="p">())</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">F</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">f</span> 
+
+
+<span class="c1"># for the case when we need to pass jacobian as well to petsc solver</span>
+<span class="n">dFdalpha</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">fracture_strong_form</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">imshow</span><span class="p">(</span><span class="n">return_val</span><span class="o">=</span><span class="kc">False</span><span class="p">)(</span><span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span><span class="n">x</span><span class="p">)(</span><span class="n">strain_energy_plus</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/252f9c7145cd4763bbd0a51c0c3dc2a8.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="n">jax</span><span class="o">.</span><span class="n">__version__</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>&#39;0.4.30&#39;
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># register the function in charge of</span>
+<span class="c1"># computing the nonlinear residual</span>
+
+<span class="n">frac</span> <span class="o">=</span> <span class="n">FractureProblem</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+<span class="n">snes</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">()</span><span class="o">.</span><span class="n">createSeq</span><span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">setFunction</span><span class="p">(</span><span class="n">frac</span><span class="o">.</span><span class="n">function</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+<span class="n">alpha_lb</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+<span class="n">alpha_ub</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+<span class="n">alpha_lb</span><span class="o">.</span><span class="n">setArray</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">alpha_ub</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">snes</span><span class="o">.</span><span class="n">setUseMF</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">getKSP</span><span class="p">()</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s1">&#39;cg&#39;</span><span class="p">)</span>
+
+<span class="n">snes</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;vinewtonrsls&quot;</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">setVariableBounds</span><span class="p">(</span><span class="n">alpha_lb</span><span class="p">,</span> <span class="n">alpha_ub</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">setTolerances</span><span class="p">(</span><span class="n">atol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">setConvergenceHistory</span><span class="p">()</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">setConvergedReason</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="o">.</span><span class="n">ConvergedReason</span><span class="o">.</span><span class="n">CONVERGED_FNORM_ABS</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">getKSP</span><span class="p">()</span><span class="o">.</span><span class="n">setConvergedReason</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="o">.</span><span class="n">ConvergedReason</span><span class="o">.</span><span class="n">CONVERGED_ATOL</span><span class="p">)</span>
+<span class="n">snes</span><span class="o">.</span><span class="n">setMonitor</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_</span><span class="p">,</span> <span class="n">it</span><span class="p">,</span> <span class="n">residual</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="n">residual</span><span class="p">))</span>
+
+
+<span class="n">b</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+<span class="n">alpha</span><span class="o">.</span><span class="n">setArray</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># zero inital guess</span>
+
+<span class="n">snes</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="o">.</span><span class="n">ConvergedReason</span><span class="o">.</span><span class="n">CONVERGED_FNORM_ABS</span> <span class="o">==</span> <span class="n">snes</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">snes</span><span class="o">.</span><span class="n">getKSP</span><span class="p">()</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">())</span>
+
+
+<span class="n">snes</span><span class="o">.</span><span class="n">view</span><span class="p">()</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">snes</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>0 9.438962786807954
+1 2.6469312602578805
+2 0.8851912804187733
+3 0.04188464560249006
+4 0.005969123284172579
+5 4.8852971304445077e-08
+6 2.1318936773795206e-13
+True
+2
+SNES Object: 1 MPI process
+  type: vinewtonrsls
+  maximum iterations=50, maximum function evaluations=10000
+  tolerances: relative=1e-10, absolute=1e-08, solution=1e-08
+  total number of linear solver iterations=129
+  total number of function evaluations=142
+  norm schedule ALWAYS
+  SNESLineSearch Object: 1 MPI process
+    type: bt
+      interpolation: cubic
+      alpha=0.000000e+00
+    maxstep=1.000000e+08, minlambda=1.000000e-12
+    tolerances: relative=1.000000e-08, absolute=1.000000e-15, lambda=1.000000e-08
+    maximum iterations=40
+  KSP Object: 1 MPI process
+    type: cg
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using PRECONDITIONED norm type for convergence test
+  PC Object: 1 MPI process
+    type: none
+    linear system matrix = precond matrix:
+    Mat Object: 1 MPI process
+      type: submatrix
+      rows=240, cols=240
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">imshow</span><span class="p">(</span><span class="n">cmap</span><span class="o">=</span><span class="n">cmc</span><span class="o">.</span><span class="n">managua</span><span class="p">,</span> <span class="n">return_val</span><span class="o">=</span><span class="kc">False</span><span class="p">)(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">)(</span><span class="n">alpha</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)))</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/89e0e078508a4210a817357ff0bcf7d8.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="n">plot</span><span class="p">()(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">)(</span>
+    <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="n">N</span><span class="p">),</span> <span class="n">alpha</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">))[:,</span> <span class="nb">int</span><span class="p">(</span><span class="n">N</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)])</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/bf24d5679add46879689afd32fca3106.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="n">alpha_prev</span> <span class="o">=</span> <span class="n">structure</span>
+<span class="n">applied_strains</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">2e-1</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="mi">200</span><span class="p">))</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">])</span>
+<span class="n">deps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">])</span>
+
+<span class="k">for</span> <span class="n">inc</span><span class="p">,</span> <span class="n">deps_avg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">applied_strains</span><span class="p">):</span>
+
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">deps_avg</span><span class="p">)</span>
+
+    <span class="c1"># initial residual: distribute &quot;DE&quot; over grid using &quot;K4&quot;</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">G_K_deps</span><span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">alpha_prev</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">deps</span><span class="p">)</span>
+    <span class="n">_G_K_deps</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">G_K_deps</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha_prev</span><span class="p">))</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span>
+
+    <span class="n">final_state</span> <span class="o">=</span> <span class="n">newton_krylov_solver</span><span class="p">(</span>
+        <span class="n">state</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="n">_G_K_deps</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">krylov_solver</span><span class="o">=</span><span class="n">conjugate_gradient</span>
+    <span class="p">)</span>
+
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">final_state</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="n">frac</span> <span class="o">=</span> <span class="n">FractureProblem</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="n">snes</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">()</span><span class="o">.</span><span class="n">createSeq</span><span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">setFunction</span><span class="p">(</span><span class="n">frac</span><span class="o">.</span><span class="n">function</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+    <span class="n">alpha_lb</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+    <span class="n">alpha_ub</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+    <span class="n">alpha_lb</span><span class="o">.</span><span class="n">setArray</span><span class="p">(</span><span class="n">alpha_prev</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">alpha_ub</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">snes</span><span class="o">.</span><span class="n">setUseMF</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">getKSP</span><span class="p">()</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;cg&quot;</span><span class="p">)</span>
+
+    <span class="n">snes</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;vinewtonrsls&quot;</span><span class="p">)</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">setVariableBounds</span><span class="p">(</span><span class="n">alpha_lb</span><span class="p">,</span> <span class="n">alpha_ub</span><span class="p">)</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">setTolerances</span><span class="p">(</span><span class="n">atol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">setConvergenceHistory</span><span class="p">()</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">setConvergedReason</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="o">.</span><span class="n">ConvergedReason</span><span class="o">.</span><span class="n">CONVERGED_FNORM_ABS</span><span class="p">)</span>
+    <span class="n">snes</span><span class="o">.</span><span class="n">getKSP</span><span class="p">()</span><span class="o">.</span><span class="n">setConvergedReason</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="o">.</span><span class="n">ConvergedReason</span><span class="o">.</span><span class="n">CONVERGED_ATOL</span><span class="p">)</span>
+
+    <span class="n">b</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+    <span class="n">alpha</span><span class="o">.</span><span class="n">setArray</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># zero inital guess</span>
+
+    <span class="n">snes</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="o">.</span><span class="n">ConvergedReason</span><span class="o">.</span><span class="n">CONVERGED_FNORM_ABS</span> <span class="o">==</span> <span class="n">snes</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">snes</span><span class="o">.</span><span class="n">getKSP</span><span class="p">()</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">())</span>
+
+    <span class="n">alpha_prev</span> <span class="o">=</span> <span class="n">alpha</span><span class="o">.</span><span class="n">getArray</span><span class="p">()</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+
+    <span class="n">_</span> <span class="o">=</span> <span class="n">snes</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Converged, Residual value : 7.93203230207842e-09
+True
+2
+Converged, Residual value : 8.278249052263994e-09
+True
+2
+Converged, Residual value : 7.584749293043743e-09
+True
+2
+Converged, Residual value : 6.892623410986616e-09
+True
+2
+Converged, Residual value : 9.697588186967834e-09
+True
+2
+Converged, Residual value : 9.705894906820199e-09
+True
+2
+Converged, Residual value : 9.536827352368334e-09
+True
+2
+Converged, Residual value : 9.721977941727304e-09
+True
+2
+Converged, Residual value : 9.5688158401759e-09
+True
+2
+Converged, Residual value : 9.261714453957313e-09
+True
+2
+Converged, Residual value : 9.664320310276714e-09
+True
+2
+Converged, Residual value : 8.717934379950834e-09
+True
+2
+Converged, Residual value : 8.515044484572433e-09
+True
+2
+Converged, Residual value : 8.673053576376339e-09
+True
+2
+Converged, Residual value : 9.564906715642803e-09
+True
+2
+Converged, Residual value : 9.551721229359999e-09
+True
+2
+Converged, Residual value : 8.871350550515968e-09
+True
+2
+Converged, Residual value : 8.798211918044168e-09
+True
+2
+Converged, Residual value : 8.751578114460782e-09
+True
+2
+Converged, Residual value : 8.749529482260385e-09
+True
+2
+Converged, Residual value : 8.862257557114492e-09
+True
+2
+Converged, Residual value : 9.047540710717199e-09
+True
+2
+Converged, Residual value : 9.269417469215378e-09
+True
+2
+Converged, Residual value : 9.509987716151102e-09
+True
+2
+Converged, Residual value : 9.731335678634471e-09
+True
+2
+Converged, Residual value : 9.88562535051767e-09
+True
+2
+Converged, Residual value : 9.939967964056066e-09
+True
+2
+Converged, Residual value : 9.968421991717961e-09
+True
+2
+Converged, Residual value : 9.452648338972572e-09
+True
+2
+Converged, Residual value : 9.559101771369614e-09
+True
+2
+Converged, Residual value : 9.673807423873853e-09
+True
+2
+Converged, Residual value : 9.795464813780874e-09
+True
+2
+Converged, Residual value : 9.943086454938821e-09
+True
+2
+Converged, Residual value : 4.791674845389095e-09
+True
+2
+Converged, Residual value : 4.906050755547834e-09
+True
+2
+Converged, Residual value : 5.0018653495566436e-09
+True
+2
+Converged, Residual value : 7.3931265567697e-09
+True
+2
+Converged, Residual value : 7.567597488803572e-09
+True
+2
+Converged, Residual value : 7.761436122002211e-09
+True
+2
+Converged, Residual value : 8.017084994167426e-09
+True
+2
+Converged, Residual value : 8.267414627513927e-09
+True
+2
+Converged, Residual value : 8.54301518061114e-09
+True
+2
+Converged, Residual value : 8.817275819247072e-09
+True
+2
+Converged, Residual value : 9.126027633086242e-09
+True
+2
+Converged, Residual value : 9.399479812375493e-09
+True
+2
+Converged, Residual value : 9.64293191713525e-09
+True
+2
+Converged, Residual value : 8.94508909214961e-09
+True
+2
+Converged, Residual value : 9.433402656002151e-09
+True
+2
+Converged, Residual value : 9.868681583264604e-09
+True
+2
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">The</span> <span class="n">Kernel</span> <span class="n">crashed</span> <span class="k">while</span> <span class="n">executing</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">current</span> <span class="n">cell</span> <span class="ow">or</span> <span class="n">a</span> <span class="n">previous</span> <span class="n">cell</span><span class="o">.</span> 
+
+<span class="n">Please</span> <span class="n">review</span> <span class="n">the</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">cell</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="n">to</span> <span class="n">identify</span> <span class="n">a</span> <span class="n">possible</span> <span class="n">cause</span> <span class="n">of</span> <span class="n">the</span> <span class="n">failure</span><span class="o">.</span> 
+
+<span class="n">Click</span> <span class="o">&lt;</span><span class="n">a</span> <span class="n">href</span><span class="o">=</span><span class="s1">&#39;https://aka.ms/vscodeJupyterKernelCrash&#39;</span><span class="o">&gt;</span><span class="n">here</span><span class="o">&lt;/</span><span class="n">a</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">more</span> <span class="n">info</span><span class="o">.</span> 
+
+<span class="n">View</span> <span class="n">Jupyter</span> <span class="o">&lt;</span><span class="n">a</span> <span class="n">href</span><span class="o">=</span><span class="s1">&#39;command:jupyter.viewOutput&#39;</span><span class="o">&gt;</span><span class="n">log</span><span class="o">&lt;/</span><span class="n">a</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">further</span> <span class="n">details</span><span class="o">.</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">Canceled</span> <span class="n">future</span> <span class="k">for</span> <span class="n">execute_request</span> <span class="n">message</span> <span class="n">before</span> <span class="n">replies</span> <span class="n">were</span> <span class="n">done</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">Canceled</span> <span class="n">future</span> <span class="k">for</span> <span class="n">execute_request</span> <span class="n">message</span> <span class="n">before</span> <span class="n">replies</span> <span class="n">were</span> <span class="n">done</span><span class="o">.</span> 
+
+<span class="n">View</span> <span class="n">Jupyter</span> <span class="o">&lt;</span><span class="n">a</span> <span class="n">href</span><span class="o">=</span><span class="s1">&#39;command:jupyter.viewOutput&#39;</span><span class="o">&gt;</span><span class="n">log</span><span class="o">&lt;/</span><span class="n">a</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">further</span> <span class="n">details</span><span class="o">.</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">imshow</span><span class="p">(</span><span class="n">cmap</span><span class="o">=</span><span class="n">cmc</span><span class="o">.</span><span class="n">roma</span><span class="p">,</span> <span class="n">return_val</span><span class="o">=</span><span class="kc">False</span><span class="p">)(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">)(</span><span class="n">alpha_prev</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="o">---------------------------------------------------------------------------</span>
+<span class="ne">NameError</span>                                 <span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">)</span>
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
+<span class="o">----&gt;</span> <span class="mi">1</span> <span class="n">imshow</span><span class="p">(</span><span class="n">cmap</span><span class="o">=</span><span class="n">cmc</span><span class="o">.</span><span class="n">roma</span><span class="p">,</span> <span class="n">return_val</span><span class="o">=</span><span class="kc">False</span><span class="p">)(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">)(</span><span class="n">alpha_prev</span><span class="p">)</span>
+
+<span class="ne">NameError</span><span class="p">:</span> <span class="n">name</span> <span class="s1">&#39;imshow&#39;</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">defined</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">sig00</span><span class="p">,</span> <span class="n">eps00</span> <span class="o">=</span> <span class="n">get_stress_strains</span><span class="p">(</span><span class="n">final_state</span><span class="p">,</span> <span class="n">alpha_prev</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/22fed3cc09ac4f4d80b0d905a706dde1.png" /></p>
+<div class="highlight"><pre><span></span><code>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "toc.integrate", "header-autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../_static/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2175 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The documentation for xpektra software package">
+      
+      
+        <meta name="author" content="Mohit Pundir">
+      
+      
+      
+        <link rel="prev" href="../st_venant_kirchhoff/">
+      
+      
+        <link rel="next" href="../multiphase_material/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../_static/favicon-xpektra.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>J2 plasticity - xpektra</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../_static/custom_css.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#constructing-an-rve" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="xpektra" class="md-header__button md-logo" aria-label="xpektra" data-md-component="logo">
+      
+  <img src="../../_static/favicon-xpektra.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xpektra
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              J2 plasticity
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/smec-ethz/xpektra" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smec-ethz/xpektra
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="xpektra" class="md-nav__button md-logo" aria-label="xpektra" data-md-component="logo">
+      
+  <img src="../../_static/favicon-xpektra.png" alt="logo">
+
+    </a>
+    xpektra
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/smec-ethz/xpektra" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smec-ethz/xpektra
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Blocks of xpektra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extensibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extensibility: Building Your Own Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elasticity
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Elasticity
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_1" id="__nav_4_1_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fourier-Galerkin
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_1_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fourier-Galerkin
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linear_elasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../st_venant_kirchhoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    St venant kirchhoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    J2 plasticity
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    J2 plasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#constructing-an-rve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        constructing an RVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assigning-material-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        assigning material parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plasticity-basics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plasticity basics
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphase_material/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D Multi-phase Material
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../differential_operator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gibbs Ringing Artifact
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_2" id="__nav_4_1_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Moulinec-Suquet
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Moulinec-Suquet
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moulinec_suquet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixed-point iteration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moulinec_suquet_newton_krylov/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Moulinec-Suquet as Newton-Krylov solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_3" id="__nav_4_1_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Displacement-based FFT
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Displacement-based FFT
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../displacement_based_fft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear Elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../phasefield_localization_1D/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Phasefield Localization in 1D
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../computational_homogenization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homogenization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiscale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale problem: xpektra + tatva
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Basic API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/projection_operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projection Operators
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/scheme_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discretization Schemes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spectral_operator_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spectral Operator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spectral_space_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spectral Space
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+  <h1>J2 plasticity</h1>
+
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_platforms&quot;</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_persistent_cache_min_compile_time_secs&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">Array</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">xpektra</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SpectralSpace</span><span class="p">,</span>
+    <span class="n">make_field</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.scheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">RotatedDifference</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.projection_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">GalerkinProjection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.spectral_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectralOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">FFTTransform</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xpektra.solvers.nonlinear</span><span class="w"> </span><span class="kn">import</span> <span class="n">newton_krylov_solver</span><span class="p">,</span> <span class="n">conjugate_gradient_while</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">place_circle</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">x_center</span><span class="p">,</span> <span class="n">y_center</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">x_center</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="n">y_center</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">r</span><span class="o">**</span><span class="mi">2</span><span class="p">:</span>
+                <span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_matrix_with_circles</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Radius r must be less than the size of the matrix n&quot;</span><span class="p">)</span>
+
+    <span class="n">matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">placed_circles</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">while</span> <span class="n">placed_circles</span> <span class="o">&lt;</span> <span class="n">x</span><span class="p">:</span>
+        <span class="n">x_center</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">y_center</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Check if the circle fits within the matrix bounds</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">x_center</span> <span class="o">+</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">n</span>
+            <span class="ow">and</span> <span class="n">y_center</span> <span class="o">+</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">n</span>
+            <span class="ow">and</span> <span class="n">x_center</span> <span class="o">-</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+            <span class="ow">and</span> <span class="n">y_center</span> <span class="o">-</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="n">previous_matrix</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">place_circle</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">x_center</span><span class="p">,</span> <span class="n">y_center</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">previous_matrix</span><span class="p">,</span> <span class="n">matrix</span><span class="p">):</span>
+                <span class="n">placed_circles</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">matrix</span>
+
+<span class="n">N</span> <span class="o">=</span> <span class="mi">199</span>
+<span class="n">ndim</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">length</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">r</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">structure</span> <span class="o">=</span> <span class="n">generate_matrix_with_circles</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+
+
+<span class="n">cb</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/6dfecefd1629463caa638cbd6710540e.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Helper to map properties to grid</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">map_prop</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">val_soft</span><span class="p">,</span> <span class="n">val_hard</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">val_hard</span> <span class="o">*</span> <span class="n">structure</span> <span class="o">+</span> <span class="n">val_soft</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">structure</span><span class="p">)</span>
+
+
+<span class="c1"># Properties</span>
+<span class="n">phase_contrast</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">K_field</span> <span class="o">=</span> <span class="n">map_prop</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="mf">0.833</span><span class="p">,</span> <span class="n">phase_contrast</span> <span class="o">*</span> <span class="mf">0.833</span><span class="p">)</span>
+<span class="n">mu_field</span> <span class="o">=</span> <span class="n">map_prop</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="mf">0.386</span><span class="p">,</span> <span class="n">phase_contrast</span> <span class="o">*</span> <span class="mf">0.386</span><span class="p">)</span>
+<span class="n">H_field</span> <span class="o">=</span> <span class="n">map_prop</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">phase_contrast</span> <span class="o">*</span> <span class="mf">0.01</span><span class="p">)</span>  <span class="c1"># Normalized</span>
+<span class="n">sigma_y_field</span> <span class="o">=</span> <span class="n">map_prop</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="mf">0.003</span><span class="p">,</span> <span class="n">phase_contrast</span> <span class="o">*</span> <span class="mf">0.003</span><span class="p">)</span>  <span class="c1"># Normalized</span>
+<span class="n">n_exponent</span> <span class="o">=</span> <span class="mf">1.0</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">fft_transform</span> <span class="o">=</span> <span class="n">FFTTransform</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">)</span>
+<span class="n">space</span> <span class="o">=</span> <span class="n">SpectralSpace</span><span class="p">(</span><span class="n">lengths</span><span class="o">=</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">length</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">transform</span><span class="o">=</span><span class="n">fft_transform</span><span class="p">)</span>
+
+<span class="n">scheme</span> <span class="o">=</span> <span class="n">RotatedDifference</span><span class="p">(</span><span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">)</span>
+<span class="n">op</span> <span class="o">=</span> <span class="n">SpectralOperator</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">)</span>
+
+<span class="n">Ghat</span> <span class="o">=</span> <span class="n">GalerkinProjection</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">)</span>
+
+<span class="n">dofs_shape</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># Pre-compute Identity Tensors for the grid</span>
+<span class="c1"># I2: (N,N,2,2), I4_dev: (N,N,2,2,2,2)</span>
+
+<span class="n">i</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
+<span class="n">I</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="n">ndim</span><span class="p">)</span> <span class="o">*</span> <span class="n">i</span>  <span class="c1"># Broadcasted Identity</span>
+<span class="n">II</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">dyad</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">I</span><span class="p">)</span>  <span class="c1"># Fourth-order Identity</span>
+
+<span class="c1"># I2 = jnp.eye(ndim) + jnp.zeros(space.shape + (ndim, ndim))  # Broadcast</span>
+<span class="c1"># I4_sym = op.dyad(I2, I2)  # Placeholder, construct proper I4s if needed</span>
+
+<span class="c1"># Or better, just implement the math directly in the material class using tensor_op</span>
+
+<span class="c1"># --- 4. J2 PLASTICITY MATERIAL MODEL ---</span>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">J2Plasticity</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Encapsulates the J2 Plasticity constitutive law and return mapping.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">K</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+    <span class="n">mu</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+    <span class="n">sigma_y</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">yield_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ep</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">*</span> <span class="p">(</span><span class="n">ep</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+
+    <span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_response</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">eps_total</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">state_prev</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes stress and new state variables given total strain and history.</span>
+<span class="sd">        state_prev = (eps_total_t, eps_elastic_t, ep_t)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span> <span class="o">=</span> <span class="n">state_prev</span>
+
+        <span class="c1"># Trial State (assume elastic step)</span>
+        <span class="c1"># Delta eps = eps_total - eps_t</span>
+        <span class="c1"># Trial elastic strain = old elastic strain + Delta eps</span>
+        <span class="n">epse_trial</span> <span class="o">=</span> <span class="n">epse_t</span> <span class="o">+</span> <span class="p">(</span><span class="n">eps_total</span> <span class="o">-</span> <span class="n">eps_t</span><span class="p">)</span>
+        <span class="n">jax</span><span class="o">.</span><span class="n">debug</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;epse_trial: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">epse_trial</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># Volumetric / Deviatoric Split, 2D plane strain</span>
+        <span class="n">trace_epse</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">epse_trial</span><span class="p">)</span>
+        <span class="n">epse_dev</span> <span class="o">=</span> <span class="n">epse_trial</span> <span class="o">-</span> <span class="p">(</span><span class="n">trace_epse</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">jax</span><span class="o">.</span><span class="n">debug</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;trace_epse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">epse_dev</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># Note: Be careful with 2D trace. If plane strain, tr=e11+e22.</span>
+        <span class="c1"># If plane stress, e33 is non-zero. Assuming plane strain for simplicity.</span>
+
+        <span class="c1"># Trial Stress</span>
+        <span class="c1"># sigma_vol = K * trace_epse * I</span>
+        <span class="c1"># sigma_dev = 2 * mu * epse_dev</span>
+        <span class="n">sigma_vol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">trace_epse</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">sigma_dev</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">epse_dev</span>
+        <span class="n">sigma_trial</span> <span class="o">=</span> <span class="n">sigma_vol</span> <span class="o">+</span> <span class="n">sigma_dev</span>
+
+        <span class="c1"># Mises Stress</span>
+        <span class="c1"># sig_eq = sqrt(3/2 * s:s)</span>
+        <span class="n">norm_s</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">ddot</span><span class="p">(</span><span class="n">sigma_dev</span><span class="p">,</span> <span class="n">sigma_dev</span><span class="p">))</span>
+        <span class="n">sig_eq_trial</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span> <span class="o">*</span> <span class="n">norm_s</span>
+
+        <span class="c1"># 2. Check Yield Condition</span>
+        <span class="n">sig_y_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yield_stress</span><span class="p">(</span><span class="n">ep_t</span><span class="p">)</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">sig_eq_trial</span> <span class="o">-</span> <span class="n">sig_y_current</span>
+
+        <span class="c1"># 3. Return Mapping (if plastic)</span>
+        <span class="c1"># Mask for plastic points</span>
+        <span class="n">is_plastic</span> <span class="o">=</span> <span class="n">phi</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+        <span class="c1"># Plastic Multiplier Delta_gamma</span>
+        <span class="c1"># Denom = 3*mu + H</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span>  <span class="c1"># (Linear hardening H&#39; = H)</span>
+        <span class="n">d_gamma</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_plastic</span><span class="p">,</span> <span class="n">phi</span> <span class="o">/</span> <span class="n">denom</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="c1"># Update State</span>
+        <span class="c1"># Normal vector n = s_trial / |s_trial|</span>
+        <span class="c1"># s_new = s_trial - 2*mu*d_gamma * n</span>
+        <span class="c1"># This simplifies to scaling s_trial</span>
+        <span class="n">scale_factor</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">is_plastic</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="mf">3.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">*</span> <span class="n">d_gamma</span><span class="p">)</span> <span class="o">/</span> <span class="n">sig_eq_trial</span><span class="p">,</span> <span class="mf">1.0</span>
+        <span class="p">)</span>
+
+        <span class="n">sigma_dev_new</span> <span class="o">=</span> <span class="n">sigma_dev</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">sigma_new</span> <span class="o">=</span> <span class="n">sigma_vol</span> <span class="o">+</span> <span class="n">sigma_dev_new</span>
+
+        <span class="c1"># Update plastic strain</span>
+        <span class="n">ep_new</span> <span class="o">=</span> <span class="n">ep_t</span> <span class="o">+</span> <span class="n">d_gamma</span>
+
+        <span class="c1"># Update elastic strain (back-calculate from stress)</span>
+        <span class="c1"># eps_e_new = eps_e_trial - d_gamma * n * sqrt(3/2) ...</span>
+        <span class="c1"># Easier: eps_e_new = C_inv : sigma_new</span>
+        <span class="c1"># Or just update deviatoric part</span>
+        <span class="n">epse_dev_new</span> <span class="o">=</span> <span class="n">epse_dev</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">epse_vol_new</span> <span class="o">=</span> <span class="n">trace_epse</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># Volumetric is elastic</span>
+        <span class="n">epse_new</span> <span class="o">=</span> <span class="n">epse_dev_new</span> <span class="o">+</span> <span class="n">epse_vol_new</span>
+
+        <span class="k">return</span> <span class="n">sigma_new</span><span class="p">,</span> <span class="p">(</span><span class="n">eps_total</span><span class="p">,</span> <span class="n">epse_new</span><span class="p">,</span> <span class="n">ep_new</span><span class="p">)</span>
+
+
+<span class="c1"># Instantiate Material</span>
+<span class="n">material</span> <span class="o">=</span> <span class="n">J2Plasticity</span><span class="p">(</span><span class="n">K_field</span><span class="p">,</span> <span class="n">mu_field</span><span class="p">,</span> <span class="n">H_field</span><span class="p">,</span> <span class="n">sigma_y_field</span><span class="p">,</span> <span class="n">n_exponent</span><span class="p">)</span>
+
+<span class="c1"># --- 5. RESIDUAL &amp; JACOBIAN ---</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PlasticityResidual</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="n">material</span><span class="p">:</span> <span class="n">J2Plasticity</span>
+    <span class="n">state_prev</span><span class="p">:</span> <span class="nb">tuple</span>  <span class="c1"># (eps_t, epse_t, ep_t)</span>
+    <span class="n">dofs_shape</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eps_total_flat</span><span class="p">):</span>
+        <span class="c1"># Reshape</span>
+        <span class="n">eps_total</span> <span class="o">=</span> <span class="n">eps_total_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dofs_shape</span><span class="p">)</span>
+
+        <span class="c1"># Compute Stress (Physics)</span>
+        <span class="c1"># We discard the new state here, we only need stress for residual</span>
+        <span class="n">sigma</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">compute_response</span><span class="p">(</span><span class="n">eps_total</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_prev</span><span class="p">)</span>
+
+        <span class="c1"># Compute Residual (Equilibrium)</span>
+        <span class="n">sigma_hat</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="n">res_hat</span> <span class="o">=</span> <span class="n">Ghat</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">sigma_hat</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inverse</span><span class="p">(</span><span class="n">res_hat</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+        <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PlasticityJacobian</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="n">residual_fn</span><span class="p">:</span> <span class="n">PlasticityResidual</span>  <span class="c1"># Holds all necessary data</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deps_flat</span><span class="p">):</span>
+        <span class="c1"># JAX JVP does the heavy lifting!</span>
+        <span class="c1"># It automatically linearizes the return mapping algorithm</span>
+        <span class="c1"># to give the Consistent Algorithmic Tangent Operator.</span>
+
+        <span class="c1"># We differentiate residual_fn w.r.t its input (eps_total)</span>
+        <span class="c1"># evaluated at the current guess (which is baked into residual_fn if we used Partial,</span>
+        <span class="c1"># but here we need the current &#39;eps&#39; point).</span>
+
+        <span class="c1"># ISSUE: Jacobian needs the current &#39;eps&#39; point to evaluate the tangent.</span>
+        <span class="c1"># The solver passes &#39;deps&#39;, assuming J(eps) * deps.</span>
+        <span class="c1"># We need to refactor slightly to pass &#39;eps&#39; into the Jacobian constructor</span>
+        <span class="c1"># or use the &#39;linearize&#39; approach in the solver.</span>
+        <span class="k">pass</span>
+
+
+<span class="c1"># --- 6. MAIN SIMULATION LOOP ---</span>
+
+<span class="c1"># Initialize Fields</span>
+<span class="c1"># Layout: (N, N, 2, 2)</span>
+<span class="n">eps_total</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">eps_elastic</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ep_accum</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Scalar plastic strain</span>
+<span class="n">state_current</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps_total</span><span class="p">,</span> <span class="n">eps_elastic</span><span class="p">,</span> <span class="n">ep_accum</span><span class="p">)</span>
+
+<span class="c1"># History storage</span>
+<span class="n">stress_history</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="c1"># Load steps</span>
+<span class="n">n_steps</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">max_strain</span> <span class="o">=</span> <span class="mf">0.02</span>
+<span class="n">strain_steps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_strain</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
+
+<span class="n">eps_macro_inc</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">structure</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Starting Plasticity Simulation...&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="n">eps_val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">strain_steps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+    <span class="c1"># 1. Define Macroscopic Strain Increment</span>
+    <span class="c1"># Pure shear loading</span>
+    <span class="n">delta_eps</span> <span class="o">=</span> <span class="n">eps_val</span> <span class="o">-</span> <span class="n">strain_steps</span><span class="p">[</span><span class="n">step</span><span class="p">]</span>
+    <span class="n">eps_macro_inc</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">delta_eps</span>
+    <span class="n">eps_macro_inc</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">delta_eps</span>
+
+    <span class="c1"># Predictor (Initial Guess): eps_new = eps_old + deps_macro</span>
+    <span class="n">eps_guess</span> <span class="o">=</span> <span class="n">state_current</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">eps_macro_inc</span>
+
+    <span class="c1"># 2. Setup Solver Functions</span>
+    <span class="c1"># We bind the *previous* state history to the residual function</span>
+    <span class="n">residual_fn</span> <span class="o">=</span> <span class="n">PlasticityResidual</span><span class="p">(</span><span class="n">material</span><span class="p">,</span> <span class="n">state_current</span><span class="p">,</span> <span class="n">eps_guess</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># 3. Solve Equilibrium (Newton-Krylov)</span>
+    <span class="c1"># The solver needs a function f(x) -&gt; b and a linear operator J(dx) -&gt; db</span>
+    <span class="c1"># We use jax.linearize to get the Jacobian at the current guess &#39;x&#39;</span>
+
+    <span class="c1"># Initial residual</span>
+    <span class="n">b0</span> <span class="o">=</span> <span class="o">-</span><span class="n">residual_fn</span><span class="p">(</span><span class="n">eps_guess</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># Update guess</span>
+    <span class="n">eps_iter</span> <span class="o">=</span> <span class="n">eps_guess</span>
+
+    <span class="c1"># Newton Loop (Manual or use xpektra solver)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>  <span class="c1"># Newton iterations</span>
+        <span class="c1"># Linearize residual at current eps_iter</span>
+        <span class="c1"># val is residual(eps_iter), lin_fn is the Jacobian operator J(dx)</span>
+        <span class="n">val</span><span class="p">,</span> <span class="n">lin_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">linearize</span><span class="p">(</span><span class="n">residual_fn</span><span class="p">,</span> <span class="n">eps_iter</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">: Converged in </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> iterations.&quot;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="c1"># Solve J * dx = -val using CG</span>
+        <span class="n">dx</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">conjugate_gradient_while</span><span class="p">(</span><span class="n">lin_fn</span><span class="p">,</span> <span class="o">-</span><span class="n">val</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
+
+        <span class="c1"># Update</span>
+        <span class="n">eps_iter</span> <span class="o">=</span> <span class="n">eps_iter</span> <span class="o">+</span> <span class="n">dx</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">eps_iter</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># 4. Update State History</span>
+    <span class="c1"># Now we call the material one last time with the converged strain</span>
+    <span class="c1"># to get the official new internal variables</span>
+    <span class="n">final_sigma</span><span class="p">,</span> <span class="n">state_current</span> <span class="o">=</span> <span class="n">material</span><span class="o">.</span><span class="n">compute_response</span><span class="p">(</span><span class="n">eps_iter</span><span class="p">,</span> <span class="n">state_current</span><span class="p">)</span>
+
+    <span class="c1"># Store results</span>
+    <span class="n">avg_stress</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">final_sigma</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">stress_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg_stress</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># Plot</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">strain_steps</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">stress_history</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Macroscopic Shear Strain&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Macroscopic Shear Stress&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;J2 Plasticity: Stress-Strain Curve&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Starting Plasticity Simulation...
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>epse_trial: (Array(199, dtype=int64), Array(199, dtype=int64), Array(2, dtype=int64), Array(2, dtype=int64))
+trace_epse: (Array(199, dtype=int64), Array(199, dtype=int64), Array(2, dtype=int64), Array(2, dtype=int64))
+epse_trial: (Array(199, dtype=int64), Array(199, dtype=int64), Array(2, dtype=int64), Array(2, dtype=int64))
+trace_epse: (Array(199, dtype=int64), Array(199, dtype=int64), Array(2, dtype=int64), Array(2, dtype=int64))
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="o">---------------------------------------------------------------------------</span>
+<span class="ne">ValueError</span>                                <span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">)</span>
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">19</span><span class="p">],</span> <span class="n">line</span> <span class="mi">207</span>
+    <span class="mi">204</span>     <span class="k">break</span>
+    <span class="mi">206</span> <span class="c1"># Solve J * dx = -val using CG</span>
+<span class="o">--&gt;</span> <span class="mi">207</span> <span class="n">dx</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">conjugate_gradient_while</span><span class="p">(</span><span class="n">lin_fn</span><span class="p">,</span> <span class="o">-</span><span class="n">val</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
+    <span class="mi">209</span> <span class="c1"># Update</span>
+    <span class="mi">210</span> <span class="n">eps_iter</span> <span class="o">=</span> <span class="n">eps_iter</span> <span class="o">+</span> <span class="n">dx</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">eps_iter</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="p">[</span><span class="o">...</span> <span class="n">skipping</span> <span class="n">hidden</span> <span class="mi">1</span> <span class="n">frame</span><span class="p">]</span>
+
+<span class="n">File</span> <span class="o">~/</span><span class="n">Documents</span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">spectralsolvers</span><span class="o">/.</span><span class="n">venv</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python3</span><span class="mf">.12</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">equinox</span><span class="o">/</span><span class="n">_jit</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">263</span><span class="p">,</span> <span class="ow">in</span> <span class="n">_call</span><span class="p">(</span><span class="n">jit_wrapper</span><span class="p">,</span> <span class="n">is_lower</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+    <span class="mi">259</span>         <span class="n">marker</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">out</span> <span class="o">=</span> <span class="n">jit_wrapper</span><span class="o">.</span><span class="n">_cached</span><span class="p">(</span>
+    <span class="mi">260</span>             <span class="n">dynamic_donate</span><span class="p">,</span> <span class="n">dynamic_nodonate</span><span class="p">,</span> <span class="n">static</span>
+    <span class="mi">261</span>         <span class="p">)</span>
+    <span class="mi">262</span> <span class="k">else</span><span class="p">:</span>
+<span class="o">--&gt;</span> <span class="mi">263</span>     <span class="n">marker</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">out</span> <span class="o">=</span> <span class="n">jit_wrapper</span><span class="o">.</span><span class="n">_cached</span><span class="p">(</span>
+    <span class="mi">264</span>         <span class="n">dynamic_donate</span><span class="p">,</span> <span class="n">dynamic_nodonate</span><span class="p">,</span> <span class="n">static</span>
+    <span class="mi">265</span>     <span class="p">)</span>
+    <span class="mi">266</span> <span class="c1"># We need to include the explicit `isinstance(marker, jax.Array)` check due</span>
+    <span class="mi">267</span> <span class="c1"># to https://github.com/patrick-kidger/equinox/issues/988</span>
+    <span class="mi">268</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">marker</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">Tracer</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+    <span class="mi">269</span>     <span class="n">marker</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+    <span class="mi">270</span> <span class="p">):</span>
+
+<span class="ne">ValueError</span><span class="p">:</span> <span class="n">Non</span><span class="o">-</span><span class="n">hashable</span> <span class="n">static</span> <span class="n">arguments</span> <span class="n">are</span> <span class="ow">not</span> <span class="n">supported</span><span class="o">.</span> <span class="n">An</span> <span class="n">error</span> <span class="n">occurred</span> <span class="k">while</span> <span class="n">trying</span> <span class="n">to</span> <span class="nb">hash</span> <span class="n">an</span> <span class="nb">object</span> <span class="n">of</span> <span class="nb">type</span> <span class="o">&lt;</span><span class="k">class</span><span class="w"> </span><span class="err">&#39;</span><span class="nc">tuple</span><span class="s1">&#39;&gt;, (((&lt;function conjugate_gradient_while at 0x7012d45d6c00&gt;,), PyTreeDef(*)), ((None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, TypedNdArray([[[ 0.00000000e+00 +0.j        ,</span>
+                 <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">],</span>
+               <span class="p">[</span> <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">,</span>
+                <span class="o">-</span><span class="mf">9.91837639e-02</span> <span class="o">+</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">],</span>
+               <span class="p">[</span> <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">,</span>
+                <span class="o">-</span><span class="mf">3.96636187e-01</span><span class="o">+</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">],</span>
+               <span class="o">...</span><span class="p">,</span>
+               <span class="p">[</span> <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">,</span>
+                <span class="o">-</span><span class="mf">8.92060762e-01</span><span class="o">-</span><span class="mf">18.82138175</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span> <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">,</span>
+                <span class="o">-</span><span class="mf">3.96636187e-01</span><span class="o">-</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span> <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">,</span>
+                <span class="o">-</span><span class="mf">9.91837639e-02</span> <span class="o">-</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">]],</span>
+
+              <span class="p">[[</span><span class="o">-</span><span class="mf">9.91837639e-02</span> <span class="o">+</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">,</span>
+                 <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.98318094e-01</span> <span class="o">+</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.98318094e-01</span> <span class="o">+</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">2.97304170e-01</span> <span class="o">+</span><span class="mf">6.27275126</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">5.94756593e-01</span><span class="o">+</span><span class="mf">12.54863049</span><span class="n">j</span><span class="p">],</span>
+               <span class="o">...</span><span class="p">,</span>
+               <span class="p">[</span> <span class="mf">1.98120406e-01</span> <span class="o">+</span><span class="mf">6.27275126</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">5.94756593e-01</span><span class="o">-</span><span class="mf">18.83077189</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span> <span class="mf">9.91343296e-02</span> <span class="o">+</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.98318094e-01</span><span class="o">-</span><span class="mf">12.56115172</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span> <span class="mf">1.64497329e-18</span> <span class="o">+</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.64497329e-18</span> <span class="o">-</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">]],</span>
+
+              <span class="p">[[</span><span class="o">-</span><span class="mf">3.96636187e-01</span><span class="o">+</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">5.94756593e-01</span><span class="o">+</span><span class="mf">12.54863049</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">2.97304170e-01</span> <span class="o">+</span><span class="mf">6.27275126</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">7.92481820e-01</span><span class="o">+</span><span class="mf">12.53299065</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">7.92481820e-01</span><span class="o">+</span><span class="mf">12.53299065</span><span class="n">j</span><span class="p">],</span>
+               <span class="o">...</span><span class="p">,</span>
+               <span class="p">[</span> <span class="mf">1.98120406e-01</span><span class="o">+</span><span class="mf">12.54863049</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">2.97304170e-01</span><span class="o">-</span><span class="mf">18.83077189</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span> <span class="mf">2.03607527e-17</span><span class="o">+</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">2.03607527e-17</span><span class="o">-</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.98318094e-01</span><span class="o">+</span><span class="mf">12.56115172</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">9.91343296e-02</span> <span class="o">-</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">]],</span>
+
+              <span class="o">...</span><span class="p">,</span>
+
+              <span class="p">[[</span><span class="o">-</span><span class="mf">8.92060762e-01</span><span class="o">-</span><span class="mf">18.82138175</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">5.94756593e-01</span><span class="o">-</span><span class="mf">18.83077189</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">1.98120406e-01</span> <span class="o">+</span><span class="mf">6.27275126</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">2.97304170e-01</span><span class="o">-</span><span class="mf">18.83077189</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">1.98120406e-01</span><span class="o">+</span><span class="mf">12.54863049</span><span class="n">j</span><span class="p">],</span>
+               <span class="o">...</span><span class="p">,</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.78012267e+00</span><span class="o">-</span><span class="mf">18.73701082</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.78012267e+00</span><span class="o">-</span><span class="mf">18.73701082</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.48503935e+00</span><span class="o">-</span><span class="mf">18.77447784</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">9.89614772e-01</span><span class="o">-</span><span class="mf">12.51111672</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.18892032e+00</span><span class="o">-</span><span class="mf">18.80261083</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">3.96043321e-01</span> <span class="o">-</span><span class="mf">6.26337048</span><span class="n">j</span><span class="p">]],</span>
+
+              <span class="p">[[</span><span class="o">-</span><span class="mf">3.96636187e-01</span><span class="o">-</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.98318094e-01</span><span class="o">-</span><span class="mf">12.56115172</span><span class="n">j</span><span class="p">,</span>
+                 <span class="mf">9.91343296e-02</span> <span class="o">+</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span> <span class="mf">2.03607527e-17</span><span class="o">-</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">2.03607527e-17</span><span class="o">+</span><span class="mf">12.55802063</span><span class="n">j</span><span class="p">],</span>
+               <span class="o">...</span><span class="p">,</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">9.89614772e-01</span><span class="o">-</span><span class="mf">12.51111672</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.48503935e+00</span><span class="o">-</span><span class="mf">18.77447784</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">7.92481820e-01</span><span class="o">-</span><span class="mf">12.53299065</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">7.92481820e-01</span><span class="o">-</span><span class="mf">12.53299065</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">5.94756593e-01</span><span class="o">-</span><span class="mf">12.54863049</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">2.97304170e-01</span> <span class="o">-</span><span class="mf">6.27275126</span><span class="n">j</span><span class="p">]],</span>
+
+              <span class="p">[[</span><span class="o">-</span><span class="mf">9.91837639e-02</span> <span class="o">-</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">,</span>
+                 <span class="mf">0.00000000e+00</span> <span class="o">+</span><span class="mf">0.</span><span class="n">j</span>        <span class="p">],</span>
+               <span class="p">[</span> <span class="mf">1.64497329e-18</span> <span class="o">-</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.64497329e-18</span> <span class="o">+</span><span class="mf">6.2821414</span><span class="n">j</span> <span class="p">],</span>
+               <span class="p">[</span> <span class="mf">9.91343296e-02</span> <span class="o">-</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.98318094e-01</span><span class="o">+</span><span class="mf">12.56115172</span><span class="n">j</span><span class="p">],</span>
+               <span class="o">...</span><span class="p">,</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">3.96043321e-01</span> <span class="o">-</span><span class="mf">6.26337048</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.18892032e+00</span><span class="o">-</span><span class="mf">18.80261083</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">2.97304170e-01</span> <span class="o">-</span><span class="mf">6.27275126</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">5.94756593e-01</span><span class="o">-</span><span class="mf">12.54863049</span><span class="n">j</span><span class="p">],</span>
+               <span class="p">[</span><span class="o">-</span><span class="mf">1.98318094e-01</span> <span class="o">-</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">,</span>
+                <span class="o">-</span><span class="mf">1.98318094e-01</span> <span class="o">-</span><span class="mf">6.27901032</span><span class="n">j</span><span class="p">]]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">complex128</span><span class="p">)),</span> <span class="n">PyTreeDef</span><span class="p">(</span><span class="n">CustomNode</span><span class="p">(</span><span class="n">Partial</span><span class="p">[</span><span class="n">_HashableCallableShim</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="o">&lt;</span><span class="n">function</span> <span class="n">_lift_linearized</span> <span class="n">at</span> <span class="mh">0x7012d6518040</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">let</span> <span class="n">_where</span> <span class="o">=</span> <span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">a</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">b</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">c</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+    <span class="n">d</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">select_n</span> <span class="n">a</span> <span class="n">b</span> <span class="n">c</span>
+  <span class="ow">in</span> <span class="p">(</span><span class="n">d</span><span class="p">,)</span> <span class="p">}</span> <span class="ow">in</span>
+<span class="p">{</span> <span class="k">lambda</span> <span class="n">e</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">f</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">g</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">h</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">i</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">j</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="n">k</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">l</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">m</span><span class="p">:</span><span class="n">f64</span><span class="p">[]</span> <span class="n">n</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span>
+    <span class="n">o</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">p</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">q</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">r</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">s</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">t</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span>
+    <span class="n">u</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">v</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="n">w</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">x</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">];</span> <span class="n">y</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">158404</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+    <span class="n">z</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">reshape</span><span class="p">[</span>
+      <span class="n">dimensions</span><span class="o">=</span><span class="kc">None</span>
+      <span class="n">new_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">199</span><span class="p">,</span> <span class="mi">199</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+      <span class="n">sharding</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">]</span> <span class="n">y</span>
+    <span class="n">ba</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">compute_response</span>
+      <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">e</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">f</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">g</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">h</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+          <span class="n">i</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">j</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="n">k</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">l</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">m</span><span class="p">:</span><span class="n">f64</span><span class="p">[]</span>
+          <span class="n">n</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">o</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">p</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">q</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">r</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span>
+          <span class="n">s</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">t</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">u</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="n">v</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="n">z</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+          <span class="n">bb</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">trace</span>
+            <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">e</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">f</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">z</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                <span class="n">bb</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+                  <span class="n">name</span><span class="o">=</span><span class="n">trace</span>
+                  <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">e</span><span class="p">:</span><span class="nb">bool</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">f</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">z</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                      <span class="n">bc</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">select_n</span> <span class="n">e</span> <span class="n">f</span> <span class="n">z</span>
+                      <span class="n">bb</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">reduce_sum</span><span class="p">[</span>
+                        <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+                        <span class="n">out_sharding</span><span class="o">=</span><span class="kc">None</span>
+                      <span class="p">]</span> <span class="n">bc</span>
+                    <span class="ow">in</span> <span class="p">(</span><span class="n">bb</span><span class="p">,)</span> <span class="p">}</span>
+                <span class="p">]</span> <span class="n">e</span> <span class="n">f</span> <span class="n">z</span>
+              <span class="ow">in</span> <span class="p">(</span><span class="n">bb</span><span class="p">,)</span> <span class="p">}</span>
+          <span class="p">]</span> <span class="n">e</span> <span class="n">f</span> <span class="n">z</span>
+          <span class="n">bd</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">broadcast_in_dim</span><span class="p">[</span>
+            <span class="n">broadcast_dimensions</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">199</span><span class="p">,</span> <span class="mi">199</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">sharding</span><span class="o">=</span><span class="kc">None</span>
+          <span class="p">]</span> <span class="n">bb</span>
+          <span class="n">be</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">div</span> <span class="n">bd</span> <span class="mf">2.0</span><span class="p">:</span><span class="n">f64</span><span class="p">[]</span>
+          <span class="n">bf</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">be</span> <span class="n">g</span>
+          <span class="n">bg</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub</span> <span class="n">z</span> <span class="n">bf</span>
+          <span class="n">bh</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">broadcast_in_dim</span><span class="p">[</span>
+            <span class="n">broadcast_dimensions</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">199</span><span class="p">,</span> <span class="mi">199</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">sharding</span><span class="o">=</span><span class="kc">None</span>
+          <span class="p">]</span> <span class="n">bb</span>
+          <span class="n">bi</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">h</span> <span class="n">bh</span>
+          <span class="n">bj</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">bi</span> <span class="n">i</span>
+          <span class="n">bk</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">j</span> <span class="n">bg</span>
+          <span class="n">bl</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">ddot</span>
+            <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">k</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">bm</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">bk</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">bn</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                <span class="n">bl</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+                  <span class="n">name</span><span class="o">=</span><span class="n">ddot</span>
+                  <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">k</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">bm</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">bk</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span>
+                      <span class="n">bn</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                      <span class="n">bo</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_general</span><span class="p">[</span>
+                        <span class="n">dimension_numbers</span><span class="o">=</span><span class="p">(([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+                        <span class="n">preferred_element_type</span><span class="o">=</span><span class="n">float64</span>
+                      <span class="p">]</span> <span class="n">bk</span> <span class="n">k</span>
+                      <span class="n">bp</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_general</span><span class="p">[</span>
+                        <span class="n">dimension_numbers</span><span class="o">=</span><span class="p">(([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+                        <span class="n">preferred_element_type</span><span class="o">=</span><span class="n">float64</span>
+                      <span class="p">]</span> <span class="n">bm</span> <span class="n">bn</span>
+                      <span class="n">bl</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">add_any</span> <span class="n">bo</span> <span class="n">bp</span>
+                    <span class="ow">in</span> <span class="p">(</span><span class="n">bl</span><span class="p">,)</span> <span class="p">}</span>
+                <span class="p">]</span> <span class="n">k</span> <span class="n">bm</span> <span class="n">bk</span> <span class="n">bn</span>
+              <span class="ow">in</span> <span class="p">(</span><span class="n">bl</span><span class="p">,)</span> <span class="p">}</span>
+          <span class="p">]</span> <span class="n">k</span> <span class="n">k</span> <span class="n">bk</span> <span class="n">bk</span>
+          <span class="n">bq</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">bl</span> <span class="n">l</span>
+          <span class="n">br</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">m</span> <span class="n">bq</span>
+          <span class="n">bs</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">div</span> <span class="n">br</span> <span class="n">n</span>
+          <span class="n">bt</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span><span class="n">name</span><span class="o">=</span><span class="n">_where</span> <span class="n">jaxpr</span><span class="o">=</span><span class="n">_where</span><span class="p">]</span> <span class="n">o</span> <span class="n">p</span> <span class="n">bs</span>
+          <span class="n">bu</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">q</span> <span class="n">bt</span>
+          <span class="n">bv</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">div</span> <span class="n">bu</span> <span class="n">r</span>
+          <span class="n">bw</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">neg</span> <span class="n">br</span>
+          <span class="n">bx</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">bw</span> <span class="n">s</span>
+          <span class="n">by</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">bx</span> <span class="n">t</span>
+          <span class="n">bz</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">add_any</span> <span class="n">bv</span> <span class="n">by</span>
+          <span class="n">ca</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">neg</span> <span class="n">bz</span>
+          <span class="n">cb</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span><span class="n">name</span><span class="o">=</span><span class="n">_where</span> <span class="n">jaxpr</span><span class="o">=</span><span class="n">_where</span><span class="p">]</span> <span class="n">o</span> <span class="n">u</span> <span class="n">ca</span>
+          <span class="n">cc</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">broadcast_in_dim</span><span class="p">[</span>
+            <span class="n">broadcast_dimensions</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">199</span><span class="p">,</span> <span class="mi">199</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">sharding</span><span class="o">=</span><span class="kc">None</span>
+          <span class="p">]</span> <span class="n">cb</span>
+          <span class="n">cd</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">bk</span> <span class="n">v</span>
+          <span class="n">ce</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mul</span> <span class="n">k</span> <span class="n">cc</span>
+          <span class="n">cf</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">add_any</span> <span class="n">cd</span> <span class="n">ce</span>
+          <span class="n">ba</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">add</span> <span class="n">bj</span> <span class="n">cf</span>
+        <span class="ow">in</span> <span class="p">(</span><span class="n">ba</span><span class="p">,)</span> <span class="p">}</span>
+    <span class="p">]</span> <span class="n">e</span> <span class="n">f</span> <span class="n">g</span> <span class="n">h</span> <span class="n">i</span> <span class="n">j</span> <span class="n">k</span> <span class="n">l</span> <span class="n">m</span> <span class="n">n</span> <span class="n">o</span> <span class="n">p</span> <span class="n">q</span> <span class="n">r</span> <span class="n">s</span> <span class="n">t</span> <span class="n">u</span> <span class="n">v</span> <span class="n">z</span>
+    <span class="n">cg</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">forward</span>
+      <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">ba</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+          <span class="n">cg</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">forward</span>
+            <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">ba</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                <span class="n">ch</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">transpose</span><span class="p">[</span><span class="n">permutation</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span> <span class="n">ba</span>
+                <span class="n">ci</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+                  <span class="n">name</span><span class="o">=</span><span class="n">fft</span>
+                  <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">ch</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                      <span class="n">cj</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">convert_element_type</span><span class="p">[</span>
+                        <span class="n">new_dtype</span><span class="o">=</span><span class="n">complex128</span>
+                        <span class="n">weak_type</span><span class="o">=</span><span class="kc">False</span>
+                      <span class="p">]</span> <span class="n">ch</span>
+                      <span class="n">ci</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">fft</span><span class="p">[</span>
+                        <span class="n">fft_lengths</span><span class="o">=</span><span class="p">(</span><span class="mi">199</span><span class="p">,</span> <span class="mi">199</span><span class="p">)</span>
+                        <span class="n">fft_type</span><span class="o">=</span><span class="mi">0</span>
+                      <span class="p">]</span> <span class="n">cj</span>
+                    <span class="ow">in</span> <span class="p">(</span><span class="n">ci</span><span class="p">,)</span> <span class="p">}</span>
+                <span class="p">]</span> <span class="n">ch</span>
+                <span class="n">cg</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">transpose</span><span class="p">[</span><span class="n">permutation</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span> <span class="n">ci</span>
+              <span class="ow">in</span> <span class="p">(</span><span class="n">cg</span><span class="p">,)</span> <span class="p">}</span>
+          <span class="p">]</span> <span class="n">ba</span>
+        <span class="ow">in</span> <span class="p">(</span><span class="n">cg</span><span class="p">,)</span> <span class="p">}</span>
+    <span class="p">]</span> <span class="n">ba</span>
+    <span class="n">ck</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">project</span>
+      <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">w</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">x</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="n">cg</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+          <span class="n">cl</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_general</span><span class="p">[</span>
+            <span class="n">dimension_numbers</span><span class="o">=</span><span class="p">(([</span><span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">]),</span> <span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+            <span class="n">preferred_element_type</span><span class="o">=</span><span class="n">complex128</span>
+          <span class="p">]</span> <span class="n">w</span> <span class="n">cg</span>
+          <span class="n">ck</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_general</span><span class="p">[</span>
+            <span class="n">dimension_numbers</span><span class="o">=</span><span class="p">(([],</span> <span class="p">[]),</span> <span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+            <span class="n">preferred_element_type</span><span class="o">=</span><span class="n">complex128</span>
+          <span class="p">]</span> <span class="n">cl</span> <span class="n">x</span>
+        <span class="ow">in</span> <span class="p">(</span><span class="n">ck</span><span class="p">,)</span> <span class="p">}</span>
+    <span class="p">]</span> <span class="n">w</span> <span class="n">x</span> <span class="n">cg</span>
+    <span class="n">cm</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">inverse</span>
+      <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">ck</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+          <span class="n">cn</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">inverse</span>
+            <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">ck</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                <span class="n">co</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">transpose</span><span class="p">[</span><span class="n">permutation</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span> <span class="n">ck</span>
+                <span class="n">cp</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">jit</span><span class="p">[</span>
+                  <span class="n">name</span><span class="o">=</span><span class="n">fft</span>
+                  <span class="n">jaxpr</span><span class="o">=</span><span class="p">{</span> <span class="k">lambda</span> <span class="p">;</span> <span class="n">co</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span><span class="o">.</span> <span class="n">let</span>
+                      <span class="n">cp</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">]</span> <span class="o">=</span> <span class="n">fft</span><span class="p">[</span>
+                        <span class="n">fft_lengths</span><span class="o">=</span><span class="p">(</span><span class="mi">199</span><span class="p">,</span> <span class="mi">199</span><span class="p">)</span>
+                        <span class="n">fft_type</span><span class="o">=</span><span class="mi">1</span>
+                      <span class="p">]</span> <span class="n">co</span>
+                    <span class="ow">in</span> <span class="p">(</span><span class="n">cp</span><span class="p">,)</span> <span class="p">}</span>
+                <span class="p">]</span> <span class="n">co</span>
+                <span class="n">cn</span><span class="p">:</span><span class="n">c128</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">transpose</span><span class="p">[</span><span class="n">permutation</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span> <span class="n">cp</span>
+              <span class="ow">in</span> <span class="p">(</span><span class="n">cn</span><span class="p">,)</span> <span class="p">}</span>
+          <span class="p">]</span> <span class="n">ck</span>
+          <span class="n">cm</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">199</span><span class="p">,</span><span class="mi">199</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">real</span> <span class="n">cn</span>
+        <span class="ow">in</span> <span class="p">(</span><span class="n">cm</span><span class="p">,)</span> <span class="p">}</span>
+    <span class="p">]</span> <span class="n">ck</span>
+    <span class="n">cq</span><span class="p">:</span><span class="n">f64</span><span class="p">[</span><span class="mi">158404</span><span class="p">]</span> <span class="o">=</span> <span class="n">reshape</span><span class="p">[</span><span class="n">dimensions</span><span class="o">=</span><span class="kc">None</span> <span class="n">new_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">158404</span><span class="p">,)</span> <span class="n">sharding</span><span class="o">=</span><span class="kc">None</span><span class="p">]</span> <span class="n">cm</span>
+  <span class="ow">in</span> <span class="p">(</span><span class="n">cq</span><span class="p">,)</span> <span class="p">},</span> <span class="p">[</span><span class="n">ShapedArray</span><span class="p">(</span><span class="n">float64</span><span class="p">[</span><span class="mi">158404</span><span class="p">])],</span> <span class="p">(</span><span class="n">PyTreeDef</span><span class="p">((</span><span class="o">*</span><span class="p">,)),</span> <span class="n">PyTreeDef</span><span class="p">(</span><span class="o">*</span><span class="p">)),</span> <span class="p">[(</span><span class="n">ShapedArray</span><span class="p">(</span><span class="n">float64</span><span class="p">[</span><span class="mi">158404</span><span class="p">]),</span> <span class="kc">None</span><span class="p">)]))],</span> <span class="p">[([</span><span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">],),</span> <span class="p">{}]))),</span> <span class="p">((</span><span class="kc">None</span><span class="p">,</span> <span class="mf">1e-05</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span> <span class="n">PyTreeDef</span><span class="p">(((</span><span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="p">{}))))</span><span class="o">.</span> <span class="n">The</span> <span class="n">error</span> <span class="n">was</span><span class="p">:</span>
+<span class="ne">TypeError</span><span class="p">:</span> <span class="n">unhashable</span> <span class="nb">type</span><span class="p">:</span> <span class="s1">&#39;TypedNdArray&#39;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">ep_accum</span><span class="o">.</span><span class="n">shape</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>(199, 199, 2)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>  <span class="c1"># use double-precision</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_platforms&quot;</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_persistent_cache_min_compile_time_secs&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">disk</span><span class="p">,</span> <span class="n">ellipse</span><span class="p">,</span> <span class="n">rectangle</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spectralsolver</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DifferentialMode</span><span class="p">,</span>
+    <span class="n">SpectralSpace</span><span class="p">,</span>
+    <span class="n">TensorOperator</span><span class="p">,</span>
+    <span class="n">make_field</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spectralsolver.operators</span><span class="w"> </span><span class="kn">import</span> <span class="n">fourier_galerkin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+</code></pre></div>
+<p>In this notebook, we implement the small-strain <code>J2</code> plasticity. We use the automatic differentiation to compute the alogriothmic tangent stiffness matrix (which ia function of bbothe elastic strain and plastic strain and yield function). It is necessary for <code>Newton-Raphson</code> iteration. </p>
+<h2 id="constructing-an-rve">constructing an RVE<a class="headerlink" href="#constructing-an-rve" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">place_circle</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">x_center</span><span class="p">,</span> <span class="n">y_center</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">x_center</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="n">y_center</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">r</span><span class="o">**</span><span class="mi">2</span><span class="p">:</span>
+                <span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_matrix_with_circles</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Radius r must be less than the size of the matrix n&quot;</span><span class="p">)</span>
+
+    <span class="n">matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">placed_circles</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">while</span> <span class="n">placed_circles</span> <span class="o">&lt;</span> <span class="n">x</span><span class="p">:</span>
+        <span class="n">x_center</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">y_center</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Check if the circle fits within the matrix bounds</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">x_center</span> <span class="o">+</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">n</span>
+            <span class="ow">and</span> <span class="n">y_center</span> <span class="o">+</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">n</span>
+            <span class="ow">and</span> <span class="n">x_center</span> <span class="o">-</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+            <span class="ow">and</span> <span class="n">y_center</span> <span class="o">-</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="n">previous_matrix</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">place_circle</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">x_center</span><span class="p">,</span> <span class="n">y_center</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">previous_matrix</span><span class="p">,</span> <span class="n">matrix</span><span class="p">):</span>
+                <span class="n">placed_circles</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">matrix</span>
+
+
+<span class="c1"># Example usage</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">199</span>
+<span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+<span class="n">length</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">ndim</span> <span class="o">=</span> <span class="mi">2</span>
+
+
+<span class="n">x</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">r</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">structure</span> <span class="o">=</span> <span class="n">generate_matrix_with_circles</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">grid_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">N</span><span class="p">,)</span> <span class="o">*</span> <span class="n">ndim</span>
+<span class="n">elasticity_dof_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span> <span class="o">+</span> <span class="n">grid_size</span>
+</code></pre></div>
+<h2 id="assigning-material-parameters">assigning material parameters<a class="headerlink" href="#assigning-material-parameters" title="Permanent link">¤</a></h2>
+<p>We assign material parameters to the two phases. The two phases within the RVE are denoted as
+- Soft = 0
+- Hard = 1</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># material parameters + function to convert to grid of scalars</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">param</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">soft</span><span class="p">,</span> <span class="n">hard</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">hard</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">+</span> <span class="n">soft</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">)</span>
+</code></pre></div>
+<p>We consider a <code>linear isotropic hardening law</code> for both the phases</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># material parameters</span>
+<span class="n">phase_constrast</span> <span class="o">=</span> <span class="mi">2</span>
+
+<span class="n">K</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">soft</span><span class="o">=</span><span class="mf">0.833</span><span class="p">,</span> <span class="n">hard</span><span class="o">=</span><span class="n">phase_constrast</span> <span class="o">*</span> <span class="mf">0.833</span><span class="p">)</span>  <span class="c1"># bulk      modulus</span>
+<span class="n">μ</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">soft</span><span class="o">=</span><span class="mf">0.386</span><span class="p">,</span> <span class="n">hard</span><span class="o">=</span><span class="n">phase_constrast</span> <span class="o">*</span> <span class="mf">0.386</span><span class="p">)</span>  <span class="c1"># shear     modulus</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span>
+    <span class="n">structure</span><span class="p">,</span> <span class="n">soft</span><span class="o">=</span><span class="mf">2000.0e6</span> <span class="o">/</span> <span class="mf">200.0e9</span><span class="p">,</span> <span class="n">hard</span><span class="o">=</span><span class="n">phase_constrast</span> <span class="o">*</span> <span class="mf">2000.0e6</span> <span class="o">/</span> <span class="mf">200.0e9</span>
+<span class="p">)</span>  <span class="c1"># hardening modulus</span>
+<span class="n">sigma_y</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span>
+    <span class="n">structure</span><span class="p">,</span> <span class="n">soft</span><span class="o">=</span><span class="mf">600.0e6</span> <span class="o">/</span> <span class="mf">200.0e9</span><span class="p">,</span> <span class="n">hard</span><span class="o">=</span><span class="n">phase_constrast</span> <span class="o">*</span> <span class="mf">600.0e6</span> <span class="o">/</span> <span class="mf">200.0e9</span>
+<span class="p">)</span>  <span class="c1"># initial yield stress</span>
+
+<span class="n">n</span> <span class="o">=</span> <span class="mf">1.0</span>
+</code></pre></div>
+<h2 id="plasticity-basics">plasticity basics<a class="headerlink" href="#plasticity-basics" title="Permanent link">¤</a></h2>
+<p>Now we define the basics of plasticity implementation:</p>
+<ul>
+<li>yield surface</li>
+</ul>
+<div class="arithmatex">\[
+\Phi(\sigma_{ij}, \varepsilon^p_{ij}) = \underbrace{\sqrt{\dfrac{3}{2}\sigma^{dev}_{ij}\sigma^{dev}_{jk}}}_{\sigma^{eq}} - (\sigma_{0} + H\varepsilon^{p})
+\]</div>
+<ul>
+<li>return mappping algorithm</li>
+</ul>
+<div class="arithmatex">\[
+\Delta \varepsilon =  \dfrac{\langle \Phi(\sigma_{ij}, \varepsilon_{p}) \rangle_{+}}{3\mu + H}
+\]</div>
+<ul>
+<li>tangent stiffness operator</li>
+</ul>
+<div class="arithmatex">\[
+\mathbb{C} = \dfrac{\partial \sigma^{t+1}}{\partial \varepsilon^{t+1}} 
+\]</div>
+<p>We also define certain Identity tensor for each grid point.</p>
+<ul>
+<li><span class="arithmatex">\(\mathbf{I}\)</span> = 2 order Identity tensor with shape <code>(2, 2, N, N)</code> </li>
+<li><span class="arithmatex">\(\mathbb{I4}\)</span> = 4 order Identity tensor with shape <code>(2, 2, 2, 2, N, N)</code></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="n">tensor</span> <span class="o">=</span> <span class="n">TensorOperator</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">)</span>
+<span class="n">space</span> <span class="o">=</span> <span class="n">SpectralSpace</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># identity tensor (single tensor)</span>
+<span class="n">i</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
+
+<span class="c1"># identity tensors (grid)</span>
+<span class="n">I</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span>
+    <span class="s2">&quot;ij,xy&quot;</span><span class="p">,</span>
+    <span class="n">i</span><span class="p">,</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">N</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">*</span> <span class="n">ndim</span>
+    <span class="p">),</span>
+<span class="p">)</span>  <span class="c1"># 2nd order Identity tensor</span>
+<span class="n">I4</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span>
+    <span class="s2">&quot;ijkl,xy-&gt;ijklxy&quot;</span><span class="p">,</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;il,jk&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">),</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">N</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">*</span> <span class="n">ndim</span>
+    <span class="p">),</span>
+<span class="p">)</span>  <span class="c1"># 4th order Identity tensor</span>
+<span class="n">I4rt</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span>
+    <span class="s2">&quot;ijkl,xy-&gt;ijklxy&quot;</span><span class="p">,</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ik,jl&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">),</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">N</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">*</span> <span class="n">ndim</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">I4s</span> <span class="o">=</span> <span class="p">(</span><span class="n">I4</span> <span class="o">+</span> <span class="n">I4rt</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+<span class="n">II</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dyad</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">I</span><span class="p">)</span>
+<span class="n">I4d</span> <span class="o">=</span> <span class="n">I4s</span> <span class="o">-</span> <span class="n">II</span> <span class="o">/</span> <span class="mf">3.0</span>
+
+<span class="n">Ghat</span> <span class="o">=</span> <span class="n">fourier_galerkin</span><span class="o">.</span><span class="n">compute_projection_operator</span><span class="p">(</span>
+    <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">diff_mode</span><span class="o">=</span><span class="n">DifferentialMode</span><span class="o">.</span><span class="n">rotated_difference</span>
+<span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">yield_function</span><span class="p">(</span><span class="n">ep</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">sigma_y</span> <span class="o">+</span> <span class="n">H</span> <span class="o">*</span> <span class="n">ep</span><span class="o">**</span><span class="n">n</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_stress</span><span class="p">(</span><span class="n">eps</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">):</span>
+    <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span> <span class="o">=</span> <span class="n">args</span>
+
+    <span class="c1"># elastic stiffness tensor</span>
+    <span class="n">C4e</span> <span class="o">=</span> <span class="n">K</span> <span class="o">*</span> <span class="n">II</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">μ</span> <span class="o">*</span> <span class="n">I4d</span>
+
+    <span class="c1"># trial state</span>
+    <span class="n">epse_s</span> <span class="o">=</span> <span class="n">epse_t</span> <span class="o">+</span> <span class="p">(</span><span class="n">eps</span> <span class="o">-</span> <span class="n">eps_t</span><span class="p">)</span>
+    <span class="n">sig_s</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">ddot</span><span class="p">(</span><span class="n">C4e</span><span class="p">,</span> <span class="n">epse_s</span><span class="p">)</span>
+    <span class="n">sigm_s</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">ddot</span><span class="p">(</span><span class="n">sig_s</span><span class="p">,</span> <span class="n">I</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span>
+    <span class="n">sigd_s</span> <span class="o">=</span> <span class="n">sig_s</span> <span class="o">-</span> <span class="n">sigm_s</span> <span class="o">*</span> <span class="n">I</span>
+    <span class="n">sigeq_s</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">tensor</span><span class="o">.</span><span class="n">ddot</span><span class="p">(</span><span class="n">sigd_s</span><span class="p">,</span> <span class="n">sigd_s</span><span class="p">))</span>
+
+    <span class="c1"># avoid zero division below (&quot;phi_s&quot; is corrected below)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">sigeq_s</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">sigeq_s</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sigeq_s</span><span class="p">)</span>
+
+    <span class="c1"># evaluate yield surface, set to zero if elastic (or stress-free)</span>
+    <span class="n">sigy</span> <span class="o">=</span> <span class="n">yield_function</span><span class="p">(</span><span class="n">ep_t</span><span class="p">)</span>
+    <span class="n">phi_s</span> <span class="o">=</span> <span class="n">sigeq_s</span> <span class="o">-</span> <span class="n">sigy</span>
+    <span class="n">phi_s</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">phi_s</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">phi_s</span><span class="p">))</span>
+    <span class="n">phi_s</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">phi_s</span><span class="p">)</span>
+    <span class="n">elastic_pt</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">phi_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># plastic multiplier, based on non-linear hardening</span>
+    <span class="c1"># - initialize</span>
+    <span class="n">dep</span> <span class="o">=</span> <span class="n">phi_s</span> <span class="o">/</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">μ</span> <span class="o">+</span> <span class="n">H</span><span class="p">)</span>
+
+    <span class="c1"># return map algorithm</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mf">3.0</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">sigd_s</span> <span class="o">/</span> <span class="n">sigeq_s</span>
+    <span class="n">ep</span> <span class="o">=</span> <span class="n">ep_t</span> <span class="o">+</span> <span class="n">dep</span>
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">sig_s</span> <span class="o">-</span> <span class="n">dep</span> <span class="o">*</span> <span class="n">N</span> <span class="o">*</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">μ</span>
+    <span class="n">epse</span> <span class="o">=</span> <span class="n">epse_s</span> <span class="o">-</span> <span class="n">dep</span> <span class="o">*</span> <span class="n">N</span>
+
+    <span class="k">return</span> <span class="n">sig</span><span class="p">,</span> <span class="n">epse</span><span class="p">,</span> <span class="n">ep</span>
+
+
+<span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_residual</span><span class="p">(</span><span class="n">sigma</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">space</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">ddot</span><span class="p">(</span><span class="n">Ghat</span><span class="p">,</span> <span class="n">space</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">sigma</span><span class="p">))))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_tangents</span><span class="p">(</span><span class="n">deps</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">):</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="n">primal</span><span class="p">,</span> <span class="n">tangents</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jvp</span><span class="p">(</span>
+        <span class="n">partial</span><span class="p">(</span><span class="n">compute_stress</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">)),</span> <span class="p">(</span><span class="n">eps</span><span class="p">,),</span> <span class="p">(</span><span class="n">deps</span><span class="p">,)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">compute_residual</span><span class="p">(</span><span class="n">tangents</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+
+<span class="c1"># partial_compute_tangent = partial(compute_tangents, sigma=sigma)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">spectralsolver.solvers.nonlinear</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">conjugate_gradient_while</span><span class="p">,</span>
+    <span class="n">newton_krylov_solver</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">newton_solver</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">,</span> <span class="n">En</span><span class="p">,</span> <span class="n">sig</span> <span class="o">=</span> <span class="n">state</span>
+
+    <span class="n">error</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">deps</span><span class="p">)</span> <span class="o">/</span> <span class="n">En</span>
+    <span class="n">jax</span><span class="o">.</span><span class="n">debug</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;residual=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">deps</span><span class="p">)</span> <span class="o">/</span> <span class="n">En</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">true_fun</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+        <span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">,</span> <span class="n">En</span><span class="p">,</span> <span class="n">sig</span> <span class="o">=</span> <span class="n">state</span>
+
+        <span class="n">partial_compute_tangent</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span>
+            <span class="n">partial</span><span class="p">(</span><span class="n">compute_tangents</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="n">deps</span><span class="p">,</span> <span class="n">iiter</span> <span class="o">=</span> <span class="n">conjugate_gradient_while</span><span class="p">(</span>
+            <span class="n">atol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
+            <span class="n">A</span><span class="o">=</span><span class="n">partial_compute_tangent</span><span class="p">,</span>
+            <span class="n">b</span><span class="o">=</span><span class="n">b</span><span class="p">,</span>
+        <span class="p">)</span>  <span class="c1"># solve linear system using CG</span>
+
+        <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">eps</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">deps</span><span class="p">)</span>  <span class="c1"># update DOFs (array -&gt; tensor.grid)</span>
+        <span class="n">sig</span><span class="p">,</span> <span class="n">epse</span><span class="p">,</span> <span class="n">ep</span> <span class="o">=</span> <span class="n">compute_stress</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="p">(</span><span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">compute_residual</span><span class="p">(</span><span class="n">sig</span><span class="p">)</span>  <span class="c1"># compute residual</span>
+
+        <span class="n">jax</span><span class="o">.</span><span class="n">debug</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;CG iteration </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">iiter</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse</span><span class="p">,</span> <span class="n">ep</span><span class="p">,</span> <span class="n">En</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">false_fun</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">error</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="n">true_fun</span><span class="p">,</span> <span class="n">false_fun</span><span class="p">,</span> <span class="n">state</span><span class="p">),</span> <span class="n">n</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># initialize: stress and strain tensor, and history</span>
+<span class="n">sig</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">eps_t</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">epse_t</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ep_t</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">deps</span> <span class="o">=</span> <span class="n">make_field</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># define incremental macroscopic strain</span>
+<span class="n">ninc</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">epsbar</span> <span class="o">=</span> <span class="mf">0.12</span>
+<span class="n">deps</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">epsbar</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">ninc</span><span class="p">)</span>
+<span class="n">deps</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">epsbar</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">ninc</span><span class="p">)</span>
+
+<span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">compute_tangents</span><span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">))</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">deps</span><span class="p">)</span>
+<span class="n">En</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">eps_t</span><span class="p">,</span> <span class="n">epse_t</span><span class="p">,</span> <span class="n">ep_t</span><span class="p">,</span> <span class="n">En</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
+<span class="n">final_state</span><span class="p">,</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">newton_solver</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>residual=1.0
+CG iteration 18
+residual=0.30347510072366196
+CG iteration 0
+residual=0.0
+residual=0.0
+residual=0.0
+residual=0.0
+residual=0.0
+residual=0.0
+residual=0.0
+residual=0.0
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "toc.integrate", "header-autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../_static/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

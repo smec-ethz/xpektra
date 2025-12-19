@@ -1,0 +1,2294 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The documentation for xpektra software package">
+      
+      
+        <meta name="author" content="Mohit Pundir">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../_static/favicon-xpektra.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Topology optimization - xpektra</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../_static/custom_css.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="xpektra" class="md-header__button md-logo" aria-label="xpektra" data-md-component="logo">
+      
+  <img src="../../_static/favicon-xpektra.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xpektra
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Topology optimization
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/smec-ethz/xpektra" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smec-ethz/xpektra
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="xpektra" class="md-nav__button md-logo" aria-label="xpektra" data-md-component="logo">
+      
+  <img src="../../_static/favicon-xpektra.png" alt="logo">
+
+    </a>
+    xpektra
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/smec-ethz/xpektra" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smec-ethz/xpektra
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Blocks of xpektra
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extensibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extensibility: Building Your Own Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elasticity
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Elasticity
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_1" id="__nav_4_1_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fourier-Galerkin
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fourier-Galerkin
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linear_elasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../st_venant_kirchhoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    St venant kirchhoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../j2_plasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    J2 plasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphase_material/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D Multi-phase Material
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../differential_operator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gibbs Ringing Artifact
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_2" id="__nav_4_1_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Moulinec-Suquet
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Moulinec-Suquet
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moulinec_suquet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixed-point iteration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moulinec_suquet_newton_krylov/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Moulinec-Suquet as Newton-Krylov solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1_3" id="__nav_4_1_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Displacement-based FFT
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Displacement-based FFT
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../displacement_based_fft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear Elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../phasefield_localization_1D/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Phasefield Localization in 1D
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../computational_homogenization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homogenization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiscale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale problem: xpektra + tatva
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Basic API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/projection_operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projection Operators
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/scheme_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discretization Schemes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spectral_operator_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spectral Operator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spectral_space_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spectral Space
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+  <h1>Topology optimization</h1>
+
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+    <span class="s2">&quot;jax_compilation_cache_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;/cluster/scratch/mpundir/jax-cache-notebook&quot;</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>  <span class="c1"># use double-precision</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_platforms&quot;</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">Array</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.notebook</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">disk</span><span class="p">,</span> <span class="n">rectangle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.gridspec</span><span class="w"> </span><span class="kn">import</span> <span class="n">GridSpec</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;../fft_helpers/&quot;</span><span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">projection_operators</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_Ghat_4_2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tensor_operators</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">custom_solvers</span><span class="w"> </span><span class="kn">import</span> <span class="n">conjugate_gradient</span>
+
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;../plot_helpers/&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">([</span><span class="s2">&quot;../plot_helpers/prl_paper.mplstyle&quot;</span><span class="p">])</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">plot_helper_for_paper</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_size</span><span class="p">,</span> <span class="n">plot_imshow</span><span class="p">,</span> <span class="n">plot_contourf</span>
+</code></pre></div>
+<div class="arithmatex">\[\begin{align*}
+    \underset{\rho}{ \text{maximize}} &amp;:~ f(\rho, \boldsymbol{F}) \\
+     \text{s.t} &amp;: ~\mathcal{F}^{-1} \{ \mathcal{F} \{  \mathbb{G} \} :   \mathcal{F} \{ \sigma \} \}  = 0~, \\
+                &amp; : ~\int \rho(\boldsymbol{x}) d\Omega / \int d\Omega = \vartheta~,  \\
+                &amp; :~ 0 \leq \rho(\boldsymbol{x}) \leq 1 , \forall \boldsymbol{x} \in \Omega  
+\end{align*}\]</div>
+<p>The implementation of <code>Optimality criteria</code> and <code>sensitivity filter</code> has been taken from the work of Chandrasekhar et al <a href="AuTO: A Framework for Automatic differentiation in Topology Optimization">http://arxiv.org/abs/2104.01965</a></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># %% Filter</span>
+<span class="c1"># Reference: http://arxiv.org/abs/2104.01965</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_filter</span><span class="p">(</span><span class="n">rmin</span><span class="p">):</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">e1</span> <span class="o">=</span> <span class="p">(</span><span class="n">i1</span><span class="p">)</span> <span class="o">*</span> <span class="n">N</span> <span class="o">+</span> <span class="n">j1</span>
+            <span class="n">imin</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">i1</span> <span class="o">-</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">rmin</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">imax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">i1</span> <span class="o">+</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">rmin</span><span class="p">)),</span> <span class="n">N</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">imin</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">imax</span><span class="p">)):</span>
+                <span class="n">jmin</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">j1</span> <span class="o">-</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">rmin</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+                <span class="n">jmax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">j1</span> <span class="o">+</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">rmin</span><span class="p">)),</span> <span class="n">N</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">j2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">jmin</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">jmax</span><span class="p">)):</span>
+                    <span class="n">e2</span> <span class="o">=</span> <span class="n">i2</span> <span class="o">*</span> <span class="n">N</span> <span class="o">+</span> <span class="n">j2</span>
+                    <span class="n">H</span><span class="p">[</span><span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                        <span class="mf">0.0</span><span class="p">,</span> <span class="n">rmin</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">i1</span> <span class="o">-</span> <span class="n">i2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">j1</span> <span class="o">-</span> <span class="n">j2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+                    <span class="p">)</span>
+
+    <span class="n">Hs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">H</span><span class="p">,</span> <span class="n">Hs</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1">#length = 1.0</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">99</span>
+
+<span class="c1"># material parameters</span>
+<span class="n">elastic_modulus</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">}</span>  <span class="c1"># N/mm2</span>
+<span class="n">poisson_modulus</span> <span class="o">=</span> <span class="mf">0.3</span>
+<span class="n">penalty</span> <span class="o">=</span> <span class="mf">5.0</span>
+
+<span class="n">vf</span> <span class="o">=</span> <span class="mf">0.3</span>
+
+<span class="n">dx</span> <span class="o">=</span> <span class="n">dy</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">length</span> <span class="o">=</span> <span class="n">dx</span><span class="o">*</span><span class="n">N</span>
+
+<span class="n">H</span><span class="p">,</span> <span class="n">Hs</span> <span class="o">=</span> <span class="n">compute_filter</span><span class="p">(</span><span class="n">rmin</span><span class="o">=</span><span class="mf">1.3</span><span class="p">)</span>
+<span class="n">ft</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="n">H</span><span class="p">,</span> <span class="s2">&quot;Hs&quot;</span><span class="p">:</span> <span class="n">Hs</span><span class="p">}</span>
+
+
+<span class="n">μ</span> <span class="o">=</span> <span class="n">elastic_modulus</span><span class="p">[</span><span class="s1">&#39;max&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">poisson_modulus</span><span class="p">))</span>
+<span class="n">λ</span> <span class="o">=</span> <span class="n">poisson_modulus</span> <span class="o">*</span> <span class="n">elastic_modulus</span><span class="p">[</span><span class="s1">&#39;max&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">poisson_modulus</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">poisson_modulus</span><span class="p">))</span>
+<span class="n">λ</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">μ</span><span class="o">*</span><span class="n">λ</span><span class="o">/</span><span class="p">(</span><span class="n">λ</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">μ</span><span class="p">)</span> <span class="c1"># for plane stress</span>
+<span class="n">K</span> <span class="o">=</span> <span class="n">λ</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">μ</span> <span class="o">/</span> <span class="mi">2</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">μ</span><span class="o">*</span><span class="n">K</span><span class="o">*</span><span class="n">vf</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">μ</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">K</span><span class="o">-</span><span class="p">(</span><span class="n">K</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">μ</span><span class="p">)</span><span class="o">*</span><span class="n">vf</span><span class="p">))</span>
+
+<span class="n">Hmax</span> <span class="o">=</span> <span class="n">μ</span><span class="o">*</span><span class="n">K</span><span class="o">/</span><span class="p">(</span><span class="n">K</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">μ</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>0.0470219435736677
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">μ</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>0.3846153846153846
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">trial</span> <span class="o">=</span> <span class="n">vf</span><span class="o">/</span><span class="p">(</span><span class="n">Hmax</span><span class="o">+</span> <span class="n">μ</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">vf</span><span class="p">)</span><span class="o">/</span><span class="n">Hmax</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="mi">1</span><span class="o">/</span><span class="n">trial</span> <span class="o">-</span> <span class="n">Hmax</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>0.04702194357366771
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">ndim</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="c1"># identity tensor (single tensor)</span>
+<span class="n">i</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
+
+<span class="c1"># identity tensors (grid)</span>
+<span class="n">I</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,xy&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">([</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">]))</span>  <span class="c1"># 2nd order Identity tensor</span>
+
+<span class="n">I4</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span>
+    <span class="s2">&quot;ijkl,xy-&gt;ijklxy&quot;</span><span class="p">,</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;il,jk&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">),</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">N</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">*</span> <span class="n">ndim</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">I4rt</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span>
+    <span class="s2">&quot;ijkl,xy-&gt;ijklxy&quot;</span><span class="p">,</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ik,jl&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">),</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">N</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">*</span> <span class="n">ndim</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="n">I4s</span> <span class="o">=</span> <span class="p">(</span><span class="n">I4</span> <span class="o">+</span> <span class="n">I4rt</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+<span class="n">II</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dyad22</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">I</span><span class="p">)</span>
+<span class="n">I4d</span> <span class="o">=</span> <span class="n">I4s</span> <span class="o">-</span> <span class="n">II</span> <span class="o">/</span> <span class="mf">3.0</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># (inverse) Fourier transform (for each tensor component in each direction)</span>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftn</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="p">[</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">]))</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ifft</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftn</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="p">[</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">]))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">Ghat4_2</span> <span class="o">=</span> <span class="n">compute_Ghat_4_2</span><span class="p">(</span><span class="n">NN</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,)</span> <span class="o">*</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">operator</span><span class="o">=</span><span class="s2">&quot;rotated&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">param</span><span class="p">(</span><span class="n">rho</span><span class="p">):</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">elastic_modulus</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="p">(</span><span class="n">elastic_modulus</span><span class="p">[</span><span class="s2">&quot;max&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">elastic_modulus</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">)</span> <span class="o">**</span> <span class="n">penalty</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">E</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># --------------------------#</span>
+<span class="c1"># Reference: http://arxiv.org/abs/2104.01965</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_initial_density</span><span class="p">(</span><span class="n">vf</span><span class="p">):</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">vf</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span>
+    <span class="n">ctr</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">i</span> <span class="o">-</span> <span class="n">N</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="n">N</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">d</span><span class="p">:</span>
+                <span class="n">rho</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">vf</span> <span class="o">/</span> <span class="mf">2.0</span>
+            <span class="n">ctr</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rho</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># Reference: http://arxiv.org/abs/2104.01965</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_sensitivity_filter</span><span class="p">(</span><span class="n">ft</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">dc</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">dc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">ft</span><span class="p">[</span><span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dc</span><span class="p">)</span> <span class="o">/</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;Hs&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">dc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">ft</span><span class="p">[</span><span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="p">(</span><span class="n">dc</span> <span class="o">/</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;Hs&quot;</span><span class="p">]))</span>
+        <span class="n">dv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">ft</span><span class="p">[</span><span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="p">(</span><span class="n">dv</span> <span class="o">/</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;Hs&quot;</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">dc</span><span class="p">,</span> <span class="n">dv</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># Reference: http://arxiv.org/abs/2104.01965</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">oc</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="n">dc</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">ft</span><span class="p">,</span> <span class="n">vf</span><span class="p">):</span>
+    <span class="n">l1</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">l2</span> <span class="o">=</span> <span class="mf">1e9</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">rho</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">move</span> <span class="o">=</span> <span class="mf">0.2</span>
+    <span class="k">while</span> <span class="n">l2</span> <span class="o">-</span> <span class="n">l1</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+        <span class="n">lmid</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">l2</span> <span class="o">+</span> <span class="n">l1</span><span class="p">)</span>
+        <span class="n">dr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="o">-</span><span class="n">dc</span> <span class="o">/</span> <span class="n">dv</span> <span class="o">/</span> <span class="n">lmid</span><span class="p">)</span>
+
+        <span class="n">xnew</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span>
+            <span class="mi">0</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">move</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">move</span><span class="p">,</span> <span class="n">x</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">dr</span><span class="p">)))),</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">rho</span> <span class="o">=</span> <span class="n">xnew</span>
+        <span class="k">elif</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">ft</span><span class="p">[</span><span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="n">xnew</span><span class="p">)</span> <span class="o">/</span> <span class="n">ft</span><span class="p">[</span><span class="s2">&quot;Hs&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">vf</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">lmid</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l2</span> <span class="o">=</span> <span class="n">lmid</span>
+
+    <span class="n">change</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xnew</span> <span class="o">-</span> <span class="n">x</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">rho</span><span class="p">,</span> <span class="n">change</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">strain_energy</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">rho</span><span class="p">):</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="n">E</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">elastic_modulus</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="p">(</span><span class="n">elastic_modulus</span><span class="p">[</span><span class="s2">&quot;max&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">elastic_modulus</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">)</span> <span class="o">**</span> <span class="n">penalty</span>
+    <span class="p">)</span>
+    <span class="n">ν</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">*</span> <span class="n">poisson_modulus</span>
+
+    <span class="n">μ0</span> <span class="o">=</span> <span class="n">E</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">ν</span><span class="p">))</span>
+
+    <span class="n">λ0</span> <span class="o">=</span> <span class="n">ν</span> <span class="o">*</span> <span class="n">E</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">ν</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ν</span><span class="p">))</span>
+    <span class="n">λ0</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">μ0</span><span class="o">*</span><span class="n">λ0</span><span class="o">/</span><span class="p">(</span><span class="n">λ0</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">μ0</span><span class="p">)</span> <span class="c1"># for plane stress</span>
+
+
+    <span class="n">eps_sym</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span> <span class="o">+</span> <span class="n">tensor</span><span class="o">.</span><span class="n">trans2</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">λ0</span><span class="p">,</span> <span class="n">tensor</span><span class="o">.</span><span class="n">trace2</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span>
+        <span class="n">μ0</span><span class="p">,</span> <span class="n">tensor</span><span class="o">.</span><span class="n">trace2</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">dot22</span><span class="p">(</span><span class="n">eps_sym</span><span class="p">,</span> <span class="n">eps_sym</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">energy</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+
+<span class="n">sigma</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacrev</span><span class="p">(</span><span class="n">strain_energy</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># functions for the projection &#39;G&#39;, and the product &#39;G : K : eps&#39;</span>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">G</span><span class="p">(</span><span class="n">A2</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">ddot42</span><span class="p">(</span><span class="n">Ghat4_2</span><span class="p">,</span> <span class="n">fft</span><span class="p">(</span><span class="n">A2</span><span class="p">))))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">G_K_deps</span><span class="p">(</span><span class="n">depsm</span><span class="p">,</span> <span class="n">additionals</span><span class="p">):</span>
+    <span class="n">depsm</span> <span class="o">=</span> <span class="n">depsm</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">G</span><span class="p">(</span><span class="n">sigma</span><span class="p">(</span><span class="n">depsm</span><span class="p">,</span> <span class="n">additionals</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">scan_conjugate_gradient</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span> <span class="o">=</span> <span class="n">state</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">))</span>
+
+    <span class="n">error</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rsold</span><span class="p">)</span> 
+    <span class="n">jax</span><span class="o">.</span><span class="n">debug</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s1">&#39;CG residual = </span><span class="si">{}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">true_fun</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span> <span class="o">=</span>  <span class="n">state</span>
+
+        <span class="n">Ap</span> <span class="o">=</span> <span class="n">G_K_deps</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">additional</span><span class="p">)</span> 
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">rsold</span> <span class="o">/</span> <span class="n">jnp</span><span class="o">.</span><span class="n">vdot</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Ap</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">r</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">Ap</span><span class="p">)</span>
+        <span class="n">rsnew</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">vdot</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> 
+        <span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="p">(</span><span class="n">rsnew</span><span class="o">/</span><span class="n">rsold</span><span class="p">)</span><span class="o">*</span><span class="n">p</span>
+        <span class="n">rsold</span> <span class="o">=</span> <span class="n">rsnew</span>
+        <span class="n">iiter</span> <span class="o">=</span> <span class="n">iiter</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">false_fun</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">error</span> <span class="o">&gt;</span> <span class="n">cg_tol</span><span class="p">,</span> <span class="n">true_fun</span><span class="p">,</span> <span class="n">false_fun</span><span class="p">,</span> <span class="n">state</span><span class="p">),</span> <span class="n">n</span>
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">scan_newton_raphson</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="c1">#jax.debug.print(&#39;NR loop&#39;)</span>
+    <span class="n">dF</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span> <span class="o">=</span> <span class="n">state</span>
+
+
+
+    <span class="n">error</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dF</span><span class="p">)</span><span class="o">/</span><span class="n">Fn</span>
+
+    <span class="c1">#jax.debug.print(&#39;NR residual={}&#39;, error)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">true_fun</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+        <span class="n">dF</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span> <span class="o">=</span> <span class="n">state</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">G_K_deps</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">additional</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">r</span>
+        <span class="n">rsold</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">vdot</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> 
+
+        <span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span><span class="p">)</span>
+
+        <span class="n">state</span><span class="p">,</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">scan_conjugate_gradient</span><span class="p">,</span> 
+                               <span class="n">init</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> 
+                               <span class="n">xs</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+
+        <span class="n">dF</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span> <span class="o">=</span> <span class="n">state</span>
+
+        <span class="n">dF</span>     <span class="o">=</span> <span class="n">dF</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ndim</span><span class="p">,</span><span class="n">ndim</span><span class="p">,</span><span class="n">N</span><span class="p">,</span><span class="n">N</span><span class="p">)</span>
+        <span class="n">F</span>      <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">dF</span><span class="p">)</span>         <span class="c1"># update DOFs (array -&gt; tensor.grid)</span>
+        <span class="n">b</span>      <span class="o">=</span> <span class="o">-</span><span class="n">G_K_deps</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">additional</span><span class="p">)</span>        <span class="c1"># compute residual</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">dF</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">b</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Fn</span><span class="p">,</span> <span class="n">additional</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">false_fun</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">error</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="n">true_fun</span><span class="p">,</span> <span class="n">false_fun</span><span class="p">,</span> <span class="n">state</span><span class="p">),</span> <span class="n">n</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">local_constitutive_update</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">,</span> <span class="n">rho</span><span class="p">):</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">])</span>
+
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">])</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+
+    <span class="c1"># initial residual: distribute &quot;DE&quot; over grid using &quot;K4&quot;</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">G_K_deps</span><span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">deps</span><span class="p">)</span>
+    <span class="n">En</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
+
+    <span class="c1"># passing parameters for conjugate gradient</span>
+    <span class="n">deps</span>     <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">r</span>        <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">p</span>        <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> 
+    <span class="n">rsold</span>    <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">iiter</span>    <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">cg_tol</span>   <span class="o">=</span> <span class="mf">1e-8</span>
+
+    <span class="n">state</span>    <span class="o">=</span> <span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">En</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span>  <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span><span class="p">)</span>
+
+
+    <span class="c1">#state = (deps, b, eps, En, rho)</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+    <span class="n">final_state</span><span class="p">,</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span>
+        <span class="n">scan_newton_raphson</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">(</span><span class="n">final_state</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">rho</span><span class="p">)</span>
+
+    <span class="c1"># get the macro stress</span>
+    <span class="n">macro_sigma</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">*</span><span class="n">dx</span><span class="o">*</span><span class="n">dy</span><span class="p">),</span> 
+                             <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">*</span><span class="n">dx</span><span class="o">*</span><span class="n">dy</span><span class="p">),</span> 
+                             <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">*</span><span class="n">dx</span><span class="o">*</span><span class="n">dy</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">*</span><span class="n">dx</span><span class="o">*</span><span class="n">dy</span><span class="p">))])</span>
+    <span class="n">macro_sigma</span> <span class="o">=</span> <span class="n">macro_sigma</span><span class="o">/</span><span class="n">length</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="k">return</span> <span class="n">macro_sigma</span>
+
+
+<span class="n">tangent_operator</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span>
+    <span class="n">local_constitutive_update</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_objective</span><span class="p">(</span><span class="n">rho</span><span class="p">):</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="n">macro_strain</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span>
+
+    <span class="n">Cmacro</span> <span class="o">=</span> <span class="n">tangent_operator</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">,</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="n">shear_modulus</span> <span class="o">=</span> <span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+    <span class="n">bulk_modulus</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">())</span><span class="o">/</span><span class="mi">4</span> 
+    <span class="n">poisson</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">())</span><span class="o">/</span><span class="p">(</span><span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">Cmacro</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+    <span class="n">J</span> <span class="o">=</span> <span class="o">-</span><span class="n">shear_modulus</span>
+    <span class="c1">#J = -poisson</span>
+    <span class="c1">#J = -bulk_modulus</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;eps = jnp.zeros([ndim, ndim, N, N])</span>
+
+<span class="sd">    deps = jnp.zeros([ndim, ndim, N, N])</span>
+<span class="sd">    deps = deps.at[0, 0].set(macro_strain[0])</span>
+<span class="sd">    deps = deps.at[1, 1].set(macro_strain[1])</span>
+<span class="sd">    deps = deps.at[0, 1].set(macro_strain[2] / 2.0)</span>
+<span class="sd">    deps = deps.at[1, 0].set(macro_strain[2] / 2.0)</span>
+
+<span class="sd">    # initial residual: distribute &quot;DE&quot; over grid using &quot;K4&quot;</span>
+<span class="sd">    b = -G_K_deps(deps, rho)</span>
+<span class="sd">    eps = jax.lax.add(eps, deps)</span>
+<span class="sd">    En = jnp.linalg.norm(eps)</span>
+
+<span class="sd">    # passing parameters for conjugate gradient</span>
+<span class="sd">    deps     = deps.reshape(-1)</span>
+<span class="sd">    #deps2    = jnp.zeros([ndim,ndim,N,N])</span>
+<span class="sd">    r        = jnp.zeros_like(b)</span>
+<span class="sd">    p        = jnp.zeros_like(b) </span>
+<span class="sd">    rsold    = 0.</span>
+<span class="sd">    iiter    = 0.</span>
+<span class="sd">    cg_tol   = 1e-10</span>
+
+<span class="sd">    state    = (deps, b, eps, En, rho,  r, p, rsold, iiter, cg_tol)</span>
+
+
+<span class="sd">    #state = (deps, b, eps, En, rho)</span>
+<span class="sd">    state = jax.device_put(state)</span>
+
+<span class="sd">    final_state, xs = jax.lax.scan(</span>
+<span class="sd">        scan_newton_raphson, init=state, xs=jnp.arange(0, 20)</span>
+<span class="sd">    )</span>
+
+<span class="sd">    # return macro_sigma</span>
+<span class="sd">    total_energy = 2*strain_energy(final_state[2], rho) #* length * length</span>
+
+<span class="sd">    J = -(total_energy)/(N*N)&#39;&#39;&#39;</span>
+    <span class="n">jax</span><span class="o">.</span><span class="n">debug</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s1">&#39;J=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">J</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">J</span><span class="p">,</span> <span class="n">J</span>
+
+
+<span class="n">objective_handle</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacrev</span><span class="p">(</span><span class="n">compute_objective</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">random</span>
+
+<span class="n">key</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">rho</span> <span class="o">=</span> <span class="n">get_initial_density</span><span class="p">(</span><span class="n">vf</span><span class="o">=</span><span class="n">vf</span><span class="p">)</span>
+<span class="c1">#rho=random.uniform(key, shape=(N, N))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;Greys&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x1534fdba6350&gt;
+</code></pre></div>
+<p><img alt="img" src="../_data/24b3a6931760438b8bb608754ad38ace.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="n">compute_objective</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>CG residual = 0.19215160248560498
+CG residual = 0.03345801064545514
+CG residual = 0.022725244309689748
+CG residual = 0.0021253379410087654
+CG residual = 0.001529706416414285
+CG residual = 0.0005935165225546164
+CG residual = 0.0002536036955032072
+CG residual = 0.0001960918878238921
+CG residual = 6.989287153370691e-05
+CG residual = 3.760377319774217e-05
+CG residual = 1.7913117236356724e-05
+CG residual = 4.357326472072343e-06
+CG residual = 3.587074687253273e-06
+CG residual = 1.0326111687990387e-06
+CG residual = 5.653929164246273e-07
+CG residual = 3.9625023224069544e-07
+CG residual = 1.208386419206797e-07
+CG residual = 7.332997495460921e-08
+CG residual = 2.9781698163273268e-08
+CG residual = 1.0437096819147349e-08
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+CG residual = 7.355661187859818e-09
+J=-0.0008787942863382298
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>(Array(-0.00087879, dtype=float64), Array(-0.00087879, dtype=float64))
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">optimize</span><span class="p">(</span><span class="n">maxIter</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">get_initial_density</span><span class="p">(</span><span class="n">vf</span><span class="p">))</span>
+    <span class="n">change</span><span class="p">,</span> <span class="n">loop</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mi">0</span>
+
+    <span class="n">objective_values</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="n">change</span> <span class="o">&gt;</span> <span class="mf">0.01</span> <span class="ow">and</span> <span class="n">loop</span> <span class="o">&lt;</span> <span class="n">maxIter</span><span class="p">:</span>
+        <span class="n">loop</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">dc</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">objective_handle</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+
+        <span class="n">dv</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">))</span>
+        <span class="n">dc</span><span class="p">,</span> <span class="n">dv</span> <span class="o">=</span> <span class="n">apply_sensitivity_filter</span><span class="p">(</span><span class="n">ft</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">dc</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+
+        <span class="n">rho</span><span class="p">,</span> <span class="n">change</span> <span class="o">=</span> <span class="n">oc</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="n">dc</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">ft</span><span class="p">,</span> <span class="n">vf</span><span class="p">)</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;iter </span><span class="si">{:d}</span><span class="s2"> ;  obj </span><span class="si">{:.2F}</span><span class="s2"> ; vol </span><span class="si">{:.2F}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rho</span><span class="p">))</span>
+        <span class="n">objective_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">loop</span> <span class="o">%</span> <span class="mi">20</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="o">-</span><span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">status</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="s2">&quot;change </span><span class="si">{:.2F}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">change</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="o">-</span><span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">rho</span><span class="p">,</span> <span class="n">objective_values</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">rho</span><span class="p">,</span> <span class="n">objective_values</span> <span class="o">=</span> <span class="n">optimize</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>J=-0.0008787942863382298
+iter 1 ;  obj -0.00 ; vol 0.22 change 0.17
+J=-0.0011264292428687427
+iter 2 ;  obj -0.00 ; vol 0.23 change 0.20
+J=-0.004658982855837879
+iter 3 ;  obj -0.00 ; vol 0.28 change 0.20
+J=-0.018540684887511497
+iter 4 ;  obj -0.02 ; vol 0.30 change 0.20
+J=-0.05008469804326539
+iter 5 ;  obj -0.05 ; vol 0.30 change 0.20
+J=-0.06264786596329028
+iter 6 ;  obj -0.06 ; vol 0.30 change 0.20
+J=-0.06676397728363354
+iter 7 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.06930372871575895
+iter 8 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07066291773856068
+iter 9 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07173360640108709
+iter 10 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07259355408918161
+iter 11 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07303912658189629
+iter 12 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.0734045811445772
+iter 13 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07375986215516153
+iter 14 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07410438109466494
+iter 15 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07423194254441018
+iter 16 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07431815311694735
+iter 17 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07443191402165845
+iter 18 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07458379112974596
+iter 19 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.0747689063136045
+</code></pre></div>
+<p><img alt="img" src="../_data/f7e73dd7c2dc4c6caab1e35a051e6a23.png" /></p>
+<div class="highlight"><pre><span></span><code>iter 20 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.0748411880828251
+iter 21 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07495386007683479
+iter 22 ;  obj -0.07 ; vol 0.30 change 0.20
+J=-0.07516157320342541
+iter 23 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07517218876755548
+iter 24 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07526691061178795
+iter 25 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07514858970577003
+iter 26 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.0752804842692488
+iter 27 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07522608497798886
+iter 28 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07517537991604127
+iter 29 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07512172231358034
+iter 30 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07520869691190356
+iter 31 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07513338635393747
+iter 32 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07521255448738662
+iter 33 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07513287188385283
+iter 34 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07520903409373031
+iter 35 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07512744859586072
+iter 36 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07520234757950907
+iter 37 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07511983423536299
+iter 38 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.0751942141342333
+iter 39 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.075111041857415
+</code></pre></div>
+<p><img alt="img" src="../_data/b325305a279645d08160e6ab54c8a45b.png" /></p>
+<div class="highlight"><pre><span></span><code>iter 40 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07518533491640893
+iter 41 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.0751017526410719
+iter 42 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07517606349066527
+iter 43 ;  obj -0.08 ; vol 0.30 change 0.19
+J=-0.07523601320525647
+iter 44 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07514937030673974
+iter 45 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07522147202405528
+iter 46 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07513685759584564
+iter 47 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.0752102722182237
+iter 48 ;  obj -0.08 ; vol 0.30 change 0.18
+J=-0.07512612248099407
+iter 49 ;  obj -0.08 ; vol 0.30 change 0.20
+J=-0.07519981460437301
+iter 50 ;  obj -0.08 ; vol 0.30 change 0.18
+</code></pre></div>
+<p><img alt="img" src="../_data/85d80e7130bc4abe89e2aba5ab5c8287.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_local_stresses</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">,</span> <span class="n">rho</span><span class="p">):</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">])</span>
+
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">ndim</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">])</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+
+    <span class="c1"># initial residual: distribute &quot;DE&quot; over grid using &quot;K4&quot;</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">G_K_deps</span><span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">deps</span><span class="p">)</span>
+    <span class="n">En</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
+
+    <span class="c1"># passing parameters for conjugate gradient</span>
+    <span class="n">deps</span>     <span class="o">=</span> <span class="n">deps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">r</span>        <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">p</span>        <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> 
+    <span class="n">rsold</span>    <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">iiter</span>    <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">cg_tol</span>   <span class="o">=</span> <span class="mf">1e-8</span>
+
+    <span class="n">state</span>    <span class="o">=</span> <span class="p">(</span><span class="n">deps</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">En</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span>  <span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rsold</span><span class="p">,</span> <span class="n">iiter</span><span class="p">,</span> <span class="n">cg_tol</span><span class="p">)</span>
+
+
+    <span class="c1">#state = (deps, b, eps, En, rho)</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+    <span class="n">final_state</span><span class="p">,</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span>
+        <span class="n">scan_newton_raphson</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">(</span><span class="n">final_state</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sig</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">macro_strain</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span>
+<span class="n">stresses</span> <span class="o">=</span> <span class="n">compute_local_stresses</span><span class="p">(</span><span class="n">macro_strain</span><span class="p">,</span> <span class="n">rho</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>CG residual = 17.3171631235316
+CG residual = 3.3523559935266927
+CG residual = 1.1616458628170108
+CG residual = 0.7071048239993468
+CG residual = 0.4102551775383743
+CG residual = 0.2815996234262036
+CG residual = 0.2356726717604784
+CG residual = 0.20847552404537817
+CG residual = 0.14748031924978694
+CG residual = 0.13790977301764834
+CG residual = 0.09555820905314172
+CG residual = 0.08580380458913597
+CG residual = 0.07853635788754036
+CG residual = 0.06432296058473638
+CG residual = 0.05913485120473688
+CG residual = 0.040752123349128845
+CG residual = 0.03699377371342441
+CG residual = 0.02670692886935146
+CG residual = 0.027017180958343504
+CG residual = 0.02443745369940184
+CG residual = 0.023329746504566765
+CG residual = 0.016573304106826843
+CG residual = 0.016184892287336883
+CG residual = 0.016088822061484966
+CG residual = 0.017997440874972737
+CG residual = 0.017282984372111804
+CG residual = 0.01905502625590263
+CG residual = 0.016459220779385345
+CG residual = 0.016508583930901048
+CG residual = 0.014467484344715635
+CG residual = 0.013386594877818446
+CG residual = 0.013700845919777218
+CG residual = 0.011583517483394583
+CG residual = 0.011744693022309101
+CG residual = 0.010080186219952549
+CG residual = 0.009701584865823306
+CG residual = 0.008994643712855552
+CG residual = 0.008800253517534978
+CG residual = 0.007646875811179997
+CG residual = 0.006484185116276834
+CG residual = 0.005860817964100012
+CG residual = 0.004174286232995927
+CG residual = 0.005093758789299297
+CG residual = 0.0053002689702317
+CG residual = 0.0052837844471449345
+CG residual = 0.005820025935261828
+CG residual = 0.00552954027112976
+CG residual = 0.005208076580234989
+CG residual = 0.0047350407194471575
+CG residual = 0.004887106805985015
+CG residual = 0.004503373824963124
+CG residual = 0.004880255617988739
+CG residual = 0.004680525727009202
+CG residual = 0.004485749559815816
+CG residual = 0.004253276149679063
+CG residual = 0.0039571295391523376
+CG residual = 0.003836603712235234
+CG residual = 0.0035790462532483184
+CG residual = 0.0034873863895135133
+CG residual = 0.003320809057920338
+CG residual = 0.003912563794162428
+CG residual = 0.0026247582183317126
+CG residual = 0.0027630427962338955
+CG residual = 0.0025747230559226178
+CG residual = 0.002763196806603714
+CG residual = 0.00262308073536214
+CG residual = 0.002624652294991569
+CG residual = 0.0023861569593529508
+CG residual = 0.0024361350962829403
+CG residual = 0.002373193938592661
+CG residual = 0.002199882606036559
+CG residual = 0.0022419186086384975
+CG residual = 0.001982864425098146
+CG residual = 0.0020245957301639867
+CG residual = 0.001939511996725496
+CG residual = 0.0020214845009849055
+CG residual = 0.001843134309512655
+CG residual = 0.0018076878838298343
+CG residual = 0.001656343733409944
+CG residual = 0.0013827758491892924
+CG residual = 0.0016999910130068322
+CG residual = 0.0012012381167926121
+CG residual = 0.0014319086268878662
+CG residual = 0.001458508753509088
+CG residual = 0.0014411298759282414
+CG residual = 0.0015198845204966727
+CG residual = 0.0013916944958517982
+CG residual = 0.0013484581619970764
+CG residual = 0.001280665783842277
+CG residual = 0.0013589322818447214
+CG residual = 0.0012733877977523789
+CG residual = 0.0013242187374433957
+CG residual = 0.0012483216347096704
+CG residual = 0.0011916374320381578
+CG residual = 0.0011821533574942337
+CG residual = 0.0011453204980780673
+CG residual = 0.0011385814674744177
+CG residual = 0.0010431353631482592
+CG residual = 0.0010345471586212644
+CG residual = 0.00099143642205721
+CG residual = 0.0013242561271742796
+CG residual = 0.0008761529533843223
+CG residual = 0.0009047756281230862
+CG residual = 0.0008396478782083797
+CG residual = 0.000893126253961209
+CG residual = 0.000844486038875927
+CG residual = 0.0008409548036641117
+CG residual = 0.0007781711772505435
+CG residual = 0.0008078992097945254
+CG residual = 0.0007852227432426971
+CG residual = 0.0007341343382748298
+CG residual = 0.0007359772701094299
+CG residual = 0.0006611917280978151
+CG residual = 0.000666928908215778
+CG residual = 0.0006422143700955842
+CG residual = 0.0006750922125672805
+CG residual = 0.0006165234410457885
+CG residual = 0.0006051100158403431
+CG residual = 0.0005629837562040691
+CG residual = 0.00047735375660067206
+CG residual = 0.0006146614779908176
+CG residual = 0.0004353468169308583
+CG residual = 0.0005090569323735469
+CG residual = 0.0005143048647526107
+CG residual = 0.0005073905028594093
+CG residual = 0.000529595559366938
+CG residual = 0.0004880674753225269
+CG residual = 0.00047488056191233015
+CG residual = 0.0004611244224391031
+CG residual = 0.0004818317522894509
+CG residual = 0.0004587557291018851
+CG residual = 0.00046901043395642934
+CG residual = 0.0004495980340600795
+CG residual = 0.0004246670057201449
+CG residual = 0.0004203103469075535
+CG residual = 0.0004125204480322556
+CG residual = 0.0004080005207794566
+CG residual = 0.00038079054792948964
+CG residual = 0.00037733972258368763
+CG residual = 0.000368696794062289
+CG residual = 0.0005001045677999607
+CG residual = 0.0003347807696288297
+CG residual = 0.0003370492298221746
+CG residual = 0.000314949293069689
+CG residual = 0.00033107794267468103
+CG residual = 0.0003131963135632822
+CG residual = 0.0003135183651311962
+CG residual = 0.0002908923540236293
+CG residual = 0.0003070507562171024
+CG residual = 0.0002932465064036322
+CG residual = 0.00027987843417074174
+CG residual = 0.0002740946832876985
+CG residual = 0.0002540623244786837
+CG residual = 0.0002500017425248802
+CG residual = 0.00024401534140624923
+CG residual = 0.00025346891786530803
+CG residual = 0.00023450155132028548
+CG residual = 0.00023060750298295961
+CG residual = 0.00021701052357318276
+CG residual = 0.0001861239316187628
+CG residual = 0.00024010270683084978
+CG residual = 0.0001733214400910371
+CG residual = 0.0001986399989039067
+CG residual = 0.0002004120694819331
+CG residual = 0.00019737219157703925
+CG residual = 0.00020384150208078506
+CG residual = 0.0001908891879966368
+CG residual = 0.00018432282495130266
+CG residual = 0.00018319317119313498
+CG residual = 0.00018695947572546377
+CG residual = 0.00018279512412779507
+CG residual = 0.0001820405669849969
+CG residual = 0.0001797469992941219
+CG residual = 0.0001659061334172743
+CG residual = 0.00016690318685593365
+CG residual = 0.0001619127207779465
+CG residual = 0.00016157245518748955
+CG residual = 0.00015157152864757862
+CG residual = 0.00015135991168386016
+CG residual = 0.0001494546096063298
+CG residual = 0.00020319166206001006
+CG residual = 0.00013796030200630453
+CG residual = 0.00013591418418031623
+CG residual = 0.00012829993601787005
+CG residual = 0.00013296377298961683
+CG residual = 0.0001263423435824343
+CG residual = 0.00012697498614478957
+CG residual = 0.00011821583384328617
+CG residual = 0.0001257733666051128
+CG residual = 0.00011896434903924902
+CG residual = 0.00011540538523555699
+CG residual = 0.0001109352117118499
+CG residual = 0.00010552966588050976
+CG residual = 0.000101567345970207
+CG residual = 0.00010114279851044416
+CG residual = 0.00010283031733003709
+CG residual = 9.708656268860285e-05
+CG residual = 9.459423532077804e-05
+CG residual = 9.093038253262321e-05
+CG residual = 7.746781774148341e-05
+CG residual = 0.00010151863115369138
+CG residual = 7.333290002955632e-05
+CG residual = 8.367594229585413e-05
+CG residual = 8.367709187693055e-05
+CG residual = 8.269101182784499e-05
+CG residual = 8.453335779456711e-05
+CG residual = 8.026269937573052e-05
+CG residual = 7.726393414323977e-05
+CG residual = 7.75415046222592e-05
+CG residual = 7.837276646379975e-05
+CG residual = 7.77403922531682e-05
+CG residual = 7.639307612968293e-05
+CG residual = 7.670701347322298e-05
+CG residual = 6.988840448664775e-05
+CG residual = 7.136591821716271e-05
+CG residual = 6.814841449197702e-05
+CG residual = 6.904241888876632e-05
+CG residual = 6.4356698669396e-05
+CG residual = 6.550750762243108e-05
+CG residual = 6.429024940431493e-05
+CG residual = 8.912550407150587e-05
+CG residual = 6.0044313372574956e-05
+CG residual = 5.895841481415709e-05
+CG residual = 5.554204496655328e-05
+CG residual = 5.730888715560122e-05
+CG residual = 5.445168743893874e-05
+CG residual = 5.497593323692572e-05
+CG residual = 5.15087270740867e-05
+CG residual = 5.4595432964234325e-05
+CG residual = 5.185664375532854e-05
+CG residual = 5.0371873880283054e-05
+CG residual = 4.84250274314246e-05
+CG residual = 4.6210833342718284e-05
+CG residual = 4.4561800310484505e-05
+CG residual = 4.436566734612203e-05
+CG residual = 4.4994801737922304e-05
+CG residual = 4.2608714201351064e-05
+CG residual = 4.166536674732157e-05
+CG residual = 4.040388221863648e-05
+CG residual = 3.442291524820599e-05
+CG residual = 4.581610263963938e-05
+CG residual = 3.2893394555227586e-05
+CG residual = 3.739502906467577e-05
+CG residual = 3.725819284923438e-05
+CG residual = 3.674330899997372e-05
+CG residual = 3.7494976141317974e-05
+CG residual = 3.57510606235682e-05
+CG residual = 3.4610241907870724e-05
+CG residual = 3.463123010990612e-05
+CG residual = 3.5087391398273104e-05
+CG residual = 3.490103797086214e-05
+CG residual = 3.42772414783961e-05
+CG residual = 3.449610509611387e-05
+CG residual = 3.153149787165923e-05
+CG residual = 3.218545050373541e-05
+CG residual = 3.069176420790451e-05
+CG residual = 3.117885019018204e-05
+CG residual = 2.9171035536488597e-05
+CG residual = 2.9903387577307127e-05
+CG residual = 2.9371122135397543e-05
+CG residual = 4.1264227166800124e-05
+CG residual = 2.763579878184482e-05
+CG residual = 2.7061700593708593e-05
+CG residual = 2.5460481956892496e-05
+CG residual = 2.6187676552547233e-05
+CG residual = 2.48732639436774e-05
+CG residual = 2.520517742576712e-05
+CG residual = 2.3739845443547118e-05
+CG residual = 2.5066865044198958e-05
+CG residual = 2.389300329918019e-05
+CG residual = 2.325511583885304e-05
+CG residual = 2.235949809701977e-05
+CG residual = 2.136253336316919e-05
+CG residual = 2.0691803802039644e-05
+CG residual = 2.056038647728718e-05
+CG residual = 2.085128376721415e-05
+CG residual = 1.9771630106994194e-05
+CG residual = 1.942450165663391e-05
+CG residual = 1.892012144654408e-05
+CG residual = 1.6170299894963534e-05
+CG residual = 2.1739846312991224e-05
+CG residual = 1.554491757693706e-05
+CG residual = 1.7601526890574464e-05
+CG residual = 1.751296286852572e-05
+CG residual = 1.722760935785701e-05
+CG residual = 1.756665247610719e-05
+CG residual = 1.6792924259948993e-05
+CG residual = 1.6338627834302686e-05
+CG residual = 1.629803124064292e-05
+CG residual = 1.6545774941426115e-05
+CG residual = 1.6506149637581854e-05
+CG residual = 1.6205593272798843e-05
+CG residual = 1.63289130731022e-05
+CG residual = 1.4990296026560477e-05
+CG residual = 1.5281001601152565e-05
+CG residual = 1.4573190376624717e-05
+CG residual = 1.4830275858301117e-05
+CG residual = 1.3936051533350978e-05
+CG residual = 1.4336313503171944e-05
+CG residual = 1.4122880925138582e-05
+CG residual = 2.0018613393023773e-05
+CG residual = 1.3360182785410979e-05
+CG residual = 1.3044127068083456e-05
+CG residual = 1.2270487339166332e-05
+CG residual = 1.2586914467441254e-05
+CG residual = 1.1952008377729927e-05
+CG residual = 1.214400819956046e-05
+CG residual = 1.1486825006943525e-05
+CG residual = 1.2091664090060122e-05
+CG residual = 1.1554224281180159e-05
+CG residual = 1.1274305646448105e-05
+CG residual = 1.0836806400445963e-05
+CG residual = 1.0362786346889398e-05
+CG residual = 1.0081639835453661e-05
+CG residual = 1.0000731569805639e-05
+CG residual = 1.014593739521643e-05
+CG residual = 9.63467188260427e-06
+CG residual = 9.505502145431367e-06
+CG residual = 9.281270997354251e-06
+CG residual = 7.96520724256752e-06
+CG residual = 1.0780422161904852e-05
+CG residual = 7.689119682001772e-06
+CG residual = 8.673153683008412e-06
+CG residual = 8.62765175979466e-06
+CG residual = 8.467205042087124e-06
+CG residual = 8.62969677384413e-06
+CG residual = 8.264447598598213e-06
+CG residual = 8.07361046362547e-06
+CG residual = 8.032554736213193e-06
+CG residual = 8.167012137628476e-06
+CG residual = 8.170736135670207e-06
+CG residual = 8.019484120342883e-06
+CG residual = 8.08720998807746e-06
+CG residual = 7.4552079089680414e-06
+CG residual = 7.590338942395897e-06
+CG residual = 7.242115641034714e-06
+CG residual = 7.381865111901182e-06
+CG residual = 6.965372715804866e-06
+CG residual = 7.178115534180111e-06
+CG residual = 7.0974185481948e-06
+CG residual = 1.0121886977367916e-05
+CG residual = 6.741856659055299e-06
+CG residual = 6.563404800125279e-06
+CG residual = 6.177779777555416e-06
+CG residual = 6.321977443518438e-06
+CG residual = 6.002363157775516e-06
+CG residual = 6.110123287111571e-06
+CG residual = 5.800309381201743e-06
+CG residual = 6.089829113128733e-06
+CG residual = 5.8309873345682614e-06
+CG residual = 5.703292999427135e-06
+CG residual = 5.480417626101292e-06
+CG residual = 5.243256496505441e-06
+CG residual = 5.121971005624008e-06
+CG residual = 5.073206061342765e-06
+CG residual = 5.149917595871885e-06
+CG residual = 4.897398955324102e-06
+CG residual = 4.8499989794852575e-06
+CG residual = 4.741176992332272e-06
+CG residual = 4.086629415571959e-06
+CG residual = 5.555683077483027e-06
+CG residual = 3.956924507978842e-06
+CG residual = 4.447514952854448e-06
+CG residual = 4.42652948325624e-06
+CG residual = 4.334708569199043e-06
+CG residual = 4.416854981130802e-06
+CG residual = 4.234956335248105e-06
+CG residual = 4.151378661609985e-06
+CG residual = 4.120676769884227e-06
+CG residual = 4.195301856336743e-06
+CG residual = 4.207394388584518e-06
+CG residual = 4.128914941146097e-06
+CG residual = 4.165413909667022e-06
+CG residual = 3.854617090376713e-06
+CG residual = 3.919639383857708e-06
+CG residual = 3.742146259881563e-06
+CG residual = 3.81964809526914e-06
+CG residual = 3.617719505850707e-06
+CG residual = 3.7305932650021938e-06
+CG residual = 3.7028202351601207e-06
+CG residual = 5.30278128803775e-06
+CG residual = 3.5286761730824727e-06
+CG residual = 3.4258546803934477e-06
+CG residual = 3.2281147757093668e-06
+CG residual = 3.296249073512347e-06
+CG residual = 3.129764870152408e-06
+CG residual = 3.1898141486023506e-06
+CG residual = 3.0376405293981448e-06
+CG residual = 3.181803997402644e-06
+CG residual = 3.0520600656233835e-06
+CG residual = 2.991131206979761e-06
+CG residual = 2.873766005292978e-06
+CG residual = 2.7495413185053422e-06
+CG residual = 2.6959406737558447e-06
+CG residual = 2.666275475534144e-06
+CG residual = 2.708416586926194e-06
+CG residual = 2.5786304241215374e-06
+CG residual = 2.562265708622603e-06
+CG residual = 2.505420607144204e-06
+CG residual = 2.168589808696337e-06
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.gridspec</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gridspec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">ticker</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="n">set_size</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="s2">&quot;two-column&quot;</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.975</span><span class="p">,</span> <span class="n">height_ratio</span><span class="o">=</span><span class="mf">0.3</span><span class="p">),</span>
+    <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">dpi</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">gs1</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">fig</span><span class="p">,</span>  <span class="n">left</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.98</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="mf">0.00</span><span class="p">)</span>
+<span class="n">gs2</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">wspace</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span> <span class="c1"># set the spacing between axes. </span>
+
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs1</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs1</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">gs2</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">fig</span><span class="p">,</span> <span class="n">height_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="n">left</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.98</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.99</span><span class="p">)</span>
+<span class="n">gs2</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">hspace</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span> <span class="c1"># set the spacing between axes. </span>
+
+
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">rho</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Greys&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">stresses</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Spectral&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">axins1</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">inset_axes</span><span class="p">([</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">])</span>
+
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">cax</span><span class="o">=</span><span class="n">axins1</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> 
+                      <span class="n">fraction</span><span class="o">=</span><span class="mf">0.025</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">.5</span><span class="p">,</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">)</span>
+<span class="n">tick_locator</span> <span class="o">=</span> <span class="n">ticker</span><span class="o">.</span><span class="n">MaxNLocator</span><span class="p">(</span><span class="n">nbins</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">locator</span> <span class="o">=</span> <span class="n">tick_locator</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">update_ticks</span><span class="p">()</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s1">&#39;$\sigma_</span><span class="si">{xx}</span><span class="s1">/E$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">labelpad</span><span class="o">=-</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.85</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_offset_position</span><span class="p">(</span><span class="s1">&#39;right&#39;</span><span class="p">)</span>  
+
+
+<span class="n">gs3</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">fig</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.98</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.42</span><span class="p">,</span>  <span class="n">bottom</span><span class="o">=</span><span class="mf">0.15</span><span class="p">)</span>
+<span class="n">gs3</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">hspace</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span> <span class="c1"># set the spacing between axes. </span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs3</span><span class="p">[:,</span> <span class="p">:])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">objective_values</span><span class="p">)</span><span class="o">/</span><span class="n">μ</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;#de425b&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">objective_values</span><span class="p">)</span><span class="o">/</span><span class="n">μ</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">&#39;dashed&#39;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$\mathrm{\#~iterations}$&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$\overline{\mu}/\mu$&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s1">&#39;../notebooks/figs/paper_to_shear_modulus.svg&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="img" src="../_data/e48d94b54f714efbba68b74c01da8fd3.png" /></p>
+<div class="highlight"><pre><span></span><code><span class="n">μ</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>0.3846153846153846
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="mf">0.5</span> <span class="mf">0.132</span>
+<span class="mf">0.3</span> <span class="mf">0.075</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>  <span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">79</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
+    <span class="mf">0.5</span> <span class="mf">0.133</span>
+        <span class="o">^</span>
+<span class="ne">SyntaxError</span><span class="p">:</span> <span class="n">invalid</span> <span class="n">syntax</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "toc.integrate", "header-autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../_static/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
