@@ -125,7 +125,6 @@ class SpectralOperator(eqx.Module):
         """
         return self.space.transform.inverse(u_hat).real
 
-    @eqx.filter_jit
     def ddot(self, A: Array, B: Array) -> Array:
         """Applies the double dot product to the input arrays A and B.
 
@@ -137,7 +136,6 @@ class SpectralOperator(eqx.Module):
         """
         return self.tensor.ddot(A, B)
 
-    @eqx.filter_jit
     def trace(self, A: Array) -> Array:
         """Applies the trace operator to the input array A.
 
@@ -148,7 +146,6 @@ class SpectralOperator(eqx.Module):
         """
         return self.tensor.trace(A)
 
-    @eqx.filter_jit
     def trans(self, A: Array) -> Array:
         """Applies the transpose operator to the input array A.
 
@@ -159,7 +156,6 @@ class SpectralOperator(eqx.Module):
         """
         return self.tensor.trans(A)
 
-    @eqx.filter_jit
     def dyad(self, A: Array, B: Array) -> Array:
         """Applies the dyadic product to the input arrays A and B.
 
@@ -171,7 +167,6 @@ class SpectralOperator(eqx.Module):
         """
         return self.tensor.dyad(A, B)
 
-    @eqx.filter_jit
     def dot(self, A: Array, B: Array) -> Array:
         """Applies the dot product to the input arrays A and B.
 
