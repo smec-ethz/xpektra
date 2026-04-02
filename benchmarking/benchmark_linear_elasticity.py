@@ -1,21 +1,16 @@
-import os
-
 import jax
-
-jax.config.update("jax_compilation_cache_dir", os.environ["JAX_CACHE_DIR"])
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
-if os.environ["JAX_PLATFORM"] == "cpu":
-    jax.config.update("jax_platforms", "cpu")
-
 print(jax.devices())
 
 
-import numpy as np
+import argparse
+import timeit
 from functools import partial
 
+import numpy as np
+from skimage.morphology import disk, ellipse, rectangle
 from spectralsolver import (
     DifferentialMode,
     SpectralSpace,
@@ -23,13 +18,6 @@ from spectralsolver import (
     make_field,
 )
 from spectralsolver.green_functions import fourier_galerkin
-
-from skimage.morphology import disk, rectangle, ellipse
-import timeit
-
-import argparse
-
-
 from spectralsolver.solvers.nonlinear import (
     conjugate_gradient_while,
     newton_krylov_solver,

@@ -1,6 +1,6 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
-import equinox as eqx
+import jax
 import jax.numpy as jnp
 from jax import Array
 
@@ -10,7 +10,7 @@ from xpektra.transform import FFTTransform
 iota = 1j  # Imaginary unit
 
 
-class Scheme(eqx.Module):
+class Scheme(ABC):
     """
     Abstract base class for a complete discretization strategy.
 
@@ -61,15 +61,28 @@ class Scheme(eqx.Module):
         raise NotImplementedError
 
 
+@jax.tree_util.register_pytree_node_class
 class DiagonalScheme(Scheme):
     """
     Base class for schemes operating on a uniform Cartesian grid
     where the differentiation is diagonal in Fourier space.
     """
 
-    dim: int = eqx.field(static=True)
+    dim: int
+    space: SpectralSpace
     gradient_operator: Array
-    space: SpectralSpace = eqx.field(static=True)
+
+    def __setattr__(self, name, value):
+        """Enforce immutability after initialization.
+
+        Attribute assignment is only allowed during ``__init__`` (before
+        ``_initialized`` is set).  Any attempt to mutate the instance
+        afterwards raises ``AttributeError``, mirroring the guarantees
+        previously provided by ``eqx.Module``.
+        """
+        if hasattr(self, "_initialized"):
+            raise AttributeError(f"Cannot modify frozen {type(self).__name__}")
+        object.__setattr__(self, name, value)
 
     def __init__(self, space: SpectralSpace):
         if not self.is_compatible(space.transform):
@@ -83,12 +96,27 @@ class DiagonalScheme(Scheme):
         self.gradient_operator = self.compute_gradient_operator(
             wavenumbers_mesh=wavenumbers_mesh
         )
+        object.__setattr__(self, "_initialized", True)
+
+    def tree_flatten(self):
+        children = [self.gradient_operator]
+        aux_data = {"dim": self.dim, "space": self.space}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        obj = object.__new__(cls)
+        object.__setattr__(obj, "gradient_operator", children[0])
+        object.__setattr__(obj, "dim", aux_data["dim"])
+        object.__setattr__(obj, "space", aux_data["space"])
+        object.__setattr__(obj, "_initialized", True)
+        return obj
 
     def is_compatible(self, transform):
         return isinstance(transform, FFTTransform)
 
-    @eqx.filter_jit
-    def apply_symmetric_gradient(self, u_hat: Array) -> Array:
+    @jax.jit
+    def apply_symmetric_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Applies the symmetric gradient operator on the fly.
         Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
@@ -101,8 +129,8 @@ class DiagonalScheme(Scheme):
         term2 = jnp.einsum("...j,...i->...ij", Dξs, u_hat)  # D_j * u_i
         return 0.5 * (term1 + term2)
 
-    @eqx.filter_jit
-    def apply_divergence(self, u_hat: Array) -> Array:
+    @jax.jit
+    def apply_divergence(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Applies the divergence operator on the fly.
         Computes: div_hat_i = Dξ_j * u_hat_ji
@@ -114,8 +142,8 @@ class DiagonalScheme(Scheme):
         # Note: We must transpose sigma_hat for the ddot
         return jnp.einsum("...j,...ji->...i", Dξs, u_hat)
 
-    @eqx.filter_jit
-    def apply_gradient(self, u_hat: Array) -> Array:
+    @jax.jit
+    def apply_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Applies the gradient operator on the fly.
         Computes: grad_hat_ij = Dξ_i * u_hat_j
@@ -126,8 +154,8 @@ class DiagonalScheme(Scheme):
 
         return Dξs * u_hat[..., None]
 
-    @eqx.filter_jit
-    def apply_laplacian(self, u_hat: Array) -> Array:
+    @jax.jit
+    def apply_laplacian(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Applies the Laplacian operator on the fly.
         Computes: lap_hat = -|Dξ|^2 * u_hat
@@ -175,6 +203,7 @@ class DiagonalScheme(Scheme):
         raise NotImplementedError
 
 
+@jax.tree_util.register_pytree_node_class
 class FourierScheme(DiagonalScheme):
     """
     Class implementing the standard spectral 'Fourier' derivative.
@@ -184,6 +213,7 @@ class FourierScheme(DiagonalScheme):
         return iota * xi
 
 
+@jax.tree_util.register_pytree_node_class
 class CentralDifference(DiagonalScheme):
     """Implements the standard central difference scheme."""
 
@@ -191,6 +221,7 @@ class CentralDifference(DiagonalScheme):
         return iota * jnp.sin(xi * dx) / dx
 
 
+@jax.tree_util.register_pytree_node_class
 class ForwardDifference(DiagonalScheme):
     """Implements the forward difference scheme."""
 
@@ -198,6 +229,7 @@ class ForwardDifference(DiagonalScheme):
         return (jnp.exp(iota * xi * dx) - 1) / dx
 
 
+@jax.tree_util.register_pytree_node_class
 class BackwardDifference(DiagonalScheme):
     """Implements the backward difference scheme."""
 
@@ -205,6 +237,7 @@ class BackwardDifference(DiagonalScheme):
         return (1 - jnp.exp(-iota * xi * dx)) / dx
 
 
+@jax.tree_util.register_pytree_node_class
 class RotatedDifference(DiagonalScheme):
     """Implements the rotated finite difference scheme (Willot/HEX8R)."""
 
@@ -214,6 +247,7 @@ class RotatedDifference(DiagonalScheme):
         return 2 * iota * jnp.tan(xi * dx / 2) * factor / dx
 
 
+@jax.tree_util.register_pytree_node_class
 class FourthOrderCentralDifference(DiagonalScheme):
     """Implements the fourth order difference scheme."""
 
@@ -223,6 +257,7 @@ class FourthOrderCentralDifference(DiagonalScheme):
         )
 
 
+@jax.tree_util.register_pytree_node_class
 class SixthOrderCentralDifference(DiagonalScheme):
     """Implements the sixth order difference scheme."""
 
@@ -234,6 +269,7 @@ class SixthOrderCentralDifference(DiagonalScheme):
         )
 
 
+@jax.tree_util.register_pytree_node_class
 class EighthOrderCentralDifference(DiagonalScheme):
     """Implements the eighth order difference scheme."""
 

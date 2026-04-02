@@ -21,10 +21,8 @@ import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 from functools import partial
 
-import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
@@ -44,7 +42,7 @@ from xpektra.projection_operator import GalerkinProjection
 from xpektra.scheme import RotatedDifference
 from xpektra.solvers.nonlinear import (  # noqa: E402
     NewtonSolver,
-    newton_krylov_solver,
+    conjugate_gradient,
 )
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
@@ -114,7 +112,7 @@ mu = mu1 * (1.0 - phase) + mu2 * phase
 dofs_shape = make_field(dim=ndim, shape=phase.shape, rank=2).shape
 
 
-@eqx.filter_jit
+@jax.jit
 def strain_energy(eps_flat: Array) -> Array:
     eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + op.trans(eps))
@@ -128,7 +126,7 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 # %% [markdown]
-# In `xpektra`, we provide various projection operators. Here we use the `GalerkinProjection` operator to define the Fourier-Galerkin operator. A projecction operator projects a field onto a subspace. The Fourier-Galerkin operator projects the stress field onto the space of divergence-free fields in the Fourier space. To define a Projection operator, we need to provide the scheme to tell how to spatial differentiate. 
+# In `xpektra`, we provide various projection operators. Here we use the `GalerkinProjection` operator to define the Fourier-Galerkin operator. A projecction operator projects a field onto a subspace. The Fourier-Galerkin operator projects the stress field onto the space of divergence-free fields in the Fourier space. To define a Projection operator, we need to provide the scheme to tell how to spatial differentiate.
 
 # %%
 Ghat = GalerkinProjection(scheme=rotated_scheme)
@@ -166,7 +164,7 @@ Ghat = GalerkinProjection(scheme=rotated_scheme)
 
 
 # %%
-@eqx.filter_jit
+@jax.jit
 def residual_fn(eps_fluc_flat: Array, macro_strain: float) -> Array:
     """
     A function that computes the residual of the problem based on the given macro strain.
@@ -191,7 +189,7 @@ def residual_fn(eps_fluc_flat: Array, macro_strain: float) -> Array:
     return jnp.real(residual_field).reshape(-1)
 
 
-@eqx.filter_jit
+@jax.jit
 def jacobian_fn(deps_flat: Array) -> Array:
     """
     The Jacobian is a linear operator, so its represents the Jacobian-vector product.
@@ -215,7 +213,7 @@ def jacobian_fn(deps_flat: Array) -> Array:
 #
 # We will use the Newton-Krylov solver to solve the problem. The Newton-Krylov solver requires the residual function and the Jacobian function as input.
 #
-# Finally, we define the macro strain and solve the problem using the Newton-Krylov solver. 
+# Finally, we define the macro strain and solve the problem using the Newton-Krylov solver.
 
 # %%
 applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
@@ -283,4 +281,3 @@ ax3.plot(eps.at[:, :, 0, 0].get()[:, int(N / 2)])
 ax_twin = ax3.twinx()
 ax_twin.plot(phase[int(N / 2), :], color="gray")
 plt.show()
-

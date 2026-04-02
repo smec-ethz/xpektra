@@ -1,11 +1,15 @@
-import equinox as eqx
+from dataclasses import dataclass, field
+
+import jax
 import jax.numpy as jnp  # type: ignore
 from jax import Array
 
 from xpektra.transform import Transform
 
 
-class SpectralSpace(eqx.Module):
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class SpectralSpace:
     """Defines the spectral space
 
     ***Arguments***
@@ -24,9 +28,9 @@ class SpectralSpace(eqx.Module):
 
     """
 
-    lengths: tuple[float, ...] = eqx.field(static=True)
-    shape: tuple[int, ...] = eqx.field(static=True)
-    transform: Transform = eqx.field(static=True)
+    lengths: tuple[float, ...] = field(metadata=dict(static=True))
+    shape: tuple[int, ...] = field(metadata=dict(static=True))
+    transform: Transform = field(metadata=dict(static=True))
 
     def get_wavenumber_mesh(self) -> list[Array]:
         """

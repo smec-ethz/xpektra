@@ -230,6 +230,41 @@ class TestTrans:
 # dyad
 # ---------------------------------------------------------------------------
 
+class TestEqualityAndHash:
+    def test_equal_default_operators(self):
+        """Operators with the same dim and default rules are equal."""
+        a = TensorOperator(dim=2)
+        b = TensorOperator(dim=2)
+        assert a == b
+        assert hash(a) == hash(b)
+
+    def test_different_dim_not_equal(self):
+        """Operators with different dim are not equal."""
+        a = TensorOperator(dim=2)
+        b = TensorOperator(dim=3)
+        assert a != b
+
+    def test_equal_custom_rules(self):
+        """Operators with the same custom rules are equal."""
+        rule = {(1, 0): "...i,...->...i"}
+        a = TensorOperator(dim=2, dot_rules=rule)
+        b = TensorOperator(dim=2, dot_rules=rule)
+        assert a == b
+        assert hash(a) == hash(b)
+
+    def test_different_custom_rules_not_equal(self):
+        """Operators with different custom rules are not equal."""
+        a = TensorOperator(dim=2, dot_rules={(1, 0): "...i,...->...i"})
+        b = TensorOperator(dim=2)
+        assert a != b
+
+    def test_immutability(self):
+        """Attribute assignment after init raises AttributeError."""
+        op = TensorOperator(dim=2)
+        with pytest.raises(AttributeError, match="Cannot modify frozen"):
+            op.dim = 3
+
+
 class TestCustomRules:
     def test_extra_dot_rule(self):
         """Users can register additional einsum rules at construction time."""

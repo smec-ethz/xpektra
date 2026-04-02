@@ -29,16 +29,15 @@ import jax
 jax.config.update("jax_enable_x64", True)  # use double-precision
 jax.config.update("jax_platforms", "cpu")
 
-import jax.numpy as jnp
-import numpy as np
-
-from jax import Array
 import equinox as eqx
+import jax.numpy as jnp
 
 # %%
 import matplotlib.pyplot as plt
-from skimage.morphology import footprint_rectangle as rectangle
+import numpy as np
+from jax import Array
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from skimage.morphology import footprint_rectangle as rectangle
 
 from xpektra import (
     SpectralSpace,
@@ -46,18 +45,22 @@ from xpektra import (
     make_field,
 )
 from xpektra.projection_operator import GalerkinProjection
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient_while,
-    newton_krylov_solver,
-)
 
 # %% [markdown]
 # In `xpektra`, we can import various schemes from the `scheme` module.
 #
 #
-
 # %%
-from xpektra.scheme import RotatedDifference, Fourier, CentralDifference, CartesianScheme
+from xpektra.scheme import (
+    CentralDifference,
+    DiagonalScheme,
+    FourierScheme,
+    RotatedDifference,
+)
+from xpektra.solvers.nonlinear import (  # noqa: E402
+    conjugate_gradient_while,
+    newton_krylov_solver,
+)
 
 
 # %%
@@ -126,7 +129,7 @@ def test_microstructure(N, scheme, length):
     class Residual(eqx.Module):
         """A callable module that computes the residual vector."""
 
-        Ghat: CartesianScheme
+        Ghat: DiagonalScheme
         space: SpectralSpace = eqx.field(static=True)
         tensor_op: TensorOperator = eqx.field(static=True)
         dofs_shape: tuple = eqx.field(static=True)
@@ -153,7 +156,7 @@ def test_microstructure(N, scheme, length):
     class Jacobian(eqx.Module):
         """A callable module that represents the Jacobian operator (tangent)."""
 
-        Ghat: CartesianScheme
+        Ghat: DiagonalScheme
         space: SpectralSpace = eqx.field(static=True)
         tensor_op: TensorOperator = eqx.field(static=True)
         dofs_shape: tuple = eqx.field(static=True)
@@ -204,7 +207,6 @@ def test_microstructure(N, scheme, length):
     return sig.at[:, :, 0, 1].get(), structure
 
 
-
 # %%
 N = 99
 length = 1
@@ -214,19 +216,24 @@ fig, axs = plt.subplots(1, 3, figsize=(10, 5))
 
 
 for index, scheme in enumerate(["fourier", "central", "rotated"]):
-
     sig_xy, structure = test_microstructure(N=N, scheme=scheme, length=length)
     dx = length / N
     N_inset = int(0.1 / dx)
 
-
-    cb = axs[index].imshow(sig_xy, origin="lower", cmap="berlin",)
+    cb = axs[index].imshow(
+        sig_xy,
+        origin="lower",
+        cmap="berlin",
+    )
     axs[index].set_title(f"{scheme} scheme")
 
     axs[index].set_xlim(int(N / 2) - N_inset, int(N / 2) + N_inset)
     axs[index].set_ylim(int(N / 2) - N_inset, int(N / 2) + N_inset)
     axs[index].plot(
-        [int(N / 2) - N_inset, int(N / 2)], [int(N / 2), int(N / 2)], color="k", zorder=20
+        [int(N / 2) - N_inset, int(N / 2)],
+        [int(N / 2), int(N / 2)],
+        color="k",
+        zorder=20,
     )
     axs[index].plot(
         [int(N / 2), int(N / 2)],
@@ -237,10 +244,11 @@ for index, scheme in enumerate(["fourier", "central", "rotated"]):
 
     divider = make_axes_locatable(axs[index])
     cax = divider.append_axes("bottom", size="10%", pad=0.6)
-    fig.colorbar(cb, cax=cax, label=r"$\sigma_{xy}$", orientation="horizontal", location="bottom")
+    fig.colorbar(
+        cb, cax=cax, label=r"$\sigma_{xy}$", orientation="horizontal", location="bottom"
+    )
 
 plt.show()
-
 
 
 # %%
