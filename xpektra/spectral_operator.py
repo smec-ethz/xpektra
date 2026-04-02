@@ -1,4 +1,6 @@
-import equinox as eqx
+from dataclasses import dataclass, field
+
+import jax
 from jax import Array
 
 from xpektra.scheme import Scheme
@@ -6,7 +8,9 @@ from xpektra.space import SpectralSpace
 from xpektra.tensor_operator import TensorOperator
 
 
-class SpectralOperator(eqx.Module):
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class SpectralOperator:
     """
     A spectral operator defined by spectral space, differential scheme.
     It provides methods to compute gradient, divergence, symmetric gradient,
@@ -30,20 +34,14 @@ class SpectralOperator(eqx.Module):
 
     """
 
-    space: SpectralSpace = eqx.field(static=True)
     scheme: Scheme
-    tensor: TensorOperator = eqx.field(static=True)
+    space: SpectralSpace = field(metadata=dict(static=True))
+    tensor: TensorOperator | None = field(default=None, metadata=dict(static=True))
 
-    def __init__(
-        self,
-        space: SpectralSpace,
-        scheme: Scheme,
-    ):
-        self.space = space
-        self.scheme = scheme
-        self.tensor = TensorOperator(dim=len(self.space.lengths))
+    def __post_init__(self):
+        object.__setattr__(self, "tensor", TensorOperator(dim=len(self.space.lengths)))
 
-    @eqx.filter_jit
+    @jax.jit
     def grad(self, u: Array) -> Array:
         """Applies the gradient operator to the input real-valued array u.
 
@@ -59,7 +57,7 @@ class SpectralOperator(eqx.Module):
         grad_u = self.space.transform.inverse(grad_u_hat)
         return grad_u.real
 
-    @eqx.filter_jit
+    @jax.jit
     def div(self, v: Array) -> Array:
         """Applies the divergence operator to the input real-valued array v.
 
@@ -74,7 +72,7 @@ class SpectralOperator(eqx.Module):
         div_v = self.space.transform.inverse(div_v_hat)
         return div_v.real
 
-    @eqx.filter_jit
+    @jax.jit
     def sym_grad(self, u: Array) -> Array:
         """Applies the symmetric gradient operator to the input real-valued array u.
 
@@ -89,7 +87,7 @@ class SpectralOperator(eqx.Module):
         sym_grad_u = self.space.transform.inverse(sym_grad_u_hat)
         return sym_grad_u.real
 
-    @eqx.filter_jit
+    @jax.jit
     def laplacian(self, u: Array) -> Array:
         """Applies the Laplacian operator to the input real-valued array u.
 
@@ -103,7 +101,7 @@ class SpectralOperator(eqx.Module):
         lap_u = self.space.transform.inverse(lap_u_hat)
         return lap_u.real
 
-    @eqx.filter_jit
+    @jax.jit
     def forward(self, u: Array) -> Array:
         """Applies the forward transform to the input real-valued array u.
 
@@ -114,7 +112,7 @@ class SpectralOperator(eqx.Module):
         """
         return self.space.transform.forward(u)
 
-    @eqx.filter_jit
+    @jax.jit
     def inverse(self, u_hat: Array) -> Array:
         """Applies the inverse transform to the input complex-valued array u_hat.
 

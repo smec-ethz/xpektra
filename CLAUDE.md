@@ -4,29 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## About
 
-`xpektra` is a Python library providing modular building blocks for spectral methods in solid mechanics. It is built on JAX and Equinox, enabling differentiable spectral computations. Key use cases include computational homogenization, multiscale simulations, and FFT-based micromechanics solvers.
+`xpektra` is a Python library providing modular building blocks for spectral methods in solid mechanics. It is built on JAX, enabling differentiable spectral computations. Key use cases include computational homogenization, multiscale simulations, and FFT-based micromechanics solvers.
 
 ## Commands
 
 **Install for development:**
 ```bash
-pip install -e '.[dev]'
+uv pip install -e '.[dev]'
 ```
 
 **Run all tests:**
 ```bash
-pytest
+uv run pytest
 ```
 
 **Run a single test:**
 ```bash
-pytest tests/test_schemes.py::test_fourier_exactness -v
+uv run pytest tests/test_schemes.py::test_fourier_exactness -v
 ```
 
 **Build docs:**
 ```bash
-pip install -e '.[docs]'
-mkdocs build
+uv pip install -e '.[docs]'
+uv run mkdocs build
 ```
 
 **Versioning / changelog (uses commitizen):**
@@ -41,19 +41,19 @@ The library is organized around a composition pattern where small, focused modul
 
 ### Core abstractions (in `xpektra/`)
 
-**`Transform`** (`transform.py`) — Abstract base for FFT-like operations. `FFTTransform` is the concrete implementation (JAX `fftn`/`ifftn`). The transform handles forward/inverse transforms and wavenumber vector generation.
+**`Transform`** (`transform.py`) — Abstract base for FFT-like operations, implemented as a frozen dataclass registered as a JAX pytree. `FFTTransform` is the concrete implementation (JAX `fftn`/`ifftn`), also a registered frozen dataclass. The transform handles forward/inverse transforms and wavenumber vector generation.
 
-**`SpectralSpace`** (`space.py`) — Equinox module tying together a grid `shape`, physical `lengths`, and a `Transform`. Provides `get_wavenumber_mesh()` used downstream by schemes and operators.
+**`SpectralSpace`** (`space.py`) — Frozen dataclass registered as a JAX pytree via `@jax.tree_util.register_dataclass`. Ties together a grid `shape`, physical `lengths`, and a `Transform`. Provides `get_wavenumber_mesh()` used downstream by schemes and operators.
 
-**`Scheme`** (`scheme.py`) — Abstract base for discretization strategies. `DiagonalScheme` handles Cartesian grids where differentiation is diagonal in Fourier space. It stores a pre-computed `gradient_operator` array and provides `apply_gradient`, `apply_divergence`, `apply_symmetric_gradient`, and `apply_laplacian`. Concrete schemes differ only in their `formula()` method:
+**`Scheme`** (`scheme.py`) — Abstract base class (ABC) for discretization strategies. `DiagonalScheme` is registered as a JAX pytree via `@jax.tree_util.register_pytree_node_class` with `gradient_operator` as the dynamic child and `dim`/`space` as static aux_data. Immutability is enforced via `__setattr__`. Each concrete scheme is also registered as a separate pytree node class and inherits `tree_flatten`/`tree_unflatten` from `DiagonalScheme`. Concrete schemes differ only in their `formula()` method:
 - `FourierScheme` — exact spectral derivative (`iξ`)
 - `CentralDifference`, `ForwardDifference`, `BackwardDifference` — finite-difference variants
 - `RotatedDifference` — Willot/HEX8R rotated scheme (2D+ only)
 - `FourthOrderCentralDifference`, `SixthOrderCentralDifference`, `EighthOrderCentralDifference` — higher-order FD
 
-**`SpectralOperator`** (`spectral_operator.py`) — Combines `SpectralSpace` + `Scheme` + `TensorOperator` into a user-facing API. Exposes `grad`, `div`, `sym_grad`, `laplacian`, `forward`/`inverse`, and tensor ops (`dot`, `ddot`, `trace`, `trans`, `dyad`). All methods are JIT-compiled via `@eqx.filter_jit`.
+**`SpectralOperator`** (`spectral_operator.py`) — Frozen dataclass registered as a JAX pytree via `@jax.tree_util.register_dataclass`. Combines `SpectralSpace` + `Scheme` + `TensorOperator` into a user-facing API. Exposes `grad`, `div`, `sym_grad`, `laplacian`, `forward`/`inverse`, and tensor ops (`dot`, `ddot`, `trace`, `trans`, `dyad`). All methods are JIT-compiled via `@jax.jit`.
 
-**`TensorOperator`** (`tensor_operator.py`) — Handles rank-aware tensor algebra using dispatch tables (`DOT_EINSUM_DISPATCH`, `DDOT_EINSUM_DISPATCH`, etc.). Tensor rank is inferred from array shape minus `dim` spatial dimensions. Array layout is `(spatial..., tensor...)`.
+**`TensorOperator`** (`tensor_operator.py`) — Registered as a JAX pytree via `@jax.tree_util.register_pytree_node_class`. Handles rank-aware tensor algebra using dispatch tables (`DOT_EINSUM_DISPATCH`, `DDOT_EINSUM_DISPATCH`, etc.). Tensor rank is inferred from array shape minus `dim` spatial dimensions. Array layout is `(spatial..., tensor...)`. Immutability is enforced via `__setattr__`; structural `__eq__`/`__hash__` are implemented for correct JAX cache behavior.
 
 **`ProjectionOperator`** (`projection_operator.py`) — Two implementations:
 - `GalerkinProjection` — matrix-free projection using the scheme's gradient operator; memory-efficient
@@ -83,10 +83,12 @@ SpectralSpace + FFTTransform
     Solver (CG or Newton-Krylov via scipy/jaxopt)
 ```
 
-### JAX / Equinox conventions
+### JAX pytree conventions
 
-- All core classes are `eqx.Module` (pytree-compatible, frozen after construction).
-- `static=True` fields (shape, lengths, transform, dim) are compile-time constants for JIT.
-- Computationally intensive methods use `@eqx.filter_jit`.
+- Classes use one of two pytree registration patterns:
+  - **Frozen dataclasses** (`@jax.tree_util.register_dataclass` + `@dataclass(frozen=True)`): Used by `Transform`, `FFTTransform`, `SpectralSpace`, `SpectralOperator`. Fields use `metadata=dict(static=True)` to mark compile-time constants.
+  - **Manual pytree registration** (`@jax.tree_util.register_pytree_node_class`): Used by `TensorOperator`, `DiagonalScheme`, and all concrete schemes. These implement `tree_flatten`/`tree_unflatten` manually. Immutability is enforced via `__setattr__` with an `_initialized` sentinel.
+- For class hierarchies (e.g. `DiagonalScheme` → `FourierScheme`), each concrete class must have its own `@register_pytree_node_class` decorator. `tree_unflatten` uses `@classmethod` with `cls` so subclasses inherit it and get the correct type back.
+- Computationally intensive methods use `@jax.jit`.
 - Enable 64-bit precision with `jax.config.update("jax_enable_x64", True)` (done in tests; required for numerical accuracy in examples).
 - Fields and operators use `(spatial..., tensor...)` axis ordering throughout.

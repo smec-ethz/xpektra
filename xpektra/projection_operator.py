@@ -2,15 +2,16 @@
 Projection operators for the spectral methods.
 """
 
+import jax
 import jax.numpy as jnp
 from jax import Array
-import equinox as eqx
 
 from xpektra.scheme import DiagonalScheme
 from xpektra.space import SpectralSpace
 
 
-class GalerkinProjection(eqx.Module):
+@jax.tree_util.register_pytree_node_class
+class GalerkinProjection:
     """
     A 'final' class implementing the material-independent Galerkin projection.
 
@@ -33,7 +34,17 @@ class GalerkinProjection(eqx.Module):
 
     scheme: DiagonalScheme
 
-    @eqx.filter_jit
+    def tree_flatten(self):
+        return (self.scheme,), None
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children)
+
+    def __init__(self, scheme: DiagonalScheme) -> None:
+        self.scheme = scheme
+
+    @jax.jit
     def project(self, field_hat: Array) -> Array:
         """
         Applies the projection on the fly. This is the core of the class.
@@ -70,7 +81,8 @@ class GalerkinProjection(eqx.Module):
         return eps_hat
 
 
-class MoulinecSuquetProjection(eqx.Module):
+@jax.tree_util.register_pytree_node_class
+class MoulinecSuquetProjection:
     """
     A class implementing the Moulinec-Suquet (MS) Green's operator,
     which depends on a homogeneous isotropic reference material.
@@ -84,13 +96,26 @@ class MoulinecSuquetProjection(eqx.Module):
 
     Example:
         >>> Ghat = MoulinecSuquetProjection(space, lambda0, mu0).compute_operator()
-   
-     """
+
+    """
 
     space: SpectralSpace
     lambda0: Array
     mu0: Array
 
+    def tree_flatten(self):
+        return (self.space, self.lambda0, self.mu0), None
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(space=children[0], lambda0=children[1], mu0=children[2])
+
+    def __init__(self, space: SpectralSpace, lambda0: Array, mu0: Array) -> None:
+        self.space = space
+        self.lambda0 = lambda0
+        self.mu0 = mu0
+
+    @jax.jit
     def compute_operator(self) -> Array:
         """
         Implements the Moulinec-Suquet projection operator.
@@ -108,7 +133,7 @@ class MoulinecSuquetProjection(eqx.Module):
 
         # Pre-calculate scalar terms, ensuring no division by zero
         q_dot_q = jnp.sum(q * q, axis=-1, keepdims=True)
-        
+
         # Use jnp.where to safely handle the zero-frequency mode
         q_dot_q_safe = jnp.where(q_dot_q == 0, 1.0, q_dot_q)
 

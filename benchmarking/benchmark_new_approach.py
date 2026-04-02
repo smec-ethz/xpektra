@@ -1,31 +1,24 @@
 import os
 
 import jax
-
-jax.config.update("jax_compilation_cache_dir", os.environ["JAX_CACHE_DIR"])
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
-if os.environ["JAX_PLATFORM"] == "cpu":
-    jax.config.update("jax_platforms", "cpu")
 
 print(jax.devices())
 
-import numpy as np
-from functools import partial
-
-from spectralsolvers.operators import spatial, tensor, fourier_galerkin
-from spectralsolvers.fft.transform import _fft, _ifft
-from spectralsolvers.solvers.linear import conjugate_gradient_while
-from spectralsolvers.solvers.nonlinear import newton_krylov_solver
-
-from skimage.morphology import disk, rectangle, ellipse
+import argparse
 import timeit
-import equinox as eqx
+from functools import partial
 from typing import Callable
 
-import argparse
+import equinox as eqx
+import numpy as np
+from skimage.morphology import disk, ellipse, rectangle
+from spectralsolvers.fft.transform import _fft, _ifft
+from spectralsolvers.operators import fourier_galerkin, spatial, tensor
+from spectralsolvers.solvers.linear import conjugate_gradient_while
+from spectralsolvers.solvers.nonlinear import newton_krylov_solver
 
 
 class FourierGalerkinOperator(eqx.Module):

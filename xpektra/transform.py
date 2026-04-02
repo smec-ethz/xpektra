@@ -1,13 +1,18 @@
 from abc import abstractmethod
+from dataclasses import dataclass, field
 
-import equinox as eqx
+import jax
 import jax.numpy as jnp
 from jax import Array
 from jax.scipy.fft import dctn, idctn  # noqa: F401
 
 
-class Transform(eqx.Module):
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class Transform:
     """Abstract base class for all spectral transforms."""
+
+    dim: int | None = field(metadata=dict(static=True), default=None)
 
     @abstractmethod
     def forward(self, x: Array) -> Array:
@@ -25,6 +30,8 @@ class Transform(eqx.Module):
         raise NotImplementedError
 
 
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
 class FFTTransform(Transform):
     """
     The standard, JAX-native Fast Fourier Transform.
@@ -45,9 +52,6 @@ class FFTTransform(Transform):
 
     """
 
-    dim: int = eqx.field(static=True)
-
-    @eqx.filter_jit
     def forward(self, x: Array) -> Array:
         """
         Computes the centered FFT.
@@ -62,7 +66,6 @@ class FFTTransform(Transform):
         axes = range(self.dim)
         return jnp.fft.fftn(x, axes=axes)
 
-    @eqx.filter_jit
     def inverse(self, x_hat: Array) -> Array:
         """
         Computes the inverse centered FFT.

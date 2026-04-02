@@ -1,6 +1,6 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
-import equinox as eqx
+import jax
 import jax.numpy as jnp  # type: ignore
 from jax import Array
 
@@ -39,7 +39,8 @@ TRANS_EINSUM_DISPATCH: Dict[int, str] = {
 }
 
 
-class TensorOperator(eqx.Module):
+@jax.tree_util.register_pytree_node_class
+class TensorOperator:
     """Tensor algebra operator for fields with layout (spatial..., tensor...).
 
     By default, supports the standard rank combinations defined in the module-level
@@ -55,12 +56,49 @@ class TensorOperator(eqx.Module):
     ```
     """
 
-    dim: int = eqx.field(static=True)
-    _dot_rules: Dict[Tuple[int, int], str] = eqx.field(static=True)
-    _ddot_rules: Dict[Tuple[int, int], str] = eqx.field(static=True)
-    _dyad_rules: Dict[Tuple[int, int], str] = eqx.field(static=True)
-    _trace_rules: Dict[int, str] = eqx.field(static=True)
-    _trans_rules: Dict[int, str] = eqx.field(static=True)
+    _dot_rules: Dict[Tuple[int, int], str]
+    _ddot_rules: Dict[Tuple[int, int], str]
+    _dyad_rules: Dict[Tuple[int, int], str]
+    _trace_rules: Dict[int, str]
+    _trans_rules: Dict[int, str]
+    dim: int
+
+    def __eq__(self, other):
+        """Structural equality so JAX static-field comparison works correctly."""
+        if type(self) is not type(other):
+            return NotImplemented
+        return (
+            self.dim == other.dim
+            and self._dot_rules == other._dot_rules
+            and self._ddot_rules == other._ddot_rules
+            and self._dyad_rules == other._dyad_rules
+            and self._trace_rules == other._trace_rules
+            and self._trans_rules == other._trans_rules
+        )
+
+    def __hash__(self):
+        return hash((
+            self.dim,
+            tuple(sorted(self._dot_rules.items())),
+            tuple(sorted(self._ddot_rules.items())),
+            tuple(sorted(self._dyad_rules.items())),
+            tuple(sorted(self._trace_rules.items())),
+            tuple(sorted(self._trans_rules.items())),
+        ))
+
+    def __setattr__(self, name, value):
+        """Enforce immutability after initialization.
+
+        Attribute assignment is only allowed during ``__init__`` (before
+        ``_initialized`` is set).  Any attempt to mutate the instance
+        afterwards raises ``AttributeError``, mirroring the guarantees
+        previously provided by ``eqx.Module``.
+        """
+        if hasattr(self, "_initialized"):
+            raise AttributeError(
+                f"Cannot modify frozen {type(self).__name__}"
+            )
+        object.__setattr__(self, name, value)
 
     def __init__(
         self,
@@ -77,6 +115,31 @@ class TensorOperator(eqx.Module):
         self._dyad_rules = {**DYAD_EINSUM_DISPATCH, **(dyad_rules or {})}
         self._trace_rules = {**TRACE_EINSUM_DISPATCH, **(trace_rules or {})}
         self._trans_rules = {**TRANS_EINSUM_DISPATCH, **(trans_rules or {})}
+        object.__setattr__(self, "_initialized", True)
+
+    def tree_flatten(self):
+        # No dynamic fields, so we return empty list and the static fields as metadata
+        children = []
+        aux_data = {
+            "dim": self.dim,
+            "dot_rules": self._dot_rules,
+            "ddot_rules": self._ddot_rules,
+            "dyad_rules": self._dyad_rules,
+            "trace_rules": self._trace_rules,
+            "trans_rules": self._trans_rules,
+        }
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: Dict, children: List) -> "TensorOperator":
+        return TensorOperator(
+            dim=aux_data["dim"],
+            dot_rules=aux_data["dot_rules"],
+            ddot_rules=aux_data["ddot_rules"],
+            dyad_rules=aux_data["dyad_rules"],
+            trace_rules=aux_data["trace_rules"],
+            trans_rules=aux_data["trans_rules"],
+        )
 
     def _get_rank(self, A: Array) -> int:
         """Returns the tensor rank of A (total ndim minus spatial dims)."""
@@ -88,7 +151,7 @@ class TensorOperator(eqx.Module):
             )
         return rank
 
-    @eqx.filter_jit
+    @jax.jit
     def dot(self, A: Array, B: Array) -> Array:
         """Computes the dot product between tensors A and B."""
         rank_A = self._get_rank(A)
@@ -100,7 +163,7 @@ class TensorOperator(eqx.Module):
             )
         return jnp.einsum(einsum_str, A, B, optimize="optimal")
 
-    @eqx.filter_jit
+    @jax.jit
     def ddot(self, A: Array, B: Array) -> Array:
         """Computes the double dot product between tensors A and B."""
         rank_A = self._get_rank(A)
@@ -112,7 +175,7 @@ class TensorOperator(eqx.Module):
             )
         return jnp.einsum(einsum_str, A, B, optimize="optimal")
 
-    @eqx.filter_jit
+    @jax.jit
     def trace(self, A: Array) -> Array:
         """Computes the trace of tensor A."""
         rank_A = self._get_rank(A)
@@ -123,7 +186,7 @@ class TensorOperator(eqx.Module):
             )
         return jnp.einsum(einsum_str, A, optimize="optimal")
 
-    @eqx.filter_jit
+    @jax.jit
     def trans(self, A: Array) -> Array:
         """Computes the transpose of tensor A."""
         rank_A = self._get_rank(A)
@@ -134,7 +197,7 @@ class TensorOperator(eqx.Module):
             )
         return jnp.einsum(einsum_str, A, optimize="optimal")
 
-    @eqx.filter_jit
+    @jax.jit
     def dyad(self, A: Array, B: Array) -> Array:
         """Computes the dyadic product between tensors A and B."""
         rank_A = self._get_rank(A)
