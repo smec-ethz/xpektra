@@ -24,28 +24,27 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_platforms", "cpu")
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import time
-from functools import partial
 
-import equinox as eqx
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 from jax import Array
 from skimage.morphology import disk
+from soldis.linear import CG
+from soldis.newton import NewtonSolver, NewtonSolverOptions
 
 # %% [markdown]
 # We start by importing the necessary libraries and configuring JAX for double-precision computations.
 # %%
-from xpektra import FFTTransform, SpectralOperator, SpectralSpace, make_field
-from xpektra.projection_operator import GalerkinProjection
-from xpektra.scheme import RotatedDifference
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    NewtonSolver,
-    conjugate_gradient,
+from xpektra import (
+    FFTTransform,
+    GalerkinProjection,
+    SpectralOperator,
+    SpectralSpace,
+    make_field,
 )
+from xpektra.scheme import RotatedDifference
 
 # %% [markdown]
 # ## Define Microstructure
@@ -107,6 +106,7 @@ diff_scheme = RotatedDifference(space=space)
 op = SpectralOperator(
     scheme=diff_scheme,
     space=space,
+    projection=GalerkinProjection(),
 )
 
 # %%
@@ -114,7 +114,7 @@ dofs_shape = make_field(dim=ndim, shape=structure.shape, rank=2).shape
 
 
 # %%
-@eqx.filter_jit
+@jax.jit
 def strain_energy(eps_flat: Array) -> Array:
     eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + op.trans(eps))
@@ -129,12 +129,9 @@ compute_stress = jax.jit(jax.jacrev(strain_energy))
 # %% [markdown]
 # We now define the Galerkin projection operator.
 
-# %%
-Ghat = GalerkinProjection(scheme=diff_scheme)
-
 
 # %%
-@eqx.filter_jit
+@jax.jit
 def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     """
     A function that computes the residual of the problem based on the given macro strain.
@@ -158,27 +155,26 @@ def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     eps_total = eps_fluc + eps_macro
     eps_flat = eps_total.reshape(-1)
     sigma = compute_stress(eps_flat)
-    residual_field = op.inverse(Ghat.project(op.forward(sigma.reshape(dofs_shape))))
+    residual_field = op.inverse(op.project(op.forward(sigma.reshape(dofs_shape))))
     return jnp.real(residual_field).reshape(-1)
 
 
-@eqx.filter_jit
-def jacobian_fn(deps_flat: Array) -> Array:
-    """
-    The Jacobian is a linear operator, so its represents the Jacobian-vector product.
-    For this linear elastic problem, we use the stress relation to compute the Jacobian.
+def jac_fn(x: Array, macro_strain: Array):
+    """Return the Jacobian matvec — independent of x and macro_strain for linear elasticity.
 
-    Args:
-        deps_flat: The flattened displacement gradient field.
-
-    Returns:
-        The flattened Jacobian-vector product.
+    Providing this explicitly avoids nested differentiation (JVP-of-jacrev) that the
+    auto-generated Jacobian would require. This is especially important here because
+    ``jax.jacfwd(local_constitutive_update)`` differentiates through the entire solver,
+    so one fewer differentiation level significantly reduces the XLA graph size.
     """
 
-    deps_flat = deps_flat.reshape(-1)
-    dsigma = compute_stress(deps_flat)
-    jvp_field = op.inverse(Ghat.project(op.forward(dsigma.reshape(dofs_shape))))
-    return jnp.real(jvp_field).reshape(-1)
+    @jax.jit
+    def mv(v: Array) -> Array:
+        dsigma = compute_stress(v)
+        jvp_field = op.inverse(op.project(op.forward(dsigma.reshape(dofs_shape))))
+        return jnp.real(jvp_field).reshape(-1)
+
+    return mv
 
 
 # %% [markdown]
@@ -187,34 +183,23 @@ def jacobian_fn(deps_flat: Array) -> Array:
 
 # %%
 
+solver = NewtonSolver(
+    residual_fn,
+    lin_solver=CG(),
+    jac=jac_fn,
+    options=NewtonSolverOptions(tol=1e-8, maxiter=20, verbose=True),
+)
 
-@eqx.filter_jit
+
+@jax.jit
 def local_constitutive_update(macro_strain):
-    # set macroscopic loading to the residual
-    # important for the implicit differentiation to work correctly
-    # also, partial from functools and not from equinox
-    residual_fn_partial = jax.jit(partial(residual_fn, macro_strain=macro_strain))
-
-    # define the newton solver with the krylov solver
-    solver = NewtonSolver(
-        tol=1e-8,
-        max_iter=20,
-        krylov_solver=conjugate_gradient,
-        krylov_tol=1e-8,
-        krylov_max_iter=20,
-    )
-
     # initialize the initial guess for the local strain field
     eps_init = jnp.array(make_field(dim=2, shape=structure.shape, rank=2))
 
     # solve for the fluctuation strain field, the residual is the
     # right hand side is defined based on the initial guess
-    eps_fluc = solver.solve(
-        x=eps_init.reshape(-1),
-        f=residual_fn_partial,
-        b=-residual_fn_partial(eps_init.reshape(-1)),
-        jac=jacobian_fn,
-    )
+    state = solver.root(eps_init.reshape(-1), macro_strain)
+    eps_fluc = state.value.reshape(dofs_shape)
 
     # compute the actual micro strain field
     # eps fluctuation is added to the initial guess
@@ -223,7 +208,7 @@ def local_constitutive_update(macro_strain):
     eps_macro = eps_macro.at[:, :, 0, 1].set(macro_strain[2] / 2.0)
     eps_macro = eps_macro.at[:, :, 1, 0].set(macro_strain[2] / 2.0)
 
-    eps = eps_fluc.reshape(dofs_shape) + eps_macro
+    eps = eps_fluc + eps_macro
 
     # compute the actual micro stress field
     sig = compute_stress(eps.reshape(-1)).reshape(dofs_shape)

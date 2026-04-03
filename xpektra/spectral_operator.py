@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import jax
 from jax import Array
 
+from xpektra.projection_operator import ProjectionOperator
 from xpektra.scheme import Scheme
 from xpektra.space import SpectralSpace
 from xpektra.tensor_operator import TensorOperator
@@ -26,20 +27,33 @@ class SpectralOperator:
     Example:
 
     ```
-    operator = SpectralOperator(space, scheme)
-    grad_u = operator.grad(u)
-    div_v = operator.div(v)
-    sym_grad_u = operator.sym_grad(u)
+    op = SpectralOperator(scheme=scheme, space=space, projection=GalerkinProjection())
+    grad_u = op.grad(u)
+    div_v = op.div(v)
     ```
 
+    To swap a single attribute (e.g. the projection) on a frozen instance, use
+    ``dataclasses.replace``::
+
+        from dataclasses import replace
+
+        new_op = replace(op, projection=MoulinecSuquetProjection(lambda0=10.0, mu0=1.0))
+
+    ``__post_init__`` runs on the new instance, so ``build(space)`` is called
+    automatically for the new projection.
     """
 
     scheme: Scheme
     space: SpectralSpace = field(metadata=dict(static=True))
+    projection: ProjectionOperator | None = field(default=None)
     tensor: TensorOperator | None = field(default=None, metadata=dict(static=True))
 
     def __post_init__(self):
         object.__setattr__(self, "tensor", TensorOperator(dim=len(self.space.lengths)))
+        if self.projection is not None:
+            object.__setattr__(
+                self, "projection", self.projection.build(self.space)
+            )
 
     @jax.jit
     def grad(self, u: Array) -> Array:
@@ -122,6 +136,27 @@ class SpectralOperator:
         - The inverse transformed array u, a real-valued array of shape (N,)*dim.
         """
         return self.space.transform.inverse(u_hat).real
+
+    @jax.jit
+    def project(self, field_hat: Array) -> Array:
+        """Apply the projection operator to a Fourier-space field.
+
+        Delegates to ``self.projection.project()``, passing the scheme's
+        gradient operator and the spectral space so that large arrays are
+        not duplicated across pytree leaves.
+
+        Args:
+            field_hat: Field in Fourier space.
+        Returns:
+            The projected field in Fourier space.
+        Raises:
+            ValueError: If no projection operator is set.
+        """
+        if self.projection is None:
+            raise ValueError("No projection operator set on this SpectralOperator")
+        return self.projection.project(
+            field_hat, self.scheme.gradient_operator, self.space
+        )
 
     def ddot(self, A: Array, B: Array) -> Array:
         """Applies the double dot product to the input arrays A and B.

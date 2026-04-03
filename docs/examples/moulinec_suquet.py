@@ -21,24 +21,20 @@
 # %%
 import jax
 
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_platforms", "cpu")
 
-import time
 from functools import partial
 
-import equinox as eqx
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 from jax import Array
 
 from xpektra import (
+    MoulinecSuquetProjection,
     SpectralSpace,
     make_field,
 )
-from xpektra.projection_operator import MoulinecSuquetProjection
 from xpektra.scheme import FourierScheme
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
@@ -81,18 +77,6 @@ mu = mu1 * (1.0 - phase) + mu2 * phase
 
 
 # %%
-fft_transform = FFTTransform(dim=ndim)
-space = SpectralSpace(lengths=(length, length), shape=(N, N), transform=fft_transform)
-
-diff_scheme = FourierScheme(space=space)
-
-op = SpectralOperator(
-    scheme=diff_scheme,
-    space=space,
-)
-
-
-# %%
 i = jnp.eye(ndim)
 I = make_field(dim=ndim, shape=(N, N), rank=2) + i  # Add i to broadcast
 
@@ -116,9 +100,16 @@ C0 = lambda0 * II + 2.0 * mu0 * I4s
 
 
 # %%
-Ghat = MoulinecSuquetProjection(
-    space=space, lambda0=lambda0, mu0=mu0
-).compute_operator()
+fft_transform = FFTTransform(dim=ndim)
+space = SpectralSpace(lengths=(length, length), shape=(N, N), transform=fft_transform)
+
+diff_scheme = FourierScheme(space=space)
+
+op = SpectralOperator(
+    scheme=diff_scheme,
+    space=space,
+    projection=MoulinecSuquetProjection(lambda0=lambda0, mu0=mu0),
+)
 
 
 # %%
@@ -146,7 +137,7 @@ def fixed_point_iteration(
 
         # Apply Green's operator: ε_fluc = G^0 * tau
         tau_hat = op.forward(tau)
-        eps_fluc_hat = op.ddot(Ghat, tau_hat)  # project(Ghat, tau_hat)
+        eps_fluc_hat = op.project(tau_hat)
         eps_fluc = jnp.real(op.inverse(eps_fluc_hat))
 
         # Update total strain: ε_new = E_macro - ε_fluc

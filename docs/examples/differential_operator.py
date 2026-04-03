@@ -27,9 +27,7 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_platforms", "cpu")
 
-import equinox as eqx
 import jax.numpy as jnp
 
 # %%
@@ -38,13 +36,16 @@ import numpy as np
 from jax import Array
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from skimage.morphology import footprint_rectangle as rectangle
+from soldis.linear import CG
+from soldis.newton import NewtonSolver, NewtonSolverOptions
 
 from xpektra import (
+    FFTTransform,
+    GalerkinProjection,
+    SpectralOperator,
     SpectralSpace,
-    TensorOperator,
     make_field,
 )
-from xpektra.projection_operator import GalerkinProjection
 
 # %% [markdown]
 # In `xpektra`, we can import various schemes from the `scheme` module.
@@ -53,13 +54,8 @@ from xpektra.projection_operator import GalerkinProjection
 # %%
 from xpektra.scheme import (
     CentralDifference,
-    DiagonalScheme,
     FourierScheme,
     RotatedDifference,
-)
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient_while,
-    newton_krylov_solver,
 )
 
 
@@ -80,17 +76,21 @@ def test_microstructure(N, scheme, length):
     ndim = len(structure.shape)
     N = structure.shape[0]
 
-    tensor = TensorOperator(dim=ndim)
-    space = SpectralSpace(size=N, dim=ndim, length=length)
+    fft_transform = FFTTransform(dim=ndim)
+    space = SpectralSpace(
+        lengths=(length,) * ndim, shape=structure.shape, transform=fft_transform
+    )
 
     if scheme == "rotated":
         scheme = RotatedDifference(space=space)
     elif scheme == "fourier":
-        scheme = Fourier(space=space)
+        scheme = FourierScheme(space=space)
     elif scheme == "central":
         scheme = CentralDifference(space=space)
     else:
         raise ValueError(f"Invalid scheme: {scheme}")
+
+    op = SpectralOperator(scheme=scheme, space=space, projection=GalerkinProjection())
 
     # material parameters
     phase_contrast = 1000.0
@@ -111,96 +111,53 @@ def test_microstructure(N, scheme, length):
         structure, soft=lambda_modulus["soft"], hard=lambda_modulus["hard"]
     )  # shear     modulus
 
-    dofs_shape = make_field(dim=ndim, N=N, rank=2).shape
+    dofs_shape = make_field(dim=ndim, shape=structure.shape, rank=2).shape
 
-    @eqx.filter_jit
+    @jax.jit
     def strain_energy(eps_flat: Array) -> Array:
         eps = eps_flat.reshape(dofs_shape)
-        eps_sym = 0.5 * (eps + tensor.trans(eps))
-        energy = 0.5 * jnp.multiply(λ0, tensor.trace(eps_sym) ** 2) + jnp.multiply(
-            μ0, tensor.trace(tensor.dot(eps_sym, eps_sym))
+        eps_sym = 0.5 * (eps + op.trans(eps))
+        energy = 0.5 * jnp.multiply(λ0, op.trace(eps_sym) ** 2) + jnp.multiply(
+            μ0, op.trace(op.dot(eps_sym, eps_sym))
         )
         return energy.sum()
 
     compute_stress = jax.jacrev(strain_energy)
 
-    Ghat = GalerkinProjection(scheme=scheme)
+    @jax.jit
+    def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
+        """
+        This makes instances of this class behave like a function.
+        It takes only the flattened vector of unknowns, as required by the solver.
+        """
+        eps_fluc = eps_fluc_flat.reshape(dofs_shape)
+        eps_macro = jnp.zeros(dofs_shape)
+        eps_macro = eps_macro.at[..., 0, 1].set(macro_strain)
+        eps_macro = eps_macro.at[..., 1, 0].set(macro_strain)
 
-    class Residual(eqx.Module):
-        """A callable module that computes the residual vector."""
+        eps_total = eps_fluc + eps_macro
 
-        Ghat: DiagonalScheme
-        space: SpectralSpace = eqx.field(static=True)
-        tensor_op: TensorOperator = eqx.field(static=True)
-        dofs_shape: tuple = eqx.field(static=True)
+        sigma = compute_stress(eps_total)  # Assumes compute_stress is defined elsewhere
+        residual_field = op.inverse(op.project(op.forward(sigma.reshape(dofs_shape))))
+        return jnp.real(residual_field).reshape(-1)
 
-        # We can even pre-define the stress function if it's always the same
-        # For this example, we'll keep your original `compute_stress` function
-        # available in the global scope.
-
-        @eqx.filter_jit
-        def __call__(self, eps_flat: Array) -> Array:
-            """
-            This makes instances of this class behave like a function.
-            It takes only the flattened vector of unknowns, as required by the solver.
-            """
-            eps_flat = eps_flat.reshape(-1)
-            sigma = compute_stress(
-                eps_flat
-            )  # Assumes compute_stress is defined elsewhere
-            residual_field = self.space.ifft(
-                self.Ghat.project(self.space.fft(sigma.reshape(self.dofs_shape)))
-            )
-            return jnp.real(residual_field).reshape(-1)
-
-    class Jacobian(eqx.Module):
-        """A callable module that represents the Jacobian operator (tangent)."""
-
-        Ghat: DiagonalScheme
-        space: SpectralSpace = eqx.field(static=True)
-        tensor_op: TensorOperator = eqx.field(static=True)
-        dofs_shape: tuple = eqx.field(static=True)
-
-        @eqx.filter_jit
-        def __call__(self, deps_flat: Array) -> Array:
-            """
-            The Jacobian is a linear operator, so its __call__ method
-            represents the Jacobian-vector product.
-            """
-
-            deps_flat = deps_flat.reshape(-1)
-            dsigma = compute_stress(deps_flat)
-            jvp_field = self.space.ifft(
-                self.Ghat.project(self.space.fft(dsigma.reshape(self.dofs_shape)))
-            )
-            return jnp.real(jvp_field).reshape(-1)
-
-    eps = make_field(dim=ndim, N=N, rank=2)
-    residual_fn = Residual(
-        Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape
-    )
-    jacobian_fn = Jacobian(
-        Ghat=Ghat, space=space, tensor_op=tensor, dofs_shape=eps.shape
+    solver = NewtonSolver(
+        residual_fn,
+        lin_solver=CG(),
+        options=NewtonSolverOptions(tol=1e-8, maxiter=20, verbose=True),
     )
 
-    deps = make_field(dim=ndim, N=N, rank=2)
-    deps[:, :, 0, 1] = 5e-1
-    deps[:, :, 1, 0] = 5e-1
+    macro_strain = 5e-1
+    eps_fluc_init = make_field(dim=2, shape=structure.shape, rank=2)
 
-    b = -residual_fn(deps)
-    eps = eps + deps
+    state = solver.root(eps_fluc_init.reshape(-1), macro_strain)
+    deps_fluc = state.value.reshape(dofs_shape)
 
-    final_state = newton_krylov_solver(
-        state=(deps, b, eps),
-        gradient=residual_fn,
-        jacobian=jacobian_fn,
-        tol=1e-10,
-        max_iter=20,
-        krylov_solver=conjugate_gradient_while,
-        krylov_tol=1e-8,
-        krylov_max_iter=20,
-    )
-    eps = final_state[2]
+    # update fluctuation strain
+    eps_fluc = eps_fluc_init + deps_fluc.reshape(dofs_shape)
+
+    # total strain
+    eps = eps_fluc + jnp.eye(ndim)[None, None, :, :] * macro_strain
 
     sig = compute_stress(eps.reshape(-1)).reshape(dofs_shape)
 

@@ -28,11 +28,11 @@ class TestGalerkinProjection:
         N, dim = 16, 2
         space = make_space(dim, N)
         scheme = FourierScheme(space=space)
-        proj = GalerkinProjection(scheme=scheme)
+        proj = GalerkinProjection()
 
         rng = jax.random.PRNGKey(0)
         sigma_hat = jax.random.normal(rng, (N, N, dim, dim)) + 0j
-        result = proj.project(sigma_hat)
+        result = proj.project(sigma_hat, scheme.gradient_operator, space)
         assert result.shape == (N, N, dim, dim)
 
     @pytest.mark.parametrize("dim", [1, 2])
@@ -41,14 +41,15 @@ class TestGalerkinProjection:
         N = 16
         space = make_space(dim, N)
         scheme = FourierScheme(space=space)
-        proj = GalerkinProjection(scheme=scheme)
+        proj = GalerkinProjection()
 
         rng = jax.random.PRNGKey(1)
         shape = (N,) * dim + (dim, dim)
         sigma_hat = jax.random.normal(rng, shape) + 0j
 
-        once = proj.project(sigma_hat)
-        twice = proj.project(once)
+        grad_op = scheme.gradient_operator
+        once = proj.project(sigma_hat, grad_op, space)
+        twice = proj.project(once, grad_op, space)
         np.testing.assert_allclose(
             np.abs(twice - once), 0.0, atol=1e-12,
             err_msg="GalerkinProjection is not idempotent"
@@ -59,13 +60,13 @@ class TestGalerkinProjection:
         N, dim = 16, 2
         space = make_space(dim, N)
         scheme = FourierScheme(space=space)
-        proj = GalerkinProjection(scheme=scheme)
+        proj = GalerkinProjection()
 
         # Only the zero-frequency mode is nonzero
         sigma_hat = jnp.zeros((N, N, dim, dim), dtype=complex)
         sigma_hat = sigma_hat.at[0, 0, :, :].set(jnp.eye(dim))
 
-        result = proj.project(sigma_hat)
+        result = proj.project(sigma_hat, scheme.gradient_operator, space)
         np.testing.assert_allclose(
             np.abs(result), 0.0, atol=1e-14,
             err_msg="DC mode should project to zero"
@@ -81,25 +82,21 @@ class TestMoulinecSuquetProjection:
     def test_output_shape_2d(self):
         N, dim = 8, 2
         space = make_space(dim, N)
-        proj = MoulinecSuquetProjection(space=space, lambda0=1.0, mu0=1.0)
-        Ghat = proj.compute_operator()
-        assert Ghat.shape == (N, N, dim, dim, dim, dim)
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0).build(space)
+        assert proj._operator.shape == (N, N, dim, dim, dim, dim)
 
     def test_output_shape_3d(self):
         N, dim = 4, 3
         space = make_space(dim, N)
-        proj = MoulinecSuquetProjection(space=space, lambda0=1.0, mu0=1.0)
-        Ghat = proj.compute_operator()
-        assert Ghat.shape == (N, N, N, dim, dim, dim, dim)
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0).build(space)
+        assert proj._operator.shape == (N, N, N, dim, dim, dim, dim)
 
     def test_zero_frequency_mode(self):
         """The DC mode (zero wavenumber) of Ghat should be zero."""
         N, dim = 8, 2
         space = make_space(dim, N)
-        proj = MoulinecSuquetProjection(space=space, lambda0=1.0, mu0=1.0)
-        Ghat = proj.compute_operator()
-        # The zero wavenumber is at index [0, 0, ...]
-        dc = Ghat[0, 0, ...]
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0).build(space)
+        dc = proj._operator[0, 0, ...]
         np.testing.assert_allclose(
             np.abs(dc), 0.0, atol=1e-14,
             err_msg="DC (zero-frequency) mode of Ghat must be zero"
@@ -109,9 +106,8 @@ class TestMoulinecSuquetProjection:
         """G_{khij} == G_{ijkh} (major symmetry of the Green's operator)."""
         N, dim = 8, 2
         space = make_space(dim, N)
-        proj = MoulinecSuquetProjection(space=space, lambda0=1.0, mu0=1.0)
-        Ghat = proj.compute_operator()
-        # Ghat shape: (N, N, k, h, i, j)
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0).build(space)
+        Ghat = proj._operator
         G_khij = Ghat
         G_ijkh = jnp.einsum("...khij->...ijkh", Ghat)
         np.testing.assert_allclose(
@@ -123,8 +119,8 @@ class TestMoulinecSuquetProjection:
         """G_{khij} == G_{hkij} (symmetry in first index pair)."""
         N, dim = 8, 2
         space = make_space(dim, N)
-        proj = MoulinecSuquetProjection(space=space, lambda0=1.0, mu0=1.0)
-        Ghat = proj.compute_operator()
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0).build(space)
+        Ghat = proj._operator
         G_khij = Ghat
         G_hkij = jnp.einsum("...khij->...hkij", Ghat)
         np.testing.assert_allclose(
@@ -137,7 +133,33 @@ class TestMoulinecSuquetProjection:
         """Ghat can be computed for different material parameters without error."""
         N, dim = 8, 2
         space = make_space(dim, N)
-        proj = MoulinecSuquetProjection(space=space, lambda0=lambda0, mu0=mu0)
-        Ghat = proj.compute_operator()
+        proj = MoulinecSuquetProjection(lambda0=lambda0, mu0=mu0).build(space)
+        Ghat = proj._operator
         assert Ghat.shape == (N, N, dim, dim, dim, dim)
         assert jnp.all(jnp.isfinite(Ghat))
+
+    def test_project_precomputed(self):
+        """project() works after build()."""
+        N, dim = 8, 2
+        space = make_space(dim, N)
+        scheme = FourierScheme(space=space)
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0).build(space)
+
+        rng = jax.random.PRNGKey(0)
+        field_hat = jax.random.normal(rng, (N, N, dim, dim)) + 0j
+        result = proj.project(field_hat, scheme.gradient_operator, space)
+        assert result.shape == (N, N, dim, dim)
+
+    def test_build_via_spectral_operator(self):
+        """SpectralOperator.__post_init__ triggers build() automatically."""
+        from xpektra.spectral_operator import SpectralOperator
+
+        N, dim = 8, 2
+        space = make_space(dim, N)
+        scheme = FourierScheme(space=space)
+        proj = MoulinecSuquetProjection(lambda0=1.0, mu0=1.0)
+        assert proj._operator is None
+
+        op = SpectralOperator(scheme=scheme, space=space, projection=proj)
+        assert op.projection._operator is not None
+        assert op.projection._operator.shape == (N, N, dim, dim, dim, dim)

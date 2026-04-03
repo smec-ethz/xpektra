@@ -18,6 +18,7 @@ dependencies = [
     "equinox >=0.13.0",
     "numpy",
     "scipy",
+    "soldis",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +51,14 @@ docs = [
 [build-system]
 requires = [ "hatchling", ]
 build-backend = "hatchling.build"
+
+[tool.uv.workspace]
+members = [
+    "soldis",
+]
+
+[tool.uv.sources]
+soldis = { workspace = true }
 
 [project.urls]
 repository = "https://github.com/smec-ethz/xpektra"

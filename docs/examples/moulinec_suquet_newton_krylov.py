@@ -32,10 +32,10 @@ from jax import Array
 
 # %%
 from xpektra import (
+    MoulinecSuquetProjection,
     SpectralSpace,
     make_field,
 )
-from xpektra.projection_operator import MoulinecSuquetProjection
 from xpektra.scheme import FourierScheme
 from xpektra.solvers.nonlinear import (  # noqa: E402
     conjugate_gradient,
@@ -154,9 +154,11 @@ assert np.allclose(op.ddot(C0, I), compute_reference_stress(I)), (
 # We can now define the Moulinec-Suquet projection operator.
 
 # %%
-Ghat = MoulinecSuquetProjection(
-    space=space, lambda0=lambda0, mu0=mu0
-).compute_operator()
+op = SpectralOperator(
+    scheme=fourier_scheme,
+    space=space,
+    projection=MoulinecSuquetProjection(lambda0=lambda0, mu0=mu0),
+)
 
 
 # %% [markdown]
@@ -167,12 +169,7 @@ Ghat = MoulinecSuquetProjection(
 class Residual(eqx.Module):
     """A callable module that computes the residual vector."""
 
-    Ghat: Array
     dofs_shape: tuple = eqx.field(static=True)
-
-    # We can even pre-define the stress function if it's always the same
-    # For this example, we'll keep your original `compute_stress` function
-    # available in the global scope.
 
     @eqx.filter_jit
     def __call__(self, eps_flat: Array, eps_macro: Array) -> Array:
@@ -184,7 +181,7 @@ class Residual(eqx.Module):
         sigma = compute_stress(eps)
         sigma0 = compute_reference_stress(eps)
         tau = sigma - sigma0
-        eps_fluc = op.inverse(op.ddot(self.Ghat, op.forward(tau)))
+        eps_fluc = op.inverse(op.project(op.forward(tau)))
 
         residual_field = eps - eps_macro + jnp.real(eps_fluc)
 
@@ -194,7 +191,6 @@ class Residual(eqx.Module):
 class Jacobian(eqx.Module):
     """A callable module that represents the Jacobian operator (tangent)."""
 
-    Ghat: Array
     dofs_shape: tuple = eqx.field(static=True)
 
     @eqx.filter_jit
@@ -209,7 +205,7 @@ class Jacobian(eqx.Module):
         dsigma = compute_stress(deps)
         dsigma0 = compute_reference_stress(deps)
         dtau = dsigma - dsigma0
-        jvp_field = op.inverse(op.ddot(self.Ghat, op.forward(dtau)))
+        jvp_field = op.inverse(op.project(op.forward(dtau)))
         jvp_field = jnp.real(jvp_field) + deps
         return jvp_field.reshape(-1)
 
@@ -221,8 +217,8 @@ eps = make_field(dim=2, shape=(N, N), rank=2)
 deps = make_field(dim=2, shape=(N, N), rank=2)
 eps_macro = make_field(dim=2, shape=(N, N), rank=2)
 
-residual_fn = Residual(Ghat=Ghat, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, dofs_shape=eps.shape)
+residual_fn = Residual(dofs_shape=eps.shape)
+jacobian_fn = Jacobian(dofs_shape=eps.shape)
 
 
 for inc, eps_avg in enumerate(applied_strains):
