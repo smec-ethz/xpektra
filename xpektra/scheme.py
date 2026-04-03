@@ -61,11 +61,13 @@ class Scheme(ABC):
         raise NotImplementedError
 
 
-@jax.tree_util.register_pytree_node_class
-class DiagonalScheme(Scheme):
+class DiagonalScheme(Scheme, ABC):
     """
     Base class for schemes operating on a uniform Cartesian grid
     where the differentiation is diagonal in Fourier space.
+
+    Cannot be instantiated directly — use a concrete subclass
+    (e.g. FourierScheme, CentralDifference).
     """
 
     dim: int
@@ -83,6 +85,10 @@ class DiagonalScheme(Scheme):
         if hasattr(self, "_initialized"):
             raise AttributeError(f"Cannot modify frozen {type(self).__name__}")
         object.__setattr__(self, name, value)
+
+    def __init_subclass__(cls) -> None:
+        """Automatically register all subclasses as PyTrees."""
+        jax.tree_util.register_pytree_node_class(cls)
 
     def __init__(self, space: SpectralSpace):
         if not self.is_compatible(space.transform):
@@ -203,7 +209,6 @@ class DiagonalScheme(Scheme):
         raise NotImplementedError
 
 
-@jax.tree_util.register_pytree_node_class
 class FourierScheme(DiagonalScheme):
     """
     Class implementing the standard spectral 'Fourier' derivative.
@@ -213,7 +218,6 @@ class FourierScheme(DiagonalScheme):
         return iota * xi
 
 
-@jax.tree_util.register_pytree_node_class
 class CentralDifference(DiagonalScheme):
     """Implements the standard central difference scheme."""
 
@@ -221,7 +225,6 @@ class CentralDifference(DiagonalScheme):
         return iota * jnp.sin(xi * dx) / dx
 
 
-@jax.tree_util.register_pytree_node_class
 class ForwardDifference(DiagonalScheme):
     """Implements the forward difference scheme."""
 
@@ -229,7 +232,6 @@ class ForwardDifference(DiagonalScheme):
         return (jnp.exp(iota * xi * dx) - 1) / dx
 
 
-@jax.tree_util.register_pytree_node_class
 class BackwardDifference(DiagonalScheme):
     """Implements the backward difference scheme."""
 
@@ -237,7 +239,6 @@ class BackwardDifference(DiagonalScheme):
         return (1 - jnp.exp(-iota * xi * dx)) / dx
 
 
-@jax.tree_util.register_pytree_node_class
 class RotatedDifference(DiagonalScheme):
     """Implements the rotated finite difference scheme (Willot/HEX8R)."""
 
@@ -247,7 +248,6 @@ class RotatedDifference(DiagonalScheme):
         return 2 * iota * jnp.tan(xi * dx / 2) * factor / dx
 
 
-@jax.tree_util.register_pytree_node_class
 class FourthOrderCentralDifference(DiagonalScheme):
     """Implements the fourth order difference scheme."""
 
@@ -257,7 +257,6 @@ class FourthOrderCentralDifference(DiagonalScheme):
         )
 
 
-@jax.tree_util.register_pytree_node_class
 class SixthOrderCentralDifference(DiagonalScheme):
     """Implements the sixth order difference scheme."""
 
@@ -269,7 +268,6 @@ class SixthOrderCentralDifference(DiagonalScheme):
         )
 
 
-@jax.tree_util.register_pytree_node_class
 class EighthOrderCentralDifference(DiagonalScheme):
     """Implements the eighth order difference scheme."""
 

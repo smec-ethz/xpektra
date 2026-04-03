@@ -20,12 +20,11 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_platforms", "cpu")
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
-import equinox as eqx
+from soldis.linear import CG
+from soldis.newton import NewtonSolver, NewtonSolverOptions
 
 # %% [markdown]
 #
@@ -33,24 +32,18 @@ import equinox as eqx
 #
 # We import the necessary modules and set up the environment. The module `xpektra` contains the operators and solvers for the Fourier-Galerkin method. We import the `SpectralSpace`, `TensorOperator`, `make_field`, `RotatedDifference`, `Fourier`, `ForwardDifference`, `GalerkinProjection`, `conjugate_gradient_while`, and `newton_krylov_solver` modules to create the operators and solvers.
 #
-
 # %%
 from xpektra import (
     SpectralSpace,
     make_field,
 )
-from xpektra.scheme import RotatedDifference
 from xpektra.projection_operator import GalerkinProjection
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient_while,
-    newton_krylov_solver,
-)
-from xpektra.transform import FFTTransform
+from xpektra.scheme import RotatedDifference
 from xpektra.spectral_operator import SpectralOperator
-
+from xpektra.transform import FFTTransform
 
 # %% [markdown]
-# To simplify the execution of the code, we define a `ElasticityOperator` class that contains the Fourier-Galerkin operator, the spatial operators, the tensor operators, and the FFT and IFFT operators. The `__init__` method initializes the operator and the `__call__` method computes the stresses in the real space given as 
+# To simplify the execution of the code, we define a `ElasticityOperator` class that contains the Fourier-Galerkin operator, the spatial operators, the tensor operators, and the FFT and IFFT operators. The `__init__` method initializes the operator and the `__call__` method computes the stresses in the real space given as
 #
 # $$
 # \mathcal{F}^{-1} \left( \mathbb{G}:\mathcal{F}(\mathbf{\sigma}) \right) = \mathbf{0}
@@ -68,8 +61,8 @@ ly = 1.0
 
 
 # Create phase indicator (cylinder)
-x = np.linspace(-lx/2, lx/2, Nx)
-y = np.linspace(-ly/2, ly/2, Ny)
+x = np.linspace(-lx / 2, lx / 2, Nx)
+y = np.linspace(-ly / 2, ly / 2, Ny)
 
 
 if ndim == 3:
@@ -87,14 +80,13 @@ else:
 # space = SpectralSpace(size=N, dim=ndim, length=length)
 
 fft_transform = FFTTransform(dim=ndim)
-space = SpectralSpace(
-    lengths=(lx, ly), shape=phase.shape, transform=fft_transform
-)
+space = SpectralSpace(lengths=(lx, ly), shape=phase.shape, transform=fft_transform)
 rotated_scheme = RotatedDifference(space=space)
 
 op = SpectralOperator(
     scheme=rotated_scheme,
     space=space,
+    projection=GalerkinProjection(),
 )
 
 # %% [markdown]
@@ -109,7 +101,7 @@ mu = mu1 * (1.0 - phase) + mu2 * phase
 
 
 # %% [markdown]
-# The linear elasticity strain energy is given as 
+# The linear elasticity strain energy is given as
 #
 # $$
 # W = \frac{1}{2} \int_{\Omega}  (\lambda \text{tr}(\epsilon)^2+ \mu \text{tr}(\epsilon : \epsilon ) ) d\Omega
@@ -121,7 +113,7 @@ mu = mu1 * (1.0 - phase) + mu2 * phase
 dofs_shape = make_field(dim=ndim, shape=phase.shape, rank=2).shape
 
 
-@eqx.filter_jit
+@jax.jit
 def strain_energy(eps_flat: Array) -> Array:
     eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + op.trans(eps))
@@ -130,46 +122,32 @@ def strain_energy(eps_flat: Array) -> Array:
     )
     return energy.sum()
 
+
 compute_stress = jax.jacrev(strain_energy)
 
 
 # %%
-Ghat = GalerkinProjection(scheme=rotated_scheme)
+@jax.jit
+def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
+    """
+    This makes instances of this class behave like a function.
+    It takes only the flattened vector of unknowns, as required by the solver.
+    """
+    eps_fluc = eps_fluc_flat.reshape(dofs_shape)
+    eps_macro = jnp.zeros(dofs_shape)
+    eps_macro = eps_macro.at[:, :, 0, 0].set(macro_strain)
+    eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain)
+    eps_total = eps_fluc + eps_macro
+
+    sigma = compute_stress(eps_total)
+    residual_field = op.inverse(op.project(op.forward(sigma.reshape(dofs_shape))))
+    return jnp.real(residual_field).reshape(-1)
 
 
-# %%
-class Residual(eqx.Module):
-    """A callable module that computes the residual vector."""
+def jac_fn(x: Array, macro_strain: Array) -> Array:
 
-    Ghat: Array
-    dofs_shape: tuple = eqx.field(static=True)
-
-    # We can even pre-define the stress function if it's always the same
-    # For this example, we'll keep your original `compute_stress` function
-    # available in the global scope.
-
-    @eqx.filter_jit
-    def __call__(self, eps_flat: Array) -> Array:
-        """
-        This makes instances of this class behave like a function.
-        It takes only the flattened vector of unknowns, as required by the solver.
-        """
-        eps_flat = eps_flat.reshape(-1)
-        sigma = compute_stress(eps_flat)
-        residual_field = op.inverse(
-            Ghat.project(op.forward(sigma.reshape(self.dofs_shape)))
-        )
-        return jnp.real(residual_field).reshape(-1)
-
-
-class Jacobian(eqx.Module):
-    """A callable module that represents the Jacobian operator (tangent)."""
-
-    Ghat: Array
-    dofs_shape: tuple = eqx.field(static=True)
-
-    @eqx.filter_jit
-    def __call__(self, deps_flat: Array) -> Array:
+    @jax.jit
+    def mv(deps_flat: Array) -> Array:
         """
         The Jacobian is a linear operator, so its __call__ method
         represents the Jacobian-vector product.
@@ -177,63 +155,60 @@ class Jacobian(eqx.Module):
 
         deps_flat = deps_flat.reshape(-1)
         dsigma = compute_stress(deps_flat)
-        jvp_field = op.inverse(
-            Ghat.project(op.forward(dsigma.reshape(self.dofs_shape)))
-        )
+        jvp_field = op.inverse(op.project(op.forward(dsigma.reshape(dofs_shape))))
         return jnp.real(jvp_field).reshape(-1)
+
+    return mv
+
+
+solver = NewtonSolver(
+    residual_fn,
+    jac=jac_fn,
+    lin_solver=CG(),
+    options=NewtonSolverOptions(tol=1e-8, maxiter=20, verbose=True),
+)
 
 
 # %%
 applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
-
-deps = make_field(dim=2, shape=phase.shape, rank=2)
-eps = make_field(dim=2, shape=phase.shape, rank=2)
-
-residual_fn = Residual(Ghat=Ghat, dofs_shape=eps.shape)
-jacobian_fn = Jacobian(Ghat=Ghat, dofs_shape=eps.shape)
-
+eps_fluc_init = make_field(dim=2, shape=phase.shape, rank=2)
 
 # %%
 
-for inc, deps_avg in enumerate(applied_strains):
+for inc, macro_strain in enumerate(applied_strains):
     # solving for elasticity
-    deps[:, :, 0, 0] = deps_avg
-    deps[:, :, 1, 1] = deps_avg
+    state = solver.root(eps_fluc_init.reshape(-1), macro_strain)
+    deps_fluc = state.value.reshape(dofs_shape)
+    # update fluctuation strain
+    eps_fluc = eps_fluc_init + deps_fluc.reshape(dofs_shape)
 
-    b = -residual_fn(deps)
-    eps = eps + deps
+    # update initial guess for next increment
+    eps_fluc_init = eps_fluc
 
-    final_state = newton_krylov_solver(
-        state=(deps, b, eps),
-        gradient=residual_fn,
-        jacobian=jacobian_fn,
-        tol=1e-8,
-        max_iter=20,
-        krylov_solver=conjugate_gradient_while,
-        krylov_tol=1e-8,
-        krylov_max_iter=20,
-    )
-    eps = final_state[2]
+    # total strain
+    eps = eps_fluc + jnp.eye(2)[None, None, :, :] * macro_strain
 
-eps = final_state[2].reshape(dofs_shape)
-sig = compute_stress(final_state[2]).reshape(dofs_shape)
+sig = compute_stress(eps)
 
 
 # %%
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3), layout="constrained")
 cb1 = ax1.imshow(sig.at[:, :, 0, 0].get(), cmap="managua_r")
 divider = make_axes_locatable(ax1)
 cax = divider.append_axes("top", size="10%", pad=0.2)
-fig.colorbar(cb1, cax=cax, label=r"$\sigma_{xx}$", orientation="horizontal", location="top")
+fig.colorbar(
+    cb1, cax=cax, label=r"$\sigma_{xx}$", orientation="horizontal", location="top"
+)
 
 cb2 = ax2.imshow(eps.at[:, :, 0, 1].get(), cmap="managua_r")
 divider = make_axes_locatable(ax2)
 cax = divider.append_axes("top", size="10%", pad=0.2)
-fig.colorbar(cb2, cax=cax, label=r"$\varepsilon_{xy}$", orientation="horizontal", location="top")
+fig.colorbar(
+    cb2, cax=cax, label=r"$\varepsilon_{xy}$", orientation="horizontal", location="top"
+)
 
 ax3.plot(sig.at[:, :, 0, 0].get()[int(Nx / 2), :])
 ax_twin = ax3.twinx()

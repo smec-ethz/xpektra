@@ -14,7 +14,11 @@ from xpektra.scheme import (
     SixthOrderCentralDifference,
     EighthOrderCentralDifference,
 )
-from xpektra.projection_operator import GalerkinProjection, MoulinecSuquetProjection
+from xpektra.projection_operator import (
+    GalerkinProjection,
+    MoulinecSuquetProjection,
+    ProjectionOperator,
+)
 
 
 def make_field(

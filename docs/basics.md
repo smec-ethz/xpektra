@@ -152,9 +152,8 @@ Used for the classic fixed-point scheme with a reference material ($\mathbb{C}_0
 from xpektra.projection_operator import MoulinecSuquetProjection
 
 # Build with reference material properties
-ms_proj = MoulinecSuquetProjection(
-    scheme=scheme, 
-    lambda0=100.0, 
-    mu0=25.0
-)
+ms_proj = MoulinecSuquetProjection(lambda0=100.0, mu0=25.0)
+
+# Attach to SpectralOperator (triggers precomputation automatically)
+op = SpectralOperator(scheme=scheme, space=space, projection=ms_proj)
 ```
