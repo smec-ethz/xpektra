@@ -27,8 +27,6 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-jax.config.update("jax_platforms", "cpu")
 import time
 
 import equinox as eqx
@@ -38,16 +36,19 @@ import numpy as np
 from jax import Array
 from jax_autovmap import autovmap
 from skimage.morphology import disk
+from soldis.linear import CG
+from soldis.newton import NewtonSolver, NewtonSolverOptions
 from tatva import Mesh, Operator, element
 from tatva.plotting import plot_nodal_values
 
-from xpektra import FFTTransform, SpectralOperator, SpectralSpace, make_field
-from xpektra.projection_operator import GalerkinProjection
-from xpektra.scheme import RotatedDifference
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient,
-    newton_krylov_solver,
+from xpektra import (
+    FFTTransform,
+    GalerkinProjection,
+    SpectralOperator,
+    SpectralSpace,
+    make_field,
 )
+from xpektra.scheme import RotatedDifference
 
 # %% [markdown]
 # ## Defining the macroscale problem using Finite Element Method
@@ -140,11 +141,9 @@ diff_scheme = RotatedDifference(space=space)
 spec_op = SpectralOperator(
     scheme=diff_scheme,
     space=space,
+    projection=GalerkinProjection(),
 )
-
 dofs_shape = make_field(dim=2, shape=structure.shape, rank=2).shape
-
-Ghat = GalerkinProjection(scheme=diff_scheme)
 
 
 # %% [markdown]
@@ -169,7 +168,7 @@ class RVEMaterial(eqx.Module):
     lmbda: Array
     dofs_shape: tuple = eqx.field(static=True)
 
-    @eqx.filter_jit
+    @jax.jit
     def compute_strain_energy(self, eps_flat: Array) -> Array:
         eps = eps_flat.reshape(self.dofs_shape)
         eps_sym = 0.5 * (eps + spec_op.trans(eps))
@@ -178,11 +177,11 @@ class RVEMaterial(eqx.Module):
         ) + jnp.multiply(self.mu, spec_op.trace(spec_op.dot(eps_sym, eps_sym)))
         return energy.sum()
 
-    @eqx.filter_jit
+    @jax.jit
     def compute_rve_stress(self, eps_flat: Array) -> Array:
         return jax.jacrev(self.compute_strain_energy)(eps_flat)
 
-    @eqx.filter_jit
+    @jax.jit
     def jacobian(self, eps_flat: Array) -> Array:
         """
         This makes instances of this class behave like a function.
@@ -191,11 +190,11 @@ class RVEMaterial(eqx.Module):
         eps_flat = eps_flat.reshape(-1)
         sigma = self.compute_rve_stress(eps_flat)
         residual_field = spec_op.inverse(
-            Ghat.project(spec_op.forward(sigma.reshape(self.dofs_shape)))
+            spec_op.project(spec_op.forward(sigma.reshape(self.dofs_shape)))
         )
         return jnp.real(residual_field).reshape(-1)
 
-    @eqx.filter_jit
+    @jax.jit
     def hessian(self, deps_flat: Array) -> Array:
         """
         The Jacobian is a linear operator, so its __call__ method
@@ -205,34 +204,28 @@ class RVEMaterial(eqx.Module):
         deps_flat = deps_flat.reshape(-1)
         dsigma = self.compute_rve_stress(deps_flat)
         jvp_field = spec_op.inverse(
-            Ghat.project(spec_op.forward(dsigma.reshape(self.dofs_shape)))
+            spec_op.project(spec_op.forward(dsigma.reshape(self.dofs_shape)))
         )
         return jnp.real(jvp_field).reshape(-1)
 
-    # @partial(jax.checkpoint, static_argnums=(0,))
-    @eqx.filter_jit
+    @jax.jit
     def compute_macro_stress(self, macro_strain):
         # set macroscopic loading
-        DE = jnp.array(make_field(dim=2, shape=structure.shape, rank=2))
-        DE = DE.at[:, :, 0, 0].set(macro_strain[0, 0])
-        DE = DE.at[:, :, 1, 1].set(macro_strain[1, 1])
-        DE = DE.at[:, :, 0, 1].set(macro_strain[0, 1])
-        DE = DE.at[:, :, 1, 0].set(macro_strain[1, 0])
+        eps_init = jnp.array(make_field(dim=2, shape=structure.shape, rank=2))
 
-        # initial residual: distribute "DE" over grid using "K4"
-        b = -self.jacobian(DE)
+        # solve for the fluctuation strain field, the residual is the
+        # right hand side is defined based on the initial guess
+        state = solver.root(eps_init.reshape(-1), macro_strain)
+        eps_fluc = state.value.reshape(dofs_shape)
 
-        eps = newton_krylov_solver(
-            x=DE,
-            b=b,
-            gradient=self.jacobian,
-            jacobian=self.hessian,
-            tol=1e-8,
-            max_iter=20,
-            krylov_solver=conjugate_gradient,
-            krylov_tol=1e-8,
-            krylov_max_iter=20,
-        )
+        # compute the actual micro strain field
+        # eps fluctuation is added to the initial guess
+        eps_macro = eps_init.at[:, :, 0, 0].set(macro_strain[0])
+        eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain[1])
+        eps_macro = eps_macro.at[:, :, 0, 1].set(macro_strain[2] / 2.0)
+        eps_macro = eps_macro.at[:, :, 1, 0].set(macro_strain[2] / 2.0)
+
+        eps = eps_fluc + eps_macro
 
         rve_sig = self.compute_rve_stress(eps)
 
@@ -306,11 +299,13 @@ def total_energy(u_flat):
 
 gradient = jax.jacrev(total_energy)
 
-@eqx.filter_jit
+
+@jax.jit
 def compute_gradient(u):
     u_flat = u.reshape(-1)
     grad = gradient(u_flat)
     return grad, grad
+
 
 gradient_with_hessian = jax.jacfwd(compute_gradient, has_aux=True)
 
@@ -329,6 +324,8 @@ fixed_dofs = jnp.concatenate(
         2 * right_nodes,
     ]
 )
+
+
 prescribed_values = jnp.zeros(n_dofs).at[2 * right_nodes].set(0.3)
 free_dofs = jnp.setdiff1d(jnp.arange(n_dofs), fixed_dofs)
 
@@ -363,7 +360,7 @@ def newton_solver(
 
         print("assembling linear system")
 
-        #K = hessian(u)
+        # K = hessian(u)
         K_lifted = K.at[jnp.ix_(free_dofs, fixed_dofs)].set(0.0)
         K_lifted = K_lifted.at[jnp.ix_(fixed_dofs, free_dofs)].set(0.0)
         K_lifted = K_lifted.at[jnp.ix_(fixed_dofs, fixed_dofs)].set(

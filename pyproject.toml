@@ -1,7 +1,7 @@
 [project]
 name = "xpektra"
 version = "0.3.3"
-description = "Functional programming and differentiable framework for spectral methods"
+description = "Differentiable framework for spectral methods"
 authors = [
     { name = "Mohit Pundir", email = "mpundir@ethz.ch" },
 ]
@@ -18,7 +18,6 @@ dependencies = [
     "equinox >=0.13.0",
     "numpy",
     "scipy",
-    "soldis",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +30,7 @@ examples = [
     "tatva",
     "optimistix>=0.0.11",
     "cmap>=0.6.2",
+    "soldis",
 ]
 dev = [
     "pytest>=8.4.2",

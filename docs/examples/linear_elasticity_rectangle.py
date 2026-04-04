@@ -17,6 +17,8 @@
 # This tutorial used Fourier-Galerkin method to solve a linear elasticity problem of a circular inclusion in a square matrix. The inclusion is a material with a different elastic properties than the matrix.
 
 # %%
+from tokenize import STAR
+
 import jax
 
 jax.config.update("jax_enable_x64", True)  # use double-precision
@@ -114,7 +116,7 @@ dofs_shape = make_field(dim=ndim, shape=phase.shape, rank=2).shape
 
 
 @jax.jit
-def strain_energy(eps_flat: Array) -> Array:
+def strain_energy(eps_flat: Array, op: SpectralOperator) -> Array:
     eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + op.trans(eps))
     energy = 0.5 * jnp.multiply(lambdas, op.trace(eps_sym) ** 2) + jnp.multiply(
@@ -128,7 +130,9 @@ compute_stress = jax.jacrev(strain_energy)
 
 # %%
 @jax.jit
-def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
+def residual_fn(
+    eps_fluc_flat: Array, macro_strain: Array, op: SpectralOperator
+) -> Array:
     """
     This makes instances of this class behave like a function.
     It takes only the flattened vector of unknowns, as required by the solver.
@@ -139,12 +143,12 @@ def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain)
     eps_total = eps_fluc + eps_macro
 
-    sigma = compute_stress(eps_total)
+    sigma = compute_stress(eps_total, op)
     residual_field = op.inverse(op.project(op.forward(sigma.reshape(dofs_shape))))
     return jnp.real(residual_field).reshape(-1)
 
 
-def jac_fn(x: Array, macro_strain: Array) -> Array:
+def jac_fn(x: Array, macro_strain: Array, op: SpectralOperator) -> Array:
 
     @jax.jit
     def mv(deps_flat: Array) -> Array:
@@ -154,7 +158,7 @@ def jac_fn(x: Array, macro_strain: Array) -> Array:
         """
 
         deps_flat = deps_flat.reshape(-1)
-        dsigma = compute_stress(deps_flat)
+        dsigma = compute_stress(deps_flat, op)
         jvp_field = op.inverse(op.project(op.forward(dsigma.reshape(dofs_shape))))
         return jnp.real(jvp_field).reshape(-1)
 
@@ -174,10 +178,12 @@ applied_strains = jnp.diff(jnp.linspace(0, 1e-2, num=5))
 eps_fluc_init = make_field(dim=2, shape=phase.shape, rank=2)
 
 # %%
+import time
 
 for inc, macro_strain in enumerate(applied_strains):
     # solving for elasticity
-    state = solver.root(eps_fluc_init.reshape(-1), macro_strain)
+
+    state = solver.root(eps_fluc_init.reshape(-1), macro_strain, op)
     deps_fluc = state.value.reshape(dofs_shape)
     # update fluctuation strain
     eps_fluc = eps_fluc_init + deps_fluc.reshape(dofs_shape)
@@ -188,7 +194,7 @@ for inc, macro_strain in enumerate(applied_strains):
     # total strain
     eps = eps_fluc + jnp.eye(2)[None, None, :, :] * macro_strain
 
-sig = compute_stress(eps)
+sig = compute_stress(eps, op)
 
 
 # %%
