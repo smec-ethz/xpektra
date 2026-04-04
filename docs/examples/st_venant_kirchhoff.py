@@ -146,26 +146,22 @@ solver = NewtonSolver(
 )
 
 # %%
-applied_strains = jnp.diff(jnp.linspace(0, 0.1, num=6))
+macro_strain_levels = jnp.linspace(0, 0.1, num=6)[1:]  # cumulative macro strains
 F_fluc_init = jnp.array(make_field(dim=ndim, shape=structure.shape, rank=2))
 F_fluc_init = F_fluc_init.at[:, :, 0, 0].set(1.0)
 F_fluc_init = F_fluc_init.at[:, :, 1, 1].set(1.0)
 
-
-for inc, macro_defo in enumerate(applied_strains):
-    state = solver.root(F_fluc_init.reshape(-1), macro_defo)
-    dF_fluc = state.value.reshape(dofs_shape)
-
-    F_fluc = (
-        F_fluc_init + dF_fluc.reshape(dofs_shape) - jnp.eye(ndim)[None, None, :, :]
-    )  # remove identity part
-    F_fluc_init = F_fluc
-
-    F = F_fluc + jnp.eye(ndim)[None, None, :, :] * (macro_defo)
+for inc, macro_strain in enumerate(macro_strain_levels):
+    state = solver.root(F_fluc_init.reshape(-1), macro_strain)
+    F_fluc = state.value.reshape(dofs_shape)
+    F_fluc_init = F_fluc  # use solution as initial guess for next step
 
     print(f"Increment {inc}: converged={state.converged}, iterations={state.iteration}")
 
-
+F_macro = jnp.zeros(dofs_shape)
+F_macro = F_macro.at[:, :, 0, 0].set(macro_strain_levels[-1])
+F_macro = F_macro.at[:, :, 1, 1].set(macro_strain_levels[-1])
+F = F_fluc + F_macro
 P = compute_stress(F.reshape(-1)).reshape(dofs_shape)
 
 
