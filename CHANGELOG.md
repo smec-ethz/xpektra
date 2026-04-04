@@ -4,6 +4,22 @@
 
 - removes tatva as tool (42db8f7)
 
+## [0.4.0](https://github.com/smec-ethz/xpektra/compare/v0.3.3...v0.4.0) (2026-04-04)
+
+
+### Features
+
+* single operator as entry point, examples now use soldis as solver ([4847be4](https://github.com/smec-ethz/xpektra/commit/4847be4159ea60e36582b4b1ca43d4093ca39f51))
+
+
+### Bug Fixes
+
+* add hyperelastic example, remove example on Gent ([80c1d9c](https://github.com/smec-ethz/xpektra/commit/80c1d9c739051613aa64630b1bb839ed988f4971))
+* move soldis as example dependency ([4652f54](https://github.com/smec-ethz/xpektra/commit/4652f54bf42a487d604095e687f8aab21e87a9cc))
+* removing equinox dependency from the core modules ([7919e7c](https://github.com/smec-ethz/xpektra/commit/7919e7c81c720c1feea5a269637c4642e7d8e535))
+* **tests:** adds more test suite ([18e0deb](https://github.com/smec-ethz/xpektra/commit/18e0deb423b19fcb629a1775e1e307a5b7a2cc76))
+* update linear elastic example, add tests for schemes ([afbcaeb](https://github.com/smec-ethz/xpektra/commit/afbcaeb6050aaa32bee4a73ea57a714f3d890eba))
+
 ## v0.3.2 (2025-12-02)
 
 ### Fix
