@@ -172,7 +172,7 @@ dofs_shape = make_field(dim=ndim, shape=structure.shape, rank=2).shape
 
 # %%
 @jax.jit
-def strain_energy(eps_flat: Array) -> Array:
+def strain_energy(eps_flat: Array, op: SpectralOperator) -> Array:
     eps = eps_flat.reshape(dofs_shape)
     eps_sym = 0.5 * (eps + op.trans(eps))
     energy = 0.5 * jnp.multiply(λ0, op.trace(eps_sym) ** 2) + jnp.multiply(
@@ -186,7 +186,9 @@ compute_stress = jax.jacrev(strain_energy)
 
 # %%
 @jax.jit
-def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
+def residual_fn(
+    eps_fluc_flat: Array, macro_strain: Array, op: SpectralOperator
+) -> Array:
     """
     This makes instances of this class behave like a function.
     It takes only the flattened vector of unknowns, as required by the solver.
@@ -196,20 +198,20 @@ def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     eps_macro = eps_macro.at[..., 0, 0].set(macro_strain)
     eps_total = eps_fluc + eps_macro
 
-    sigma = compute_stress(eps_total)  # Assumes compute_stress is defined elsewhere
+    sigma = compute_stress(eps_total, op)  # Assumes compute_stress is defined elsewhere
 
     residual_field = op.inverse(op.project(op.forward(sigma.reshape(dofs_shape))))
     return jnp.real(residual_field).reshape(-1)
 
 
-def jac_fn(x: Array, macro_strain: Array) -> Array:
+def jac_fn(x: Array, macro_strain: Array, op: SpectralOperator) -> Array:
 
     @jax.jit
     def mv(dx: Array) -> Array:
         eps_macro = jnp.zeros(dofs_shape)
         eps_macro = eps_macro.at[..., 0, 0].set(macro_strain)
         x_total = x + eps_macro.reshape(-1)
-        dsigma = jax.jvp(compute_stress, (x_total,), (dx,))[1]
+        dsigma = jax.jvp(compute_stress, (x_total, op), (dx, op))[1]
         jvp_field = op.inverse(op.project(op.forward(dsigma.reshape(dofs_shape))))
         return jnp.real(jvp_field).reshape(-1)
 
@@ -220,7 +222,7 @@ solver = NewtonSolver(
     residual_fn,
     jac=jac_fn,
     lin_solver=CG(),
-    options=NewtonSolverOptions(tol=1e-8, maxiter=20, verbose=True),
+    options=NewtonSolverOptions(tol=1e-8, maxiter=10, verbose=True),
 )
 
 
@@ -235,7 +237,7 @@ eps_fluc_init = make_field(dim=ndim, shape=structure.shape, rank=2)
 for inc, macro_strain in enumerate(applied_strains):
     # solving for elasticity
 
-    state = solver.root(eps_fluc_init.reshape(-1), macro_strain)
+    state = solver.root(eps_fluc_init.reshape(-1), macro_strain, op)
     deps_fluc = state.value.reshape(dofs_shape)
     # update fluctuation strain
     eps_fluc = eps_fluc_init + deps_fluc.reshape(dofs_shape)
@@ -247,7 +249,7 @@ for inc, macro_strain in enumerate(applied_strains):
     eps = eps_fluc + jnp.eye(ndim)[None, None, :, :] * macro_strain
 
 
-sig = compute_stress(eps).reshape(dofs_shape)
+sig = compute_stress(eps, op).reshape(dofs_shape)
 
 
 # %% [markdown]
