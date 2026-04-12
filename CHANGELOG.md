@@ -4,6 +4,13 @@
 
 - removes tatva as tool (42db8f7)
 
+## [0.4.1](https://github.com/smec-ethz/xpektra/compare/v0.4.0...v0.4.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* make soldis, tatva as example dependency ([daac7c5](https://github.com/smec-ethz/xpektra/commit/daac7c56b8c743bdfeb95f1ca4c4be92a26cac29))
+
 ## [0.4.0](https://github.com/smec-ethz/xpektra/compare/v0.3.3...v0.4.0) (2026-04-04)
 
 
