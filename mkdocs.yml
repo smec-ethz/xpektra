@@ -24,13 +24,13 @@ theme:
   palette:
     - scheme: default
       primary: white
-      accent: amber
+      accent: deep purple
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - scheme: slate
       primary: black
-      accent: amber
+      accent: cyan
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
@@ -110,19 +110,19 @@ nav:
       - "extensibility.md"
   - Examples:
       - Fourier-Galerkin:
-          - "examples/linear_elasticity.ipynb"
-          - "examples/st_venant_kirchhoff.ipynb"
-          - "examples/j2_plasticity.ipynb"
-          - "examples/multiphase_material.ipynb"
+          - "linear_elasticity.md"
+          - "st_venant_kirchhoff.md"
+          - "j2_plasticity.md"
+          - "multiphase_material.md"
       - Moulinec-Suquet:
-          - "examples/moulinec_suquet.ipynb"
-          - "examples/moulinec_suquet_newton_krylov.ipynb"
+          - "moulinec_suquet.md"
+          - "moulinec_suquet_newton_krylov.md"
       - Displacement-based FFT:
-          - "examples/displacement_based_fft.ipynb"
-      - "examples/differential_operator.ipynb"
-      - "examples/phasefield_localization_1D.ipynb"
-      - "examples/computational_homogenization.ipynb"
-      - "examples/multiscale.ipynb"
+          - "displacement_based_fft.md"
+      - "differential_operator.md"
+      - "phasefield_localization_1D.md"
+      - "computational_homogenization.md"
+      - "multiscale.md"
   - API Reference:
       - "api/projection_operators.md"
       - "api/scheme_api.md"
