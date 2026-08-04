@@ -18,31 +18,31 @@
 # In this tutorial, we will solve a linear elasticity problem using Moulinec-Suquet's Green's operator but recasted the Lippmann-Schwinger equation as a Newton-Krylov solver.
 
 # %%
+from collections.abc import Callable
+from functools import partial
+
 import jax
-
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_platforms", "cpu")
-
-import equinox as eqx
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 from jax import Array
 
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+jax.config.update("jax_enable_x64", True)  # use double-precision
+jax.config.update("jax_platforms", "cpu")
+
 # %%
+from soldis.linear import CG
+from soldis.newton import NewtonSolver, NewtonSolverOptions
+from xpektra.scheme import FourierScheme
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.transform import FFTTransform
+
 from xpektra import (
     MoulinecSuquetProjection,
     SpectralSpace,
     make_field,
 )
-from xpektra.scheme import FourierScheme
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    conjugate_gradient,
-    newton_krylov_solver,
-)
-from xpektra.spectral_operator import SpectralOperator
-from xpektra.transform import FFTTransform
 
 # %% [markdown]
 # Let us start by defining the RVE geometry. We will consider a 2D square RVE with a circular inclusion.
@@ -105,8 +105,13 @@ op = SpectralOperator(
 
 
 # %%
-@eqx.filter_jit
-def _strain_energy(eps: Array, lambdas: Array, mu: Array) -> Array:
+dofs_shape = make_field(dim=ndim, shape=phase.shape, rank=2).shape
+
+
+@jax.jit
+def _strain_energy(eps_flat: Array, lambdas: Array, mu: Array) -> Array:
+    eps = eps_flat.reshape(dofs_shape)
+
     eps_sym = 0.5 * (eps + op.trans(eps))
     energy = 0.5 * jnp.multiply(lambdas, op.trace(eps_sym) ** 2) + jnp.multiply(
         mu, op.trace(op.dot(eps_sym, eps_sym))
@@ -124,8 +129,8 @@ def _strain_energy(eps: Array, lambdas: Array, mu: Array) -> Array:
 lambda0 = (lambda1 + lambda2) / 2.0
 mu0 = (mu1 + mu2) / 2.0
 
-material_energy = eqx.Partial(_strain_energy, lambdas=lambdas, mu=mu)
-reference_energy = eqx.Partial(_strain_energy, lambdas=lambda0, mu=mu0)
+material_energy = jax.jit(partial(_strain_energy, lambdas=lambdas, mu=mu))
+reference_energy = jax.jit(partial(_strain_energy, lambdas=lambda0, mu=mu0))
 
 compute_stress = jax.jacrev(material_energy)
 compute_reference_stress = jax.jacrev(reference_energy)
@@ -166,84 +171,65 @@ op = SpectralOperator(
 
 
 # %%
-class Residual(eqx.Module):
-    """A callable module that computes the residual vector."""
-
-    dofs_shape: tuple = eqx.field(static=True)
-
-    @eqx.filter_jit
-    def __call__(self, eps_flat: Array, eps_macro: Array) -> Array:
-        """
-        This makes instances of this class behave like a function.
-        It takes only the flattened vector of unknowns, as required by the solver.
-        """
-        eps = eps_flat.reshape(self.dofs_shape)
-        sigma = compute_stress(eps)
-        sigma0 = compute_reference_stress(eps)
-        tau = sigma - sigma0
-        eps_fluc = op.inverse(op.project(op.forward(tau)))
-
-        residual_field = eps - eps_macro + jnp.real(eps_fluc)
-
-        return residual_field.reshape(-1)
 
 
-class Jacobian(eqx.Module):
-    """A callable module that represents the Jacobian operator (tangent)."""
+@jax.jit
+def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
+    """
+    This makes instances of this class behave like a function.
+    It takes only the flattened vector of unknowns, as required by the solver.
+    """
+    eps_fluc = eps_fluc_flat.reshape(dofs_shape)
+    eps_macro = jnp.zeros(dofs_shape)
+    eps_macro = eps_macro.at[:, :, 0, 0].set(macro_strain)
+    eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain)
+    eps_total = eps_fluc + eps_macro
+    sigma = compute_stress(eps_total.reshape(-1))
+    residual_field = op.inverse(op.project(op.forward(sigma.reshape(dofs_shape))))
+    return jnp.real(residual_field).reshape(-1)
 
-    dofs_shape: tuple = eqx.field(static=True)
 
-    @eqx.filter_jit
-    def __call__(self, deps_flat: Array) -> Array:
-        """
-        The Jacobian is a linear operator, so its __call__ method
-        represents the Jacobian-vector product.
-        """
+def jac_fn(x: Array, macro_strain: Array) -> Callable[[Array], Array]:
 
-        deps = deps_flat.reshape(self.dofs_shape)
+    @jax.jit
+    def mv(dx: Array) -> Array:
+        eps_macro = jnp.zeros(dofs_shape)
+        eps_macro = eps_macro.at[:, :, 0, 0].set(macro_strain)
+        eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain)
+        x_total = x + eps_macro.reshape(-1)
+        dsigma = jax.jvp(compute_stress, (x_total,), (dx,))[1]
+        jvp_field = op.inverse(op.project(op.forward(dsigma.reshape(dofs_shape))))
+        return jnp.real(jvp_field).reshape(-1)
 
-        dsigma = compute_stress(deps)
-        dsigma0 = compute_reference_stress(deps)
-        dtau = dsigma - dsigma0
-        jvp_field = op.inverse(op.project(op.forward(dtau)))
-        jvp_field = jnp.real(jvp_field) + deps
-        return jvp_field.reshape(-1)
+    return mv
 
 
 # %%
 applied_strains = jnp.linspace(0, 1e-2, num=5)
+eps_fluc_init = make_field(dim=2, shape=phase.shape, rank=2)
 
-eps = make_field(dim=2, shape=(N, N), rank=2)
-deps = make_field(dim=2, shape=(N, N), rank=2)
-eps_macro = make_field(dim=2, shape=(N, N), rank=2)
+solver = NewtonSolver(
+    residual_fn,
+    jac=jac_fn,
+    lin_solver=CG(),
+    options=NewtonSolverOptions(tol=1e-8, maxiter=20, verbose=True),
+)
 
-residual_fn = Residual(dofs_shape=eps.shape)
-jacobian_fn = Jacobian(dofs_shape=eps.shape)
 
+for inc, macro_strain in enumerate(applied_strains):
+    state = solver.root(eps_fluc_init.reshape(-1), macro_strain)
+    deps_fluc = state.value.reshape(dofs_shape)
+    # update fluctuation strain
+    eps_fluc = eps_fluc_init + deps_fluc.reshape(dofs_shape)
 
-for inc, eps_avg in enumerate(applied_strains):
-    # solving for elasticity
-    eps_macro[:, :, 0, 0] = eps_avg
-    eps_macro[:, :, 1, 1] = eps_avg
+    # update initial guess for next increment
+    eps_fluc_init = eps_fluc
 
-    residual_partial = eqx.Partial(residual_fn, eps_macro=eps_macro)
+    # total strain
+    eps = eps_fluc + jnp.eye(2)[None, None, :, :] * macro_strain
 
-    b = -residual_partial(eps)
-    # eps = eps + deps
+sig = compute_stress(eps)
 
-    final_state = newton_krylov_solver(
-        state=(deps, b, eps),
-        gradient=residual_partial,
-        jacobian=jacobian_fn,
-        tol=1e-8,
-        max_iter=20,
-        krylov_solver=conjugate_gradient_while,
-        krylov_tol=1e-8,
-        krylov_max_iter=20,
-    )
-    eps = final_state[2]
-
-sig = compute_stress(final_state[2])
 
 # %%
 from mpl_toolkits.axes_grid1 import make_axes_locatable

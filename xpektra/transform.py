@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import jax
 import jax.numpy as jnp
 from jax import Array
-from jax.scipy.fft import dctn, idctn  # noqa: F401
+from jax.sharding import PartitionSpec as P
 
 
 @jax.tree_util.register_dataclass
@@ -99,39 +99,35 @@ class FFTTransform(Transform):
         return freqs * 2 * jnp.pi
 
 
-'''
-class DCTTransform(Transform):
-    """
-    The Discrete Cosine Transform (Type-II), using JAX-native functions.
+class SlabFFTTransform2D(FFTTransform):
+    device_mesh: jax.sharding.Mesh
 
-    This transform is fully JIT-compatible and is the correct choice
-    for problems with Neumann (zero-flux) boundary conditions.
-    """
+    def __init__(self, dim: int, device_mesh: jax.sharding.Mesh):
+        self.device_mesh = device_mesh
+        super().__init__(dim)
 
-    size: int = eqx.field(static=True)
-    dim: int = eqx.field(static=True)
-    length: float = eqx.field(static=True)
-    norm: str = eqx.field(static=True, default=None)
+    def forward(self, x):
+        """Forward 2-D FFT. Input sharded on axis 0, output sharded on axis 1."""
 
-    @eqx.filter_jit
-    def forward(self, x: Array) -> Array:
-        """Performs the forward DCT-II."""
-        axes = range(self.dim)
-        # We use type=2 and norm='ortho' to match the standard
-        # definitions used in many physics/math contexts.
-        return dctn(x, type=2, norm=self.norm, axes=axes)
+        @jax.shard_map(
+            out_specs=P(None, "x"), in_specs=P("x", None), mesh=self.device_mesh
+        )
+        def local(xl):
+            xl = jnp.fft.fft(xl, axis=1)  # axis 1 complete -> local
+            xl = jax.lax.all_to_all(xl, "x", split_axis=1, concat_axis=0, tiled=True)
+            return jnp.fft.fft(xl, axis=0)  # axis 0 now complete -> local
 
-    @eqx.filter_jit
-    def backward(self, x_hat: Array) -> Array:
-        """Performs the backward DCT-II (which is the DCT-III)."""
-        axes = range(self.dim)
-        return idctn(x_hat, type=2, norm=self.norm, axes=axes)
+        return local(x)
 
-    def wavenumber_vector(self) -> Array:
-        """
-        Returns the real-valued wavenumbers 'k' for the DCT-II.
+    def inverse(self, x_hat):
+        """Inverse. Input sharded on axis 1, output sharded on axis 0 — exactly reversed."""
 
-        For a DCT-II on N points, the wavenumbers are k = 0, 1, ..., N-1.
-        """
-        return jnp.arange(self.size, dtype=jnp.float64)
-'''
+        @jax.shard_map(
+            out_specs=P("x", None), in_specs=P(None, "x"), mesh=self.device_mesh
+        )
+        def local(xl):
+            xl = jnp.fft.ifft(xl, axis=0)  # axis 0 complete -> local
+            xl = jax.lax.all_to_all(xl, "x", split_axis=0, concat_axis=1, tiled=True)
+            return jnp.fft.ifft(xl, axis=1)
+
+        return local(x_hat)

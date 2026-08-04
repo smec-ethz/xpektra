@@ -28,7 +28,7 @@ class Scheme(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def is_compatible(self, transform) -> bool:
+    def is_compatible(self):
         """
         Checks if the scheme is compatible with the given transform.
         """
@@ -63,7 +63,12 @@ class Scheme(ABC):
         raise NotImplementedError
 
 
-class FiniteDifferenceScheme(Scheme, ABC):
+def _unit_offset(axis: int, dim: int, offset: int) -> tuple[int, ...]:
+    """Helper function to create a unit offset tuple for a given axis."""
+    return tuple(offset if i == axis else 0 for i in range(dim))
+
+
+class FiniteDifferenceScheme(Scheme):
     """
     Base class for schemes operating on a uniform Cartesian grid
     where the differentiation is not diagonal in Fourier space.
@@ -75,6 +80,19 @@ class FiniteDifferenceScheme(Scheme, ABC):
     dim: int
     space: SpectralSpace
     gradient_operator: Array
+
+    def __init__(self, space: SpectralSpace):
+        self.space = space
+        self.dim = len(space.lengths)
+
+        # check compatibility of the scheme
+        self.is_compatible()
+
+        self.gradient_operator = self.compute_gradient_operator(
+            wavenumbers_mesh=space.get_wavenumber_mesh()
+        )
+
+        object.__setattr__(self, "_initialized", True)
 
     def __setattr__(self, name, value):
         """Enforce immutability after initialization.
@@ -92,20 +110,6 @@ class FiniteDifferenceScheme(Scheme, ABC):
         """Automatically register all subclasses as PyTrees."""
         jax.tree_util.register_pytree_node_class(cls)
 
-    def __init__(self, space: SpectralSpace):
-        if not self.is_compatible(space.transform):
-            raise ValueError(
-                "The provided scheme is not compatible with the spectral space's transform."
-            )
-
-        self.space = space
-        self.dim = len(self.space.lengths)
-        wavenumbers_mesh = space.get_wavenumber_mesh()
-        self.gradient_operator = self.compute_gradient_operator(
-            wavenumbers_mesh=wavenumbers_mesh
-        )
-        object.__setattr__(self, "_initialized", True)
-
     def tree_flatten(self):
         children = [self.gradient_operator]
         aux_data = {"dim": self.dim, "space": self.space}
@@ -120,8 +124,11 @@ class FiniteDifferenceScheme(Scheme, ABC):
         object.__setattr__(obj, "_initialized", True)
         return obj
 
-    def is_compatible(self, transform):
-        return isinstance(transform, FFTTransform)
+    def is_compatible(self):
+        if not isinstance(self.space.transform, FFTTransform):
+            raise ValueError(  # noqa: TRY004
+                "FiniteDifferenceScheme is only compatible with FFTTransform."
+            )
 
     @property
     def stencils(self):
@@ -149,8 +156,8 @@ class FiniteDifferenceScheme(Scheme, ABC):
         I = sp.I  # Imaginary unit
 
         # define symbolic wavevectors
-        k_syms = [sp.Symbol(f"k_{i + 1}", real=True) for i in range(self.dim)]
-        h_syms = [sp.Symbol(f"h_{i + 1}", real=True) for i in range(self.dim)]
+        k_syms = sp.symbols(f"K_1:{self.dim + 1}", real=True)
+        h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
 
         Z_symbolic = 0
         for offset, weight in stencil:
@@ -170,7 +177,14 @@ class FiniteDifferenceScheme(Scheme, ABC):
         return Z_symbolic, Z_func
 
     def compute_gradient_operator(self, wavenumbers_mesh: list[Array]):
-        """Builds the full gradient operator field using the scheme's formula."""
+        """Builds the full gradient operator field using the scheme's stencils.
+
+        Args:
+            wavenumbers_mesh: A list of arrays representing the meshgrid of wavenumbers.
+
+        Returns:
+            An array representing the gradient operator in Fourier space, with shape ( (N,)*dim, (dim,)*rank).
+        """
         spacings = [
             self.space.lengths[i] / self.space.shape[i] for i in range(self.dim)
         ]
@@ -180,10 +194,10 @@ class FiniteDifferenceScheme(Scheme, ABC):
             _, Z_func = self.build_fourier_operator(stencil=stencil)
             Z = Z_func(*wavenumbers_mesh, *spacings)
             Zs.append(Z)
-        self.gradient_operator = jnp.stack(Zs, axis=-1)
+        return Zs[0] if self.dim == 1 else jnp.stack(Zs, axis=-1)
 
     @jax.jit
-    def apply_symmetric_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def apply_symmetric_gradient(self, u_hat: Array) -> Array:
         """
         Applies the symmetric gradient operator on the fly.
         Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
@@ -197,7 +211,7 @@ class FiniteDifferenceScheme(Scheme, ABC):
         return 0.5 * (term1 + term2)
 
     @jax.jit
-    def apply_divergence(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def apply_divergence(self, u_hat: Array) -> Array:
         """
         Applies the divergence operator on the fly.
         Computes: div_hat_i = Dξ_j * u_hat_ji
@@ -210,7 +224,7 @@ class FiniteDifferenceScheme(Scheme, ABC):
         return jnp.einsum("...j,...ji->...i", Dξs, u_hat)
 
     @jax.jit
-    def apply_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def apply_gradient(self, u_hat: Array) -> Array:
         """
         Applies the gradient operator on the fly.
         Computes: grad_hat_ij = Dξ_i * u_hat_j
@@ -222,7 +236,7 @@ class FiniteDifferenceScheme(Scheme, ABC):
         return Dξs * u_hat[..., None]
 
     @jax.jit
-    def apply_laplacian(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def apply_laplacian(self, u_hat: Array) -> Array:
         """
         Applies the Laplacian operator on the fly.
         Computes: lap_hat = -|Dξ|^2 * u_hat
@@ -236,12 +250,71 @@ class FiniteDifferenceScheme(Scheme, ABC):
         return lap_op_hat * u_hat
 
 
-class Quad1R(FiniteDifferenceScheme):
-    """Represents a 1st-order quadrature scheme in Fourier space."""
+class ForwardScheme(FiniteDifferenceScheme):
+    """Represents a forward difference scheme in Fourier space."""
 
-    def post_init(self):
+    def is_compatible(self):
+        super().is_compatible()
+
+    @property
+    def stencils(self):
+        h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
+        stencils = []
+        for i in range(self.dim):
+            stencil = [
+                (_unit_offset(i, self.dim, 1), 1 / h_syms[i]),
+                ((0,) * self.dim, -1 / h_syms[i]),
+            ]
+            stencils.append(stencil)
+        return stencils
+
+
+class BackwardScheme(FiniteDifferenceScheme):
+    """Represents a backward difference scheme in Fourier space."""
+
+    def is_compatible(self):
+        super().is_compatible()
+
+    @property
+    def stencils(self):
+        h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
+        stencils = []
+        for i in range(self.dim):
+            stencil = [
+                ((0,) * self.dim, 1 / h_syms[i]),
+                (_unit_offset(i, self.dim, -1), -1 / h_syms[i]),
+            ]
+            stencils.append(stencil)
+        return stencils
+
+
+class CentralScheme(FiniteDifferenceScheme):
+    """Represents a central difference scheme in Fourier space."""
+
+    def is_compatible(self):
+        super().is_compatible()
+
+    @property
+    def stencils(self):
+        h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
+        stencils = []
+        for i in range(self.dim):
+            stencil = [
+                (_unit_offset(i, self.dim, -1), -1 / (2 * h_syms[i])),
+                (_unit_offset(i, self.dim, 1), 1 / (2 * h_syms[i])),
+            ]
+            stencils.append(stencil)
+        return stencils
+
+
+class Quad1RScheme(FiniteDifferenceScheme):
+    """Represents a 1st-order quadrature scheme in Fourier space using Willot's method."""
+
+    def is_compatible(self):
         if self.dim != 2:
             raise ValueError("Quad1R scheme is only compatible with 2D space.")
+
+        super().is_compatible()
 
     @property
     def stencils(self):
@@ -265,12 +338,14 @@ class Quad1R(FiniteDifferenceScheme):
         return stencils
 
 
-class Hex1R(FiniteDifferenceScheme):
-    """Represents a 1st-order hexagonal scheme in Fourier space."""
+class Hex1RScheme(FiniteDifferenceScheme):
+    """Represents a 1st-order hexagonal scheme in Fourier space using Willot's method."""
 
-    def post_init(self):
+    def is_compatible(self):
         if self.dim != 3:
             raise ValueError("Hex1R scheme is only compatible with 3D space.")
+
+        super().is_compatible()
 
     @property
     def stencils(self):
@@ -320,10 +395,6 @@ class DiagonalScheme(Scheme, ABC):
     (e.g. FourierScheme, CentralDifference).
     """
 
-    dim: int
-    space: SpectralSpace
-    gradient_operator: Array
-
     def __setattr__(self, name, value):
         """Enforce immutability after initialization.
 
@@ -341,13 +412,9 @@ class DiagonalScheme(Scheme, ABC):
         jax.tree_util.register_pytree_node_class(cls)
 
     def __init__(self, space: SpectralSpace):
-        if not self.is_compatible(space.transform):
-            raise ValueError(
-                "The provided scheme is not compatible with the spectral space's transform."
-            )
-
         self.space = space
         self.dim = len(self.space.lengths)
+        self.is_compatible()
         wavenumbers_mesh = space.get_wavenumber_mesh()
         self.gradient_operator = self.compute_gradient_operator(
             wavenumbers_mesh=wavenumbers_mesh
@@ -368,8 +435,11 @@ class DiagonalScheme(Scheme, ABC):
         object.__setattr__(obj, "_initialized", True)
         return obj
 
-    def is_compatible(self, transform):
-        return isinstance(transform, FFTTransform)
+    def is_compatible(self):
+        if not isinstance(self.space.transform, FFTTransform):
+            raise ValueError(  # noqa: TRY004
+                "The provided scheme is not compatible with the spectral space's transform."
+            )
 
     @jax.jit
     def apply_symmetric_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]

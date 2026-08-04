@@ -13,10 +13,10 @@
 # ---
 
 # %%
+from ast import Call
+from typing import Callable
+
 import jax
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
-
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,12 +26,15 @@ from skimage.morphology import rectangle
 from soldis.linear import CG
 from soldis.newton import NewtonSolver, NewtonSolverOptions
 
+jax.config.update("jax_enable_x64", True)  # use double-precision
+
 # %%
-from xpektra import SpectralSpace, make_field
 from xpektra.projection_operator import GalerkinProjection
-from xpektra.scheme import RotatedDifference
+from xpektra.scheme import Quad1RScheme
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
+
+from xpektra import SpectralSpace, make_field
 
 # %% [markdown]
 # ## constructing a dual phase RVE
@@ -56,7 +59,7 @@ fft_transform = FFTTransform(dim=ndim)
 space = SpectralSpace(
     lengths=(length,) * ndim, shape=structure.shape, transform=fft_transform
 )
-rotated_scheme = RotatedDifference(space=space)
+rotated_scheme = Quad1RScheme(space=space)
 
 op = SpectralOperator(
     scheme=rotated_scheme,
@@ -123,7 +126,7 @@ def residual_fn(eps_fluc_flat: Array, macro_strain: Array) -> Array:
     return jnp.real(residual_field).reshape(-1)
 
 
-def jac_fn(x: Array, macro_strain: Array) -> Array:
+def jac_fn(x: Array, macro_strain: Array) -> Callable[[Array], Array]:
 
     @jax.jit
     def mv(dx: Array) -> Array:
