@@ -18,17 +18,17 @@
 
 # %%
 import jax
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
-
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
+
+jax.config.update("jax_enable_x64", True)  # use double-precision
 
 # %%
 from scipy.spatial.distance import cdist
 from soldis.linear import CG
 from soldis.newton import NewtonSolver, NewtonSolverOptions
+from xpektra.scheme import Hex1RScheme
 
 # %% [markdown]
 # In this example, we solve a linear elasticity problem of a  multiphase material in 3D.
@@ -40,7 +40,6 @@ from xpektra import (
     SpectralSpace,
     make_field,
 )
-from xpektra.scheme import RotatedDifference
 
 
 def generate_multiphase_material_3d(
@@ -144,7 +143,7 @@ fft_transform = FFTTransform(dim=ndim)
 space = SpectralSpace(
     lengths=(length,) * ndim, shape=structure.shape, transform=fft_transform
 )
-diff_scheme = RotatedDifference(space=space)
+diff_scheme = Hex1RScheme(space=space)
 
 op = SpectralOperator(scheme=diff_scheme, space=space, projection=GalerkinProjection())
 

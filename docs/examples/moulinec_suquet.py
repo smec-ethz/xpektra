@@ -19,25 +19,24 @@
 # In this tutorial, we will solve the homogenization problem using Moulinec-Suquet's fixed-point iteration scheme.
 
 # %%
-import jax
-
-jax.config.update("jax_enable_x64", True)  # use double-precision
-
 from functools import partial
 
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 from jax import Array
+from xpektra.scheme import FourierScheme
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.transform import FFTTransform
 
 from xpektra import (
     MoulinecSuquetProjection,
     SpectralSpace,
     make_field,
 )
-from xpektra.scheme import FourierScheme
-from xpektra.spectral_operator import SpectralOperator
-from xpektra.transform import FFTTransform
+
+jax.config.update("jax_enable_x64", True)  # use double-precision
 
 # %% [markdown]
 # Let us start by defining the RVE geometry. We will consider a 2D square RVE with a circular inclusion.

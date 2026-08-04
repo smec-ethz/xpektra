@@ -22,33 +22,25 @@
 
 # %%
 import jax
-
-jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-jax.config.update("jax_enable_x64", True)  # use double-precision
-jax.config.update("jax_platforms", "cpu")
-
 import jax.numpy as jnp
-from jax import Array
-
+import matplotlib.pyplot as plt
 import numpy as np
-
+from jax import Array
+from soldis.linear import CG
+from soldis.newton import NewtonSolver, NewtonSolverOptions
+from xpektra.scheme import FourierScheme
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.transform import FFTTransform
 
 # %%
 from xpektra import (
     SpectralSpace,
     make_field,
 )
-from xpektra.transform import FFTTransform
-from xpektra.scheme import FourierScheme
-from xpektra.spectral_operator import SpectralOperator
-from xpektra.solvers.nonlinear import (  # noqa: E402
-    newton_krylov_solver,
-    preconditioned_conjugate_gradient,
-)
 
-
-import equinox as eqx
-import matplotlib.pyplot as plt
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+jax.config.update("jax_enable_x64", True)  # use double-precision
+jax.config.update("jax_platforms", "cpu")
 
 
 # %% [markdown]
@@ -62,8 +54,10 @@ import matplotlib.pyplot as plt
 # wavenumber vector.
 #
 
+
 # %%
-class HomogeneousPreconditioner(eqx.Module):
+@jax.tree_util.register_pytree_node_class
+class HomogeneousPreconditioner:
     """
     A callable module that applies the inverse of the homogeneous
     elasticity operator, M⁻¹ = [div(C0 : ε(u))]⁻¹.
@@ -72,36 +66,45 @@ class HomogeneousPreconditioner(eqx.Module):
     """
 
     M_inv: Array
-    space: SpectralSpace = eqx.field(static=True)
-    u_shape: tuple = eqx.field(static=True)
+    space: SpectralSpace
+    u_shape: tuple
 
-    def __init__(self, space: SpectralSpace, C0: Array, u_shape: tuple):
+    def __init__(
+        self,
+        space: SpectralSpace,
+        u_shape: tuple,
+        C0: Array | None = None,
+        M_inv: Array | None = None,
+    ):
         self.space = space
         self.u_shape = u_shape
 
         dim = len(space.lengths)
 
-        # xi_vec = space.wavenumber_vector()
-        # if space.dim == 1:
-        #    meshes = [xi_vec]
-        # else:
-        #    meshes = np.meshgrid(*([xi_vec] * space.dim), indexing="ij")
         meshes = self.space.get_wavenumber_mesh()
 
         # xi_field is our 'ξ' field, shape (N, N, d)
         xi_field = jnp.stack(meshes, axis=-1)
 
-        # Compute the acoustic tensor field: M_il = D_j * C0_ijkl * D_k
-        M = jnp.einsum("...j,...k,ijkl->...il", xi_field, xi_field, C0, optimize=True)
+        if C0 is None and M_inv is None:
+            raise ValueError("Either C0 or M_inv must be provided.")
+        elif M_inv is not None:
+            self.M_inv = M_inv
+            return
+        elif C0 is not None:
+            # Compute the acoustic tensor field: M_il = D_j * C0_ijkl * D_k
+            M = jnp.einsum(
+                "...j,...k,ijkl->...il", xi_field, xi_field, C0, optimize=True
+            )
 
-        # Invert the K matrix at every point
-        M_reg = M + jnp.eye(dim) * 1e-12
-        M_inv = jnp.linalg.inv(M_reg)
+            # Invert the K matrix at every point
+            M_reg = M + jnp.eye(dim) * 1e-12
+            M_inv = jnp.linalg.inv(M_reg)
 
-        xi_dot_xi = jnp.sum(xi_field * xi_field, axis=-1, keepdims=True)
-        self.M_inv = jnp.where((xi_dot_xi == 0)[..., None], 0.0, M_inv)
+            xi_dot_xi = jnp.sum(xi_field * xi_field, axis=-1, keepdims=True)
+            self.M_inv = jnp.where((xi_dot_xi == 0)[..., None], 0.0, M_inv)
 
-    @eqx.filter_jit
+    @jax.jit
     def __call__(self, r_flat: Array) -> Array:
         """Applies the preconditioner: z = M⁻¹ * r"""
         r = r_flat.reshape(self.u_shape)
@@ -113,6 +116,16 @@ class HomogeneousPreconditioner(eqx.Module):
         z = self.space.transform.inverse(z_hat).real
         return z.reshape(-1)
 
+    def tree_flatten(self):
+        return (self.M_inv,), (self.space, self.u_shape)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        (M_inv,) = children
+        space, u_shape = aux_data
+        return cls(
+            space=space, M_inv=M_inv, u_shape=u_shape
+        )  # C0 is not needed for unflattening
 
 
 # %%
@@ -154,8 +167,8 @@ op = SpectralOperator(
     space=space,
 )
 
-u_shape = make_field(dim=ndim, N=N, rank=1).shape
-eps_shape = make_field(dim=ndim, N=N, rank=2).shape
+u_shape = make_field(dim=ndim, shape=phase.shape, rank=1).shape
+eps_shape = make_field(dim=ndim, shape=phase.shape, rank=2).shape
 
 # %% [markdown]
 # Unlike `Fourier-Galerkin` and `Moulinec-Suquet` schemes, displacement-based FFT
@@ -211,8 +224,9 @@ krylov_solver_fn = eqx.Partial(
 # ## Defining the strain and strain energy functions.
 #
 
+
 # %%
-@eqx.filter_jit
+@jax.jit
 def compute_strain(u: Array) -> Array:
     u = u.reshape(u_shape)
     # u_hat = space.fft(u)
@@ -220,7 +234,7 @@ def compute_strain(u: Array) -> Array:
     return op.sym_grad(u)
 
 
-@eqx.filter_jit
+@jax.jit
 def strain_energy(eps: Array) -> Array:
     eps = eps.reshape(eps_shape)
     eps_sym = 0.5 * (eps + op.trans(eps))
@@ -234,57 +248,49 @@ compute_stress = jax.jacrev(strain_energy)
 
 
 # %%
-class Residual(eqx.Module):
-    """A callable module that computes the residual vector."""
+@jax.jit
+def residual_fn(u_flat: Array, macro_strain: Array) -> Array:
+    """
+    This makes instances of this class behave like a function.
+    It takes only the flattened vector of unknowns, as required by the solver.
+    """
+    u = u_flat.reshape(u_shape)
+    eps = compute_strain(u)
+    eps_macro = jnp.zeros(eps_shape)
+    eps_macro = eps_macro.at[:, :, 0, 0].set(macro_strain)
+    eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain)
 
-    # scheme: Fourier
-    # space: SpectralSpace = eqx.field(static=True)
-    u_shape: tuple = eqx.field(static=True)
-
-    # We can even pre-define the stress function if it's always the same
-    # For this example, we'll keep your original `compute_stress` function
-    # available in the global scope.
-
-    @eqx.filter_jit
-    def __call__(self, u_flat: Array, eps_macro: Array) -> Array:
-        """
-        This makes instances of this class behave like a function.
-        It takes only the flattened vector of unknowns, as required by the solver.
-        """
-        u = u_flat.reshape(self.u_shape)
-        eps = compute_strain(u)
-        sigma = compute_stress(eps + eps_macro)
-        # sigma_hat = self.space.fft(sigma)
-        # residual_hat = self.scheme.div(sigma_hat)
-        # residual = self.space.ifft(residual_hat).real
-        # return residual.reshape(-1)
-        residual = op.div(sigma)
-        return residual.reshape(-1)
+    sigma = compute_stress(eps + eps_macro)
+    residual = op.div(sigma)
+    return residual.reshape(-1)
 
 
-class Jacobian(eqx.Module):
-    """A callable module that represents the Jacobian operator (tangent)."""
+def jac_fn(x: Array, macro_strain: Array) -> Callable[[Array], Array]:
 
-    # scheme: Fourier
-    # space: SpectralSpace = eqx.field(static=True)
-    u_shape: tuple = eqx.field(static=True)
+    @jax.jit
+    def mv(dx: Array) -> Array:
+        eps_macro = jnp.zeros(eps_shape)
+        eps_macro = eps_macro.at[:, :, 0, 0].set(macro_strain)
+        eps_macro = eps_macro.at[:, :, 1, 1].set(macro_strain)
+        x_total = x + eps_macro.reshape(-1)
+        dsigma = jax.jvp(compute_stress, (x_total,), (dx,))[1]
+        jvp_field = op.inverse(op.project(op.forward(dsigma.reshape(dofs_shape))))
+        return jnp.real(jvp_field).reshape(-1)
 
-    @eqx.filter_jit
-    def __call__(self, du_flat: Array) -> Array:
-        """
-        The Jacobian is a linear operator, so its __call__ method
-        represents the Jacobian-vector product.
-        """
-        du = du_flat.reshape(self.u_shape)
-        deps = compute_strain(du)
-        dsigma = compute_stress(deps)
-        # dsigma_hat = self.space.fft(dsigma)
-        # jvp_hat = self.scheme.div(dsigma_hat)
-        # jvp = self.space.ifft(jvp_hat).real
-        # return jvp.reshape(-1)
-        tangent = op.div(dsigma)
-        return tangent.reshape(-1)
+    return mv
 
+
+@jax.jit
+def jac_fn(du_flat: Array, macro_strain: Array) -> Array:
+    """
+    The Jacobian is a linear operator, so its __call__ method
+    represents the Jacobian-vector product.
+    """
+    du = du_flat.reshape(u_shape)
+    deps = compute_strain(du)
+    dsigma = compute_stress(deps)
+    tangent = op.div(dsigma)
+    return tangent.reshape(-1)
 
 
 # %%
@@ -292,9 +298,6 @@ du = make_field(dim=2, N=N, rank=1)
 u = make_field(dim=2, N=N, rank=1)
 
 eps_macro = make_field(dim=2, N=N, rank=2)
-
-residual_fn = Residual(u_shape=u_shape)
-jacobian_fn = Jacobian(u_shape=u_shape)
 
 
 applied_strains = jnp.linspace(0, 1e-2, num=5)
