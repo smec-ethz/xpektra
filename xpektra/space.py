@@ -40,8 +40,4 @@ class SpectralSpace:
         - A list of arrays representing the wavenumber meshgrid.
 
         """
-        k_vecs = [
-            self.transform.get_wavenumber_vector(size=n, length=length)
-            for n, length in zip(self.shape, self.lengths)
-        ]
-        return list(jnp.meshgrid(*k_vecs, indexing="ij"))
+        return self.transform.get_wavenumber_mesh(self.shape, self.lengths)
