@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import jax
 import jax.numpy as jnp  # type: ignore
@@ -27,10 +27,24 @@ DYAD_EINSUM_DISPATCH: Dict[Tuple[int, int], str] = {
     (1, 1): "...i,...j->...ij",  # dyad11: vector-vector
 }
 
-# --- Define the einsum rules for trace (spatial dims first) ---
-TRACE_EINSUM_DISPATCH: Dict[int, str] = {
-    2: "...ii->...",  # trace of a rank-2 tensor
-    4: "...ijij->...",  # trace of a rank-4 tensor (e.g., for identity)
+def _trace2(A: Array) -> Array:
+    """Trace of a rank-2 tensor: A_ii."""
+    return jnp.trace(A, axis1=-2, axis2=-1)
+
+
+def _trace4(A: Array) -> Array:
+    """Trace of a rank-4 tensor: A_ijij (pairs axes -4/-2 and -3/-1)."""
+    return jnp.trace(jnp.trace(A, axis1=-4, axis2=-2), axis1=-2, axis2=-1)
+
+
+# --- Define the trace rules (spatial dims first) ---
+# These are callables rather than einsum strings.  An einsum with a repeated
+# index inside a single operand ("...ii->...") has no XLA primitive, so it is
+# emulated with a mask-and-select whose mask is built replicated; that clashes
+# with a sharded operand under explicit sharding.  jnp.trace has no such issue.
+TRACE_DISPATCH: Dict[int, Callable[[Array], Array]] = {
+    2: _trace2,  # trace of a rank-2 tensor
+    4: _trace4,  # trace of a rank-4 tensor (e.g., for identity)
 }
 
 # --- Define the einsum rules for transpose (spatial dims first) ---
@@ -59,7 +73,7 @@ class TensorOperator:
     _dot_rules: Dict[Tuple[int, int], str]
     _ddot_rules: Dict[Tuple[int, int], str]
     _dyad_rules: Dict[Tuple[int, int], str]
-    _trace_rules: Dict[int, str]
+    _trace_rules: Dict[int, Callable[[Array], Array]]
     _trans_rules: Dict[int, str]
     dim: int
 
@@ -106,14 +120,14 @@ class TensorOperator:
         dot_rules: Dict[Tuple[int, int], str] | None = None,
         ddot_rules: Dict[Tuple[int, int], str] | None = None,
         dyad_rules: Dict[Tuple[int, int], str] | None = None,
-        trace_rules: Dict[int, str] | None = None,
+        trace_rules: Dict[int, Callable[[Array], Array]] | None = None,
         trans_rules: Dict[int, str] | None = None,
     ):
         self.dim = dim
         self._dot_rules = {**DOT_EINSUM_DISPATCH, **(dot_rules or {})}
         self._ddot_rules = {**DDOT_EINSUM_DISPATCH, **(ddot_rules or {})}
         self._dyad_rules = {**DYAD_EINSUM_DISPATCH, **(dyad_rules or {})}
-        self._trace_rules = {**TRACE_EINSUM_DISPATCH, **(trace_rules or {})}
+        self._trace_rules = {**TRACE_DISPATCH, **(trace_rules or {})}
         self._trans_rules = {**TRANS_EINSUM_DISPATCH, **(trans_rules or {})}
         object.__setattr__(self, "_initialized", True)
 
@@ -179,12 +193,12 @@ class TensorOperator:
     def trace(self, A: Array) -> Array:
         """Computes the trace of tensor A."""
         rank_A = self._get_rank(A)
-        einsum_str = self._trace_rules.get(rank_A)
-        if einsum_str is None:
+        trace_fn = self._trace_rules.get(rank_A)
+        if trace_fn is None:
             raise NotImplementedError(
                 f"No trace implemented for tensor rank ({rank_A})."
             )
-        return jnp.einsum(einsum_str, A, optimize="optimal")
+        return trace_fn(A)
 
     @jax.jit
     def trans(self, A: Array) -> Array:
