@@ -1,17 +1,16 @@
 import jax
-
-jax.config.update("jax_enable_x64", True)
-
 import jax.numpy as jnp
 import numpy as np
 import pytest
-
 from xpektra.tensor_operator import TensorOperator
+
+jax.config.update("jax_enable_x64", True)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _identity_field(dim, spatial_shape):
     """Return an identity rank-2 tensor field, shape spatial_shape + (dim, dim)."""
@@ -35,6 +34,7 @@ def _random_field(dim, spatial_shape, rank, key=0):
 # ---------------------------------------------------------------------------
 # dot
 # ---------------------------------------------------------------------------
+
 
 class TestDot:
     @pytest.mark.parametrize("dim", [1, 2, 3])
@@ -95,6 +95,7 @@ class TestDot:
 # ddot
 # ---------------------------------------------------------------------------
 
+
 class TestDdot:
     def test_ddot_22_shape(self):
         dim, spatial = 2, (4, 4)
@@ -153,6 +154,7 @@ class TestDdot:
 # trace
 # ---------------------------------------------------------------------------
 
+
 class TestTrace:
     def test_trace_identity(self):
         """trace of identity field equals dim everywhere."""
@@ -187,6 +189,7 @@ class TestTrace:
 # ---------------------------------------------------------------------------
 # trans
 # ---------------------------------------------------------------------------
+
 
 class TestTrans:
     @pytest.mark.parametrize("dim", [1, 2, 3])
@@ -230,6 +233,7 @@ class TestTrans:
 # dyad
 # ---------------------------------------------------------------------------
 
+
 class TestEqualityAndHash:
     def test_equal_default_operators(self):
         """Operators with the same dim and default rules are equal."""
@@ -246,7 +250,7 @@ class TestEqualityAndHash:
 
     def test_equal_custom_rules(self):
         """Operators with the same custom rules are equal."""
-        rule = {(1, 0): "...i,...->...i"}
+        rule = {(1, 0): lambda A, B: jnp.einsum("...i,...->...i", A, B)}
         a = TensorOperator(dim=2, dot_rules=rule)
         b = TensorOperator(dim=2, dot_rules=rule)
         assert a == b
@@ -254,7 +258,9 @@ class TestEqualityAndHash:
 
     def test_different_custom_rules_not_equal(self):
         """Operators with different custom rules are not equal."""
-        a = TensorOperator(dim=2, dot_rules={(1, 0): "...i,...->...i"})
+        a = TensorOperator(
+            dim=2, dot_rules={(1, 0): lambda A, B: jnp.einsum("...i,...->...i", A, B)}
+        )
         b = TensorOperator(dim=2)
         assert a != b
 
@@ -270,7 +276,9 @@ class TestCustomRules:
         """Users can register additional einsum rules at construction time."""
         dim, spatial = 2, (4, 4)
         # Add a rank-(1, 0) dot rule: scale a vector by a scalar field
-        op = TensorOperator(dim=dim, dot_rules={(1, 0): "...i,...->...i"})
+        op = TensorOperator(
+            dim=dim, dot_rules={(1, 0): lambda A, B: jnp.einsum("...i,...->...i", A, B)}
+        )
         rng = jax.random.PRNGKey(0)
         v = jax.random.normal(rng, spatial + (dim,))
         s = jax.random.normal(jax.random.PRNGKey(1), spatial)
@@ -281,7 +289,9 @@ class TestCustomRules:
     def test_extra_rule_does_not_override_defaults(self):
         """Adding a custom rule does not affect other built-in rules."""
         dim, spatial = 2, (4, 4)
-        op = TensorOperator(dim=dim, dot_rules={(1, 0): "...i,...->...i"})
+        op = TensorOperator(
+            dim=dim, dot_rules={(1, 0): lambda A, B: jnp.einsum("...i,...->...i", A, B)}
+        )
         rng = jax.random.PRNGKey(0)
         A = jax.random.normal(rng, spatial + (dim, dim))
         v = jax.random.normal(jax.random.PRNGKey(1), spatial + (dim,))
@@ -293,7 +303,10 @@ class TestCustomRules:
         """Custom ddot rule for rank-(2, 2) override (user can override defaults too)."""
         dim, spatial = 2, (4, 4)
         # Override ddot22 with Frobenius inner product instead of trace(AB)
-        op = TensorOperator(dim=dim, ddot_rules={(2, 2): "...ij,...ij->..."})
+        op = TensorOperator(
+            dim=dim,
+            ddot_rules={(2, 2): lambda A, B: jnp.einsum("...ij,...ij->...", A, B)},
+        )
         rng = jax.random.PRNGKey(0)
         A = jax.random.normal(rng, spatial + (dim, dim))
         B = jax.random.normal(jax.random.PRNGKey(1), spatial + (dim, dim))
