@@ -16,6 +16,11 @@ def _dot11(A: Array, B: Array) -> Array:
     return jnp.einsum("...i, ...i->...", A, B)
 
 
+def _dot12(A: Array, B: Array) -> Array:
+    """12 dot product: vector-tensor"""
+    return jnp.einsum("...i, ...ij->...j", A, B)
+
+
 def _dot21(A: Array, B: Array) -> Array:
     """21 dot product: tensor-vector"""
     return jnp.sum(A[..., :, :] * B[..., None, :], axis=-1)
@@ -39,6 +44,7 @@ def _dot42(A: Array, B: Array) -> Array:
 DOT_EINSUM_DISPATCH: dict[tuple[int, int], Callable[[Array, Array], Array]] = {
     (0, 0): _dot,  # scalar-scalar
     (1, 1): _dot11,  # dot11: vector-vector
+    (1, 2): _dot12,  # dot12: vector-tensor
     (2, 1): _dot21,  # dot21: tensor-vector
     (2, 2): _dot22,  # dot22: tensor-tensor
     (2, 4): _dot24,  # dot24: tensor-tensor4

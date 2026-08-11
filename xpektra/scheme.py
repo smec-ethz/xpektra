@@ -4,9 +4,9 @@ import jax
 import jax.numpy as jnp
 import sympy as sp
 from jax import Array
-from numpy import gradient
 
 from xpektra.space import SpectralSpace
+from xpektra.tensor_operator import _dot11, _dot12
 from xpektra.transform import FFTTransform
 
 iota = 1j  # Imaginary unit
@@ -77,6 +77,7 @@ class FiniteDifferenceScheme(Scheme):
     (e.g. CentralDifference, ForwardDifference).
     """
 
+    n_quads: int
     dim: int
     space: SpectralSpace
     gradient_operator: Array
@@ -91,6 +92,8 @@ class FiniteDifferenceScheme(Scheme):
         self.gradient_operator = self.compute_gradient_operator(
             wavenumbers_mesh=space.get_wavenumber_mesh()
         )
+
+        self.n_quads = len(self.support_stencils)
 
         object.__setattr__(self, "_initialized", True)
 
@@ -112,7 +115,7 @@ class FiniteDifferenceScheme(Scheme):
 
     def tree_flatten(self):
         children = [self.gradient_operator]
-        aux_data = {"dim": self.dim, "space": self.space}
+        aux_data = {"dim": self.dim, "space": self.space, "n_quads": self.n_quads}
         return children, aux_data
 
     @classmethod
@@ -121,6 +124,7 @@ class FiniteDifferenceScheme(Scheme):
         object.__setattr__(obj, "gradient_operator", children[0])
         object.__setattr__(obj, "dim", aux_data["dim"])
         object.__setattr__(obj, "space", aux_data["space"])
+        object.__setattr__(obj, "n_quads", aux_data["n_quads"])
         object.__setattr__(obj, "_initialized", True)
         return obj
 
@@ -133,6 +137,10 @@ class FiniteDifferenceScheme(Scheme):
     @property
     def stencils(self):
         raise NotImplementedError
+
+    @property
+    def support_stencils(self):
+        return (self.stencils,)
 
     def build_fourier_operator(self, stencil: list, modules: str = "jax"):
         """
@@ -176,6 +184,17 @@ class FiniteDifferenceScheme(Scheme):
 
         return Z_symbolic, Z_func
 
+    def build_support_operator(self, stencils: tuple, wavenumber_mesh: list[Array]):
+        spacings = [
+            self.space.lengths[i] / self.space.shape[i] for i in range(self.dim)
+        ]
+        Zs = [
+            self.build_fourier_operator(stencil=s)[1](*wavenumber_mesh, *spacings)
+            for s in stencils
+        ]
+
+        return Zs[0] if self.dim == 1 else jnp.stack(Zs, axis=-1)
+
     def compute_gradient_operator(self, wavenumbers_mesh: list[Array]):
         """Builds the full gradient operator field using the scheme's stencils.
 
@@ -185,16 +204,16 @@ class FiniteDifferenceScheme(Scheme):
         Returns:
             An array representing the gradient operator in Fourier space, with shape ( (N,)*dim, (dim,)*rank).
         """
-        spacings = [
-            self.space.lengths[i] / self.space.shape[i] for i in range(self.dim)
+        ops = [
+            self.build_support_operator(stencils=s, wavenumber_mesh=wavenumbers_mesh)
+            for s in self.support_stencils
         ]
+        return ops[0] if len(ops) == 1 else jnp.stack(ops, axis=0)
 
-        Zs = []
-        for stencil in self.stencils:
-            _, Z_func = self.build_fourier_operator(stencil=stencil)
-            Z = Z_func(*wavenumbers_mesh, *spacings)
-            Zs.append(Z)
-        return Zs[0] if self.dim == 1 else jnp.stack(Zs, axis=-1)
+    @property
+    def divergence_operator(self):
+        """Returns the divergence operator in Fourier space."""
+        return -jnp.conj(self.gradient_operator)
 
     @jax.jit
     def apply_symmetric_gradient(self, u_hat: Array) -> Array:
@@ -214,9 +233,14 @@ class FiniteDifferenceScheme(Scheme):
     def apply_divergence(self, u_hat: Array) -> Array:
         """
         Applies the divergence operator on the fly.
-        Computes: div_hat_i = Dξ_j * u_hat_ji
+        Computes: div_hat_i = -conj(Dξ_j) * u_hat_ji
+
+        Uses ``divergence_operator``, not ``gradient_operator``: the input lives at
+        the voxel centres, so the half-voxel phase is conjugated (Eq. 19₂ of
+        Amouzou-adoun et al., 2026).  That is what makes ``div`` the adjoint of
+        ``sym_grad``, and hence ``D^T C D`` symmetric.
         """
-        Dξs = self.gradient_operator
+        Dξs = self.divergence_operator
         if self.dim == 1:
             return Dξs * u_hat
 
@@ -242,12 +266,16 @@ class FiniteDifferenceScheme(Scheme):
         Computes: lap_hat = -|Dξ|^2 * u_hat
         """
         Dξs = self.gradient_operator
+        Dξs_conj = self.divergence_operator
         if self.dim == 1:
-            lap_op_hat = Dξs * Dξs  # |Dξ|^2
+            lap_op_hat = Dξs * Dξs_conj  # -|Dξ|^2
             return lap_op_hat * u_hat
 
-        lap_op_hat = jnp.einsum("...i,...i->...", Dξs, Dξs)  # |Dξ|^2
-        return lap_op_hat * u_hat
+        lap_op_hat = jnp.einsum("...i,...i->...", Dξs, Dξs_conj)  # -|Dξ|^2
+        return (
+            jnp.expand_dims(lap_op_hat, tuple(range(lap_op_hat.ndim, u_hat.ndim)))
+            * u_hat
+        )
 
 
 class ForwardScheme(FiniteDifferenceScheme):
@@ -384,6 +412,133 @@ class Hex1RScheme(FiniteDifferenceScheme):
         ]
 
         return [dx_stencil, dy_stencil, dz_stencil]
+
+
+def tetra_t1_stencils() -> list[list]:
+    """Derivative stencils on tetrahedron T1 (Eqs. 20-22, Amouzou-adoun et al., 2026).
+
+    T1 spans the four *even-parity* vertices of the voxel:
+    ``(0,0,0), (1,1,0), (0,1,1), (1,0,1)``.
+    """
+    h1, h2, h3 = sp.symbols("h_1 h_2 h_3", real=True)
+    dx_stencil = [
+        ((1, 1, 0), 1 / (2 * h1)),
+        ((0, 1, 1), -1 / (2 * h1)),
+        ((1, 0, 1), 1 / (2 * h1)),
+        ((0, 0, 0), -1 / (2 * h1)),
+    ]
+    dy_stencil = [
+        ((1, 1, 0), 1 / (2 * h2)),
+        ((0, 0, 0), -1 / (2 * h2)),
+        ((0, 1, 1), 1 / (2 * h2)),
+        ((1, 0, 1), -1 / (2 * h2)),
+    ]
+    dz_stencil = [
+        ((0, 1, 1), 1 / (2 * h3)),
+        ((0, 0, 0), -1 / (2 * h3)),
+        ((1, 0, 1), 1 / (2 * h3)),
+        ((1, 1, 0), -1 / (2 * h3)),
+    ]
+    return [dx_stencil, dy_stencil, dz_stencil]
+
+
+def tetra_t2_stencils() -> list[list]:
+    """Derivative stencils on tetrahedron T2 (Eqs. 20-22, Amouzou-adoun et al., 2026).
+
+    T2 spans the four *odd-parity* vertices of the voxel:
+    ``(1,0,0), (0,1,0), (0,0,1), (1,1,1)``.  It is the mirror of T1 through the
+    voxel faces, which is why its Fourier symbol is ``-conj(Z_T1)`` when both are
+    referenced to the voxel centre (Eq. 29).
+    """
+    h1, h2, h3 = sp.symbols("h_1 h_2 h_3", real=True)
+    dx_stencil = [
+        ((1, 0, 0), 1 / (2 * h1)),
+        ((0, 0, 1), -1 / (2 * h1)),
+        ((1, 1, 1), 1 / (2 * h1)),
+        ((0, 1, 0), -1 / (2 * h1)),
+    ]
+    dy_stencil = [
+        ((0, 1, 0), 1 / (2 * h2)),
+        ((1, 0, 0), -1 / (2 * h2)),
+        ((1, 1, 1), 1 / (2 * h2)),
+        ((0, 0, 1), -1 / (2 * h2)),
+    ]
+    dz_stencil = [
+        ((0, 0, 1), 1 / (2 * h3)),
+        ((0, 1, 0), -1 / (2 * h3)),
+        ((1, 1, 1), 1 / (2 * h3)),
+        ((1, 0, 0), -1 / (2 * h3)),
+    ]
+    return [dx_stencil, dy_stencil, dz_stencil]
+
+
+class Tetra2Scheme(FiniteDifferenceScheme):
+    """Double-tetrahedron scheme (TETRA2), Finel (2025); Amouzou-adoun et al. (2026).
+
+    Two derivation supports per voxel, so ``gradient_operator`` has shape
+    ``(2, *spatial, 3)`` and strain/stress fields carry two values per voxel
+    (``n_quads = 2``; §2.7.1).  The displacement stays single-valued.
+
+    Shapes are therefore *not* symmetric between gradient and divergence:
+    ``apply_gradient``/``apply_symmetric_gradient`` map node -> 2x centre, while
+    ``apply_divergence`` maps 2x centre -> node.  ``apply_laplacian`` is node ->
+    node and does not grow the axis, because the two supports combine there.
+    """
+
+    def is_compatible(self):
+        if self.dim != 3:
+            raise ValueError("Tetra2 scheme is only compatible with 3D space.")
+
+        super().is_compatible()
+
+    @property
+    def support_stencils(self):
+        return (tetra_t1_stencils(), tetra_t2_stencils())
+
+    @jax.jit
+    def apply_divergence(self, u_hat: Array) -> Array:
+        """Quadrature-averaged divergence of a 2-support centre field.
+
+        Computes Eq. (38): ``R = 1/2 (div_T2 sigma_1 + div_T1 sigma_2)``.
+
+        ``divergence_operator[r] = -conj(D_Tr)`` *is* the mirror tetrahedron's
+        symbol referenced to the nodes, so pairing each quadrature point with its
+        own entry here is that crossing -- including the centre->node phase that
+        contracting against ``D_T2`` directly would omit.
+
+        Args:
+            u_hat: Centre field in Fourier space, shape ``(2, *spatial, 3, 3)``.
+
+        Returns:
+            Node field in Fourier space, shape ``(*spatial, 3)``.
+        """
+        if u_hat.shape[0] != self.n_quads:
+            raise ValueError(
+                f"expected a leading axis of {self.n_quads} quadrature points, "
+                f"got shape {u_hat.shape}"
+            )
+
+        Dd1, Dd2 = self.divergence_operator
+        s1, s2 = u_hat
+        return 0.5 * (_dot12(Dd1, s1) + _dot12(Dd2, s2))
+
+    @jax.jit
+    def apply_laplacian(self, u_hat: Array) -> Array:
+        """Cross-derivation Laplacian, Eq. (31).
+
+        ``lap = sum_m D_Tr,m * Dd_Tr,m`` averaged over supports.  As in
+        ``apply_divergence``, ``divergence_operator[r] = -conj(D_Tr)`` is the mirror
+        tetrahedron's symbol referenced to the nodes, so this is the cross derivation
+        of Eq. (31) with the centre->node phase included.  The result is
+        ``-||D_T1||^2``: real and negative semi-definite, and identical for both
+        supports.  Contracting ``D_T1`` with ``D_T2`` directly leaves a residual
+        ``exp(i xi.h)``; pairing each support with *itself* is sign-indefinite over
+        roughly half the spectrum.
+        """
+        D1, D2 = self.gradient_operator
+        Dd1, Dd2 = self.divergence_operator
+        lap = 0.5 * (_dot11(D1, Dd1) + _dot11(D2, Dd2))
+        return jnp.expand_dims(lap, tuple(range(lap.ndim, u_hat.ndim))) * u_hat
 
 
 class DiagonalScheme(Scheme, ABC):
