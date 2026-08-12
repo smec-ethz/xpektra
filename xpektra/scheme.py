@@ -225,9 +225,8 @@ class FiniteDifferenceScheme(Scheme):
         if self.dim == 1:
             return Dξs * u_hat  # In 1D, symmetric gradient is just the gradient
 
-        term1 = jnp.einsum("...i,...j->...ij", Dξs, u_hat)  # D_i * u_j
-        term2 = jnp.einsum("...j,...i->...ij", Dξs, u_hat)  # D_j * u_i
-        return 0.5 * (term1 + term2)
+        t = jnp.einsum("...i,...j->...ij", Dξs, u_hat)  # D_i * u_j
+        return 0.5 * (t + jnp.swapaxes(t, -1, -2))  # 0.5 * (D_i * u_j + D_j * u_i)
 
     @jax.jit
     def apply_divergence(self, u_hat: Array) -> Array:
