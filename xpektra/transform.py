@@ -8,6 +8,13 @@ from jax import Array
 from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
+__all__ = [
+    "FFTTransform",
+    "PencilFFTTransform",
+    "SlabFFTTransform2D",
+    "SlabFFTTransform3D",
+]
+
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
@@ -174,12 +181,12 @@ class FFTTransform(Transform):
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
-class SlabFFTTransform(FFTTransform):
+class SlabFFTTransform2D(FFTTransform):
     physical_spec: ClassVar[P] = P("x", None)
     spectral_spec: ClassVar[P] = P(None, "x")
 
     def __post_init__(self):
-        assert self.dim == 2, "Slab decomposition is only implemented for 2D FFT."
+        assert self.dim == 2, "Slab decomposition 2D is only implemented for 2D FFT."
         self._validate_mesh()
 
     def forward(self, x):
@@ -215,7 +222,56 @@ class SlabFFTTransform(FFTTransform):
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
-class PencilDecomposition(FFTTransform):
+class SlabFFTTransform3D(FFTTransform):
+    """3-D FFT with a 1-D device mesh.
+
+    Only axis 0 (physical) or axis 1 (spectral) is ever distributed, so each
+    transform costs a single transpose and every collective spans the whole
+    mesh.  Usable while the device count does not exceed the grid size; beyond
+    that, :class:`PencilDecomposition` is required.
+    """
+
+    physical_spec: ClassVar[P] = P("x", None, None)
+    spectral_spec: ClassVar[P] = P(None, "x", None)
+
+    def __post_init__(self):
+        assert self.dim == 3, "SlabFFTTransform3D is only implemented for 3D FFT."
+        self._validate_mesh()
+
+    def forward(self, x):
+        """Forward 3-D FFT. Input sharded on axis 0, output sharded on axis 1."""
+
+        @jax.shard_map(
+            in_specs=self.physical_spec,
+            out_specs=self.spectral_spec,
+            mesh=self.device_mesh,
+        )
+        def local(xl):
+            xl = jnp.fft.fftn(xl, axes=(1, 2))  # axes 1, 2 complete -> local
+            xl = jax.lax.all_to_all(xl, "x", split_axis=1, concat_axis=0, tiled=True)
+            return jnp.fft.fft(xl, axis=0)  # axis 0 now complete -> local
+
+        return local(x)
+
+    def inverse(self, x_hat):
+        """Inverse. Input sharded on axis 1, output sharded on axis 0 — exactly reversed."""
+
+        @jax.shard_map(
+            in_specs=self.spectral_spec,
+            out_specs=self.physical_spec,
+            mesh=self.device_mesh,
+        )
+        def local(xl):
+            xl = jnp.fft.ifft(xl, axis=0)  # axis 0 complete -> local
+            xl = jax.lax.all_to_all(xl, "x", split_axis=0, concat_axis=1, tiled=True)
+            return jnp.fft.ifftn(xl, axes=(1, 2))
+
+        return local(x_hat)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class PencilFFTTransform(FFTTransform):
     physical_spec: ClassVar[P] = P("x", None, "z")
     spectral_spec: ClassVar[P] = P("z", "x", None)
 

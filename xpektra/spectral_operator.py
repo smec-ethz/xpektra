@@ -8,6 +8,8 @@ from xpektra.scheme import Scheme
 from xpektra.space import SpectralSpace
 from xpektra.tensor_operator import TensorOperator
 
+__all__ = ["SpectralOperator"]
+
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)

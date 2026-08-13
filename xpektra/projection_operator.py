@@ -10,6 +10,12 @@ from jax import Array
 
 from xpektra.space import SpectralSpace
 
+__all__ = [
+    "GalerkinProjection",
+    "MoulinecSuquetProjection",
+    "ProjectionOperator",
+]
+
 
 class ProjectionOperator(ABC):
     """Abstract base for projection operators.

@@ -6,6 +6,8 @@ from jax import Array
 
 from xpektra.transform import Transform
 
+__all__ = ["SpectralSpace"]
+
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
