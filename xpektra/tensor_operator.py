@@ -4,6 +4,8 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 
+__all__ = ["TensorOperator"]
+
 
 # --- Define the broadcast rules for dot product (spatial dims first) ---
 def _dot(A: Array, B: Array) -> Array:

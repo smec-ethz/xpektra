@@ -1,24 +1,68 @@
 import numpy as np
 
-from xpektra.space import SpectralSpace
-from xpektra.spectral_operator import SpectralOperator
-from xpektra.tensor_operator import TensorOperator
-from xpektra.transform import FFTTransform
-from xpektra.scheme import (
-    FourierScheme,
-    CentralDifference,
-    ForwardDifference,
-    BackwardDifference,
-    RotatedDifference,
-    FourthOrderCentralDifference,
-    SixthOrderCentralDifference,
-    EighthOrderCentralDifference,
-)
 from xpektra.projection_operator import (
     GalerkinProjection,
     MoulinecSuquetProjection,
     ProjectionOperator,
 )
+from xpektra.scheme import (
+    BackwardDifference,
+    BackwardScheme,
+    CentralDifference,
+    CentralScheme,
+    EighthOrderCentralDifference,
+    ForwardDifference,
+    ForwardScheme,
+    FourierScheme,
+    FourthOrderCentralDifference,
+    Hex1RScheme,
+    Quad1RScheme,
+    RotatedDifference,
+    SixthOrderCentralDifference,
+    Tetra2Scheme,
+)
+from xpektra.space import SpectralSpace
+from xpektra.spectral_operator import SpectralOperator
+from xpektra.tensor_operator import TensorOperator
+from xpektra.transform import (
+    FFTTransform,
+    PencilFFTTransform,
+    SlabFFTTransform2D,
+    SlabFFTTransform3D,
+)
+
+__all__ = [
+    # scheme
+    "BackwardDifference",
+    "BackwardScheme",
+    "CentralDifference",
+    "CentralScheme",
+    "EighthOrderCentralDifference",
+    # transform
+    "FFTTransform",
+    "ForwardDifference",
+    "ForwardScheme",
+    "FourierScheme",
+    "FourthOrderCentralDifference",
+    # projection_operator
+    "GalerkinProjection",
+    "Hex1RScheme",
+    "MoulinecSuquetProjection",
+    "PencilFFTTransform",
+    "ProjectionOperator",
+    "Quad1RScheme",
+    "RotatedDifference",
+    "SixthOrderCentralDifference",
+    "SlabFFTTransform2D",
+    "SlabFFTTransform3D",
+    "SpectralOperator",
+    # space / operators
+    "SpectralSpace",
+    "TensorOperator",
+    "Tetra2Scheme",
+    # helpers
+    "make_field",
+]
 
 
 def make_field(

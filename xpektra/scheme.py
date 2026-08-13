@@ -9,6 +9,23 @@ from xpektra.space import SpectralSpace
 from xpektra.tensor_operator import _dot11, _dot12
 from xpektra.transform import FFTTransform
 
+__all__ = [
+    "BackwardDifference",
+    "BackwardScheme",
+    "CentralDifference",
+    "CentralScheme",
+    "EighthOrderCentralDifference",
+    "ForwardDifference",
+    "ForwardScheme",
+    "FourierScheme",
+    "FourthOrderCentralDifference",
+    "Hex1RScheme",
+    "Quad1RScheme",
+    "RotatedDifference",
+    "SixthOrderCentralDifference",
+    "Tetra2Scheme",
+]
+
 iota = 1j  # Imaginary unit
 
 
