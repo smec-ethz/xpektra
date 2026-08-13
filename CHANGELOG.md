@@ -4,6 +4,25 @@
 
 - removes tatva as tool (42db8f7)
 
+## [0.5.0](https://github.com/smec-ethz/xpektra/compare/v0.4.1...v0.5.0) (2026-08-13)
+
+
+### Features
+
+* **scheme:** add TETRA2 scheme, change base scheme for modularity ([d25ec2d](https://github.com/smec-ethz/xpektra/commit/d25ec2d97e83bbddf542a7499da3c23e96b5c86e))
+* **transform:** add slab and pencil decomposition for parallel FFTs ([9bee2fb](https://github.com/smec-ethz/xpektra/commit/9bee2fb3f44d90b188a1282912e8d5b6192419e8))
+* **transform:** add slab decomposition for 3D FFT ([ae5734d](https://github.com/smec-ethz/xpektra/commit/ae5734d50a55cd6c504fa4af46f699ce58815705))
+
+
+### Bug Fixes
+
+* adapt examples, but need to be moved ([8da6366](https://github.com/smec-ethz/xpektra/commit/8da6366d47a5042d628597ca2585f83e5d062f1c))
+* remove twice computation of operator in symmetric gradient ([7a88c0b](https://github.com/smec-ethz/xpektra/commit/7a88c0b5d430d0a6b784146a07d92d9a299bbef2))
+* **scheme:** add stencils for forward, backeard and central scheme ([8da6366](https://github.com/smec-ethz/xpektra/commit/8da6366d47a5042d628597ca2585f83e5d062f1c))
+* **scheme:** add sympy based derivation of fourier operator from FD stencil in real space ([220a332](https://github.com/smec-ethz/xpektra/commit/220a3326d41afcc4115669ffe232c191a8392153))
+* **tensor:** replace einsum with broadcast rule for no GEMM under vmap ([5567ddf](https://github.com/smec-ethz/xpektra/commit/5567ddf7c41adbf911162247b92e89d1e3e8d1b1))
+* **tensor:** use jnp.trace for trace operator ([23b1dac](https://github.com/smec-ethz/xpektra/commit/23b1dacd4ece3a02366cf7a9dab7baeb63ffc5ff))
+
 ## [0.4.1](https://github.com/smec-ethz/xpektra/compare/v0.4.0...v0.4.1) (2026-04-12)
 
 
