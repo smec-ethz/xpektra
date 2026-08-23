@@ -98,12 +98,32 @@ def make_generic_preconditioner(
     say): the result has the same treedef, so no recompile follows.
 
     Null modes are handled explicitly.  ``K_hat`` is singular at ``xi = 0``
-    (rigid translation) and, for a reduced-integration stencil, at the Nyquist
+    (rigid translation) and, for a reduced-integration stencil, near the Nyquist
     corner.  Their symbols come out at round-off (~1e-30) rather than exactly
     zero, so an ``== 0`` test lets them through and the closed-form inverse then
-    blows up to ~1e29.  The spectral gap is vast (the next ``|det|`` is O(1)), so
-    a *relative* threshold separates them cleanly: the identity is inverted in
-    their place and the result is then zeroed there.
+    blows up to ~1e29.  A *relative* threshold separates them: the identity is
+    inverted in their place and the result is zeroed there.
+
+    ``rtol`` gates the **Frobenius norm of the symbol**, not its determinant.
+    That distinction matters: for a ``d x d`` block ``det ~ lambda**d``, so a
+    determinant threshold is only ``rtol**(1/d)`` in the eigenvalues -- the
+    previous ``rtol=1e-12`` on ``|det|`` behaved like ``1e-4`` and silently
+    discarded 8 legitimate modes for ``Hex1RScheme`` at ``N=21``, while keeping
+    exactly one at ``N=9`` and ``N=15``, so the fault only appeared once the grid
+    resolved the near-null modes.
+
+    The magnitude test is also the criterion
+    :func:`make_isotropic_preconditioner` uses -- its ``alpha`` *is* the symbol
+    scale -- so the two constructions now agree by construction rather than by
+    coincidence, which is what ``test_isotropic_matches_the_generic_preconditioner``
+    pins.
+
+    Limitation: this detects a symbol that *vanishes*, which is what the null
+    modes of a translation-invariant operator look like.  It will not detect a
+    symbol that stays large but becomes singular.  That is a pathological
+    reference operator for this construction; :func:`xpektra.linalg.inv` is
+    unguarded by design, so it yields non-finite values that surface at once
+    rather than being silently absorbed.
 
     Args:
         residual_ref_fn: applies the reference operator to a flat vector of
@@ -111,8 +131,8 @@ def make_generic_preconditioner(
             invariant; it need not be self-adjoint.
         space: the spectral space.
         d: components per node.
-        rtol: relative threshold on ``|det(K_hat)|`` below which a mode is
-            treated as null.
+        rtol: a mode is treated as null when the Frobenius norm of its symbol
+            falls below ``rtol`` times the largest such norm.
 
     Returns:
         The preconditioner.
@@ -138,8 +158,12 @@ def make_generic_preconditioner(
     ]
     K_hat = jnp.stack(columns, axis=-1)
 
-    det = linalg.det(K_hat)
-    ok = jnp.abs(det) > rtol * jnp.max(jnp.abs(det))
+    # Gate on the *magnitude* of the symbol, not on its determinant.  See the
+    # docstring: a determinant threshold is `rtol**(1/d)` in the eigenvalues, so
+    # the old `rtol=1e-12` behaved like `1e-4` for d=3 and discarded 8 legitimate
+    # modes for Hex1R at N=21.
+    scale = jnp.sqrt(jnp.sum(jnp.abs(K_hat) ** 2, axis=(-2, -1)))
+    ok = scale > rtol * jnp.max(scale)
 
     eye = jnp.eye(d, dtype=K_hat.dtype)
     K_safe = jnp.where(ok[..., None, None], K_hat, eye)

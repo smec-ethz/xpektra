@@ -203,6 +203,12 @@ def _isotropic_reference(op, space, dim):
     return jax.jit(jax.grad(energy))
 
 
+# The generic build only diverged from the closed form once the grid was fine
+# enough to resolve near-null modes: Hex1R zeroed 1 mode at N=9 and N=15 but 9 at
+# N=21.  These sizes are chosen so the comparison can actually fail.
+AGREEMENT_N = {2: 21, 3: 21}
+
+
 @pytest.mark.parametrize(("cls", "dim"), ISO_SCHEMES, ids=ISO_IDS)
 def test_isotropic_matches_the_generic_preconditioner(cls, dim):
     """The closed form and the impulse-response build agree.
@@ -210,16 +216,52 @@ def test_isotropic_matches_the_generic_preconditioner(cls, dim):
     This is the load-bearing test: the two arrive at the same operator by
     entirely different routes -- Woodbury on an identity-plus-rank-two symbol
     versus ``d`` impulse responses followed by an explicit ``d x d`` inverse.
-    An error in the 2x2 algebra could not survive it.
+
+    Two things it has to get right to be able to fail, both of which it
+    originally got wrong:
+
+    * the probe must be a **generic** vector, not ``K(v)``.  A residual in the
+      range of ``K`` has no component on ``K``'s null modes, so both operators
+      return zero there and any disagreement about *which* modes are null is
+      invisible.
+    * the grid must be fine enough for near-null modes to exist -- see
+      ``AGREEMENT_N``.
     """
-    op, space = _operator(cls, dim)
+    n = AGREEMENT_N[dim]
+    space = SpectralSpace(
+        lengths=(1.0,) * dim, shape=(n,) * dim, transform=FFTTransform(dim=dim)
+    )
+    op = SpectralOperator(scheme=cls(space=space), space=space)
     K = _isotropic_reference(op, space, dim)
 
     M_iso = make_isotropic_preconditioner(op.scheme, LAM0, MU0)
     M_gen = make_generic_preconditioner(K, space, d=dim)
 
-    r = K(jax.random.normal(jax.random.PRNGKey(0), (N**dim * dim,)))
-    np.testing.assert_allclose(M_iso(r), M_gen(r), atol=1e-12)
+    r = jax.random.normal(jax.random.PRNGKey(0), (n**dim * dim,))
+    got, ref = M_gen(r), M_iso(r)
+    np.testing.assert_allclose(got, ref, atol=1e-10 * float(np.max(np.abs(ref))))
+
+
+@pytest.mark.parametrize(("cls", "dim"), ISO_SCHEMES, ids=ISO_IDS)
+def test_null_modes_are_gated_on_magnitude_not_determinant(cls, dim):
+    """Both constructions must call the *same* modes null.
+
+    ``det ~ lambda**d``, so gating the generic build on ``|det|`` made
+    ``rtol=1e-12`` behave like ``1e-4`` and zero 9 modes where the closed form
+    zeroed 1.  Comparing the counts directly catches that even if the surviving
+    modes happen to agree.
+    """
+    n = AGREEMENT_N[dim]
+    space = SpectralSpace(
+        lengths=(1.0,) * dim, shape=(n,) * dim, transform=FFTTransform(dim=dim)
+    )
+    op = SpectralOperator(scheme=cls(space=space), space=space)
+    M_gen = make_generic_preconditioner(
+        _isotropic_reference(op, space, dim), space, dim
+    )
+
+    zeroed = int(jnp.sum(jnp.all(jnp.abs(M_gen.G_hat) == 0.0, axis=(-2, -1))))
+    assert zeroed == 1, f"expected only the xi=0 mode to be gated, got {zeroed}"
 
 
 @pytest.mark.parametrize(("cls", "dim"), ISO_SCHEMES, ids=ISO_IDS)
@@ -274,7 +316,7 @@ def test_isotropic_stores_less_than_the_generic(cls, dim):
 
 
 def test_isotropic_survives_a_jit_boundary():
-    op, space = _operator(Quad1RScheme, 2)
+    op, _ = _operator(Quad1RScheme, 2)
     M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0)
 
     r = jax.random.normal(jax.random.PRNGKey(3), (N**2 * 2,))
