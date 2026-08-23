@@ -24,7 +24,7 @@ from xpektra.scheme import Hex1RScheme, Quad1RScheme, Tetra2Scheme
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
 
-N = 8
+N = 9
 
 # (scheme, dim) -- n_quads is 1 for the first two, 2 for Tetra2.
 SCHEMES = [(Quad1RScheme, 2), (Hex1RScheme, 3), (Tetra2Scheme, 3)]

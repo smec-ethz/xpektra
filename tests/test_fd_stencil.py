@@ -14,7 +14,7 @@ from xpektra.transform import FFTTransform
 jax.config.update("jax_enable_x64", True)  # use double-precision
 
 
-def _space(N=64, length=1.0, dim=2):
+def _space(N=65, length=1.0, dim=2):
     return SpectralSpace(
         lengths=(length,) * dim, shape=(N,) * dim, transform=FFTTransform(dim=dim)
     )
@@ -71,7 +71,7 @@ def test_stencil_matches_rotated_difference():
 
 
 def test_stencil_matches_rotated_difference_3d():
-    N = 64
+    N = 65
     space = _space(dim=3, N=N)
     k_vals = space.get_wavenumber_mesh()
     h_vals = [space.lengths[i] / space.shape[i] for i in range(3)]

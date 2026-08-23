@@ -10,6 +10,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+
 from xpektra.scheme import (
     BackwardScheme,
     CentralScheme,
@@ -23,7 +24,7 @@ from xpektra.transform import FFTTransform
 
 jax.config.update("jax_enable_x64", True)
 
-N = 8
+N = 9
 
 # (factory, dim) -- Quad1R is 2D only, Hex1R and Tetra2 are 3D only.
 SCHEMES = [
@@ -172,3 +173,64 @@ def test_divergence_of_gradient_is_laplacian(cls, dim):
         scheme.apply_laplacian(u),
         atol=1e-12,
     )
+
+
+# ---------------------------------------------------------------------------
+# Reduced-integration schemes need an odd grid
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("cls", "dim"), [(Quad1RScheme, 2), (Hex1RScheme, 3)], ids=["Quad1R", "Hex1R"]
+)
+def test_even_grid_is_refused(cls, dim):
+    """An even grid puts the Nyquist frequency on the grid, where the symbol is 0."""
+    with pytest.raises(ValueError, match="odd grid"):
+        cls(space=_space(dim, n=8))
+
+
+@pytest.mark.parametrize(
+    ("cls", "dim"), [(Quad1RScheme, 2), (Hex1RScheme, 3)], ids=["Quad1R", "Hex1R"]
+)
+def test_odd_grid_has_only_the_rigid_translation_null_mode(cls, dim):
+    """The reason for the check: at odd N there is exactly one null mode.
+
+    At ``N = 8`` Hex1R has 23 of them and the smallest non-zero symbol is at
+    round-off; at ``N = 9`` it has 1 and the gap is ~5e-2 of the maximum.  Those
+    spurious modes are undetermined, so a solve leaves them wherever the initial
+    guess put them.
+    """
+    scheme = cls(space=_space(dim, n=9))
+    norm = jnp.sqrt(jnp.sum(jnp.abs(scheme.gradient_operator) ** 2, axis=(-2, -1)))
+    scale = float(jnp.max(norm))
+
+    assert int(jnp.sum(norm < 1e-10 * scale)) == 1, "expected only the xi=0 mode"
+    # and the spectral gap is real, not round-off
+    assert float(jnp.sort(norm.reshape(-1))[1]) / scale > 1e-2
+
+
+def test_the_check_is_specific_to_reduced_integration():
+    """``FourierScheme`` has no such factor, so an even grid is fine for it."""
+    from xpektra.scheme import FourierScheme
+
+    scheme = FourierScheme(space=_space(3, n=8))  # must not raise
+    norm = jnp.sqrt(jnp.sum(jnp.abs(scheme.gradient_operator) ** 2, axis=(-2, -1)))
+    assert int(jnp.sum(norm < 1e-10 * float(jnp.max(norm)))) == 1
+
+
+@pytest.mark.parametrize(
+    ("cls", "dim"), [(Quad1RScheme, 2), (Hex1RScheme, 3)], ids=["Quad1R", "Hex1R"]
+)
+def test_even_grid_can_be_opted_into(cls, dim):
+    """`q1_ringing_2d.py` studies the Nyquist null mode, so it needs an even grid."""
+    scheme = cls(space=_space(dim, n=8), allow_even_grid=True)
+    norm = jnp.sqrt(jnp.sum(jnp.abs(scheme.gradient_operator) ** 2, axis=(-2, -1)))
+    # the spurious modes really are there -- that is what makes the opt-out useful
+    assert int(jnp.sum(norm < 1e-10 * float(jnp.max(norm)))) > 1
+
+
+def test_the_opt_out_survives_a_pytree_roundtrip():
+    """It is aux_data, so a scheme crossing `jit` must not silently re-arm the check."""
+    scheme = Quad1RScheme(space=_space(2, n=8), allow_even_grid=True)
+    leaves, treedef = jax.tree_util.tree_flatten(scheme)
+    assert jax.tree_util.tree_unflatten(treedef, leaves).allow_even_grid
