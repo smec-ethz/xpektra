@@ -36,7 +36,8 @@ def _centre_phase(space):
     """exp(-i xi.h / 2): undoes the node->centre half shift the stencils carry."""
     h = [space.lengths[i] / space.shape[i] for i in range(3)]
     k = space.get_wavenumber_mesh()
-    return jnp.exp(-0.5j * sum(k[i] * h[i] for i in range(3)))[..., None]
+    # two trailing axes: the quadrature axis and the component axis
+    return jnp.exp(-0.5j * sum(k[i] * h[i] for i in range(3)))[..., None, None]
 
 
 # --------------------------------------------------------------------------
@@ -74,7 +75,7 @@ def test_each_direction_uses_all_four_vertices():
 
 def test_n_quads_and_operator_shape(scheme):
     assert scheme.n_quads == 2
-    assert scheme.gradient_operator.shape == (2, N, N, N, 3)
+    assert scheme.gradient_operator.shape == (N, N, N, 2, 3)
 
 
 def test_mirror_identity(scheme):
@@ -83,7 +84,8 @@ def test_mirror_identity(scheme):
     Equivalent to the statement that T2 is T1 mirrored through the voxel faces.
     """
     phase = _centre_phase(scheme.space)
-    z1, z2 = scheme.gradient_operator * phase
+    ops = scheme.gradient_operator * phase
+    z1, z2 = ops[..., 0, :], ops[..., 1, :]
     np.testing.assert_allclose(z2, -jnp.conj(z1), atol=1e-12)
 
 
@@ -94,7 +96,8 @@ def test_cross_product_is_minus_modulus_squared(scheme):
     across roughly half the spectrum; that is the failure this pins down.
     """
     phase = _centre_phase(scheme.space)
-    z1, z2 = scheme.gradient_operator * phase
+    ops = scheme.gradient_operator * phase
+    z1, z2 = ops[..., 0, :], ops[..., 1, :]
 
     crossed = jnp.einsum("...m,...m->...", z1, z2)
     np.testing.assert_allclose(crossed.imag, 0.0, atol=1e-12)
@@ -125,7 +128,7 @@ def test_both_supports_are_first_order_consistent():
     for r in range(scheme.n_quads):
         for m in range(3):
             np.testing.assert_allclose(
-                ops[r][idx][m], 1j * k[m][idx], atol=1e-12, rtol=1e-2
+                ops[idx][r][m], 1j * k[m][idx], atol=1e-12, rtol=1e-2
             )
 
 
@@ -137,17 +140,17 @@ def test_both_supports_are_first_order_consistent():
 def test_gradient_and_divergence_shapes(scheme):
     u_scalar = jnp.zeros((N, N, N))
     u_vector = jnp.zeros((N, N, N, 3))
-    sigma = jnp.zeros((2, N, N, N, 3, 3))
+    sigma = jnp.zeros((N, N, N, 2, 3, 3))
 
-    assert scheme.apply_gradient(u_scalar).shape == (2, N, N, N, 3)
-    assert scheme.apply_symmetric_gradient(u_vector).shape == (2, N, N, N, 3, 3)
+    assert scheme.apply_gradient(u_scalar).shape == (N, N, N, 2, 3)
+    assert scheme.apply_symmetric_gradient(u_vector).shape == (N, N, N, 2, 3, 3)
     assert scheme.apply_divergence(sigma).shape == (N, N, N, 3)
     assert scheme.apply_laplacian(u_scalar).shape == (N, N, N)
     assert scheme.apply_laplacian(u_vector).shape == (N, N, N, 3)
 
 
 def test_divergence_rejects_unstacked_input(scheme):
-    """A plain centre field would unpack along a *spatial* axis and return garbage."""
+    """A plain centre field would contract a *spatial* axis and return garbage."""
     with pytest.raises(ValueError, match="quadrature points"):
         scheme.apply_divergence(jnp.zeros((N, N, N, 3, 3)))
 
@@ -174,7 +177,45 @@ def test_usable_under_jit(scheme):
         return s.apply_divergence(sigma)
 
     key = jax.random.PRNGKey(0)
-    sigma = jax.random.normal(key, (2, N, N, N, 3, 3))
+    sigma = jax.random.normal(key, (N, N, N, 2, 3, 3))
     np.testing.assert_allclose(
         apply(scheme, sigma), scheme.apply_divergence(sigma), atol=1e-12
     )
+
+
+def test_generic_operators_reproduce_the_written_out_crossed_pairing(scheme):
+    """Eqs. (38) and (31) written out by hand, against the inherited generic form.
+
+    ``Tetra2Scheme`` used to override ``apply_divergence`` and ``apply_laplacian``
+    with these two expressions.  They are now inherited from
+    ``FiniteDifferenceScheme``, which averages ``-conj(D_q)`` against support ``q``
+    for every scheme.  This pins that the generic average really is the crossed
+    pairing the double-tetrahedron construction requires -- nothing else states
+    Eqs. (38) and (31) in their explicit two-support form.
+    """
+    key = jax.random.PRNGKey(0)
+    k1, k2, k3 = jax.random.split(key, 3)
+    sigma = jax.random.normal(k1, (N, N, N, 2, 3, 3)) + 1j * jax.random.normal(
+        k2, (N, N, N, 2, 3, 3)
+    )
+    u = jax.random.normal(k3, (N, N, N, 3)) + 0j
+
+    D, Dd = scheme.gradient_operator, scheme.divergence_operator
+    D1, D2 = D[..., 0, :], D[..., 1, :]
+    Dd1, Dd2 = Dd[..., 0, :], Dd[..., 1, :]
+
+    # Eq. (38): R = 1/2 (div_T2 sigma_1 + div_T1 sigma_2)
+    expected_div = 0.5 * (
+        jnp.einsum("...i,...ij->...j", Dd1, sigma[..., 0, :, :])
+        + jnp.einsum("...i,...ij->...j", Dd2, sigma[..., 1, :, :])
+    )
+    np.testing.assert_allclose(scheme.apply_divergence(sigma), expected_div, atol=1e-12)
+
+    # Eq. (31): lap = 1/2 sum_r D_Tr . Dd_Tr, real and negative semi-definite
+    lap = 0.5 * (
+        jnp.einsum("...i,...i->...", D1, Dd1) + jnp.einsum("...i,...i->...", D2, Dd2)
+    )
+    np.testing.assert_allclose(lap.imag, 0.0, atol=1e-12)
+    assert lap.real.max() <= 1e-12
+    expected_lap = jnp.expand_dims(lap, tuple(range(lap.ndim, u.ndim))) * u
+    np.testing.assert_allclose(scheme.apply_laplacian(u), expected_lap, atol=1e-12)

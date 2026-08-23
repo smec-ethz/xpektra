@@ -25,6 +25,7 @@ def make_operator(dim, N=32, length=1.0):
 # forward / inverse roundtrip
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("dim", [1, 2])
 def test_forward_inverse_roundtrip(dim):
     op, N, _ = make_operator(dim)
@@ -37,6 +38,7 @@ def test_forward_inverse_roundtrip(dim):
 # ---------------------------------------------------------------------------
 # laplacian
 # ---------------------------------------------------------------------------
+
 
 def test_laplacian_1d():
     """laplacian(sin(kx)) == -k^2 sin(kx) (exact for Fourier scheme)."""
@@ -73,10 +75,12 @@ def test_laplacian_shape(dim):
 # div
 # ---------------------------------------------------------------------------
 
+
 def test_div_2d_shape():
     """div of a rank-2 tensor field returns a vector field."""
     op, N, _ = make_operator(dim=2)
-    sigma = make_field(dim=2, shape=(N, N), rank=2)
+    # centre field: (*spatial, n_quads, dim, dim)
+    sigma = make_field(dim=2, shape=(N, N, 1), rank=2)
     result = op.div(sigma)
     assert result.shape == (N, N, 2)
 
@@ -93,8 +97,8 @@ def test_div_2d_correctness():
     X, _ = np.meshgrid(x, x, indexing="ij")
     k = 2 * np.pi / L
 
-    sigma = np.zeros((N, N, 2, 2))
-    sigma[:, :, 0, 0] = np.sin(k * X)
+    sigma = np.zeros((N, N, 1, 2, 2))
+    sigma[:, :, 0, 0, 0] = np.sin(k * X)
     sigma = jnp.array(sigma)
 
     result = op.div(sigma)
@@ -110,12 +114,13 @@ def test_div_2d_correctness():
 # sym_grad
 # ---------------------------------------------------------------------------
 
+
 def test_sym_grad_shape_2d():
-    """sym_grad of a 2D vector field returns shape (N, N, 2, 2)."""
+    """sym_grad of a 2D vector field returns shape (N, N, n_quads, 2, 2)."""
     op, N, _ = make_operator(dim=2)
     u = jnp.zeros((N, N, 2))
     result = op.sym_grad(u)
-    assert result.shape == (N, N, 2, 2)
+    assert result.shape == (N, N, 1, 2, 2)
 
 
 def test_sym_grad_symmetry_2d():
@@ -128,12 +133,56 @@ def test_sym_grad_symmetry_2d():
 
 
 def test_sym_grad_1d_matches_grad():
-    """In 1D, sym_grad of a scalar field matches grad (library treats (N,) as the 1D vector)."""
+    """In 1D, sym_grad of the one-component vector field matches grad."""
     op, N, L = make_operator(dim=1, N=64, length=2 * np.pi)
     k = 2.0
     x = np.linspace(0, L, N, endpoint=False)
-    # In the 1D special case, sym_grad expects input shape (N,) and returns (N,)
-    u = jnp.array(np.sin(k * x))
+    # a 1D node field is (N, dim) with dim == 1; sym_grad returns (N, 1, 1, 1)
+    u = jnp.array(np.sin(k * x))[:, None]
     eps = op.sym_grad(u)
+    assert eps.shape == (N, 1, 1, 1)
     expected = k * np.cos(k * x)
-    np.testing.assert_allclose(eps, expected, atol=1e-11)
+    np.testing.assert_allclose(eps[:, 0, 0, 0], expected, atol=1e-11)
+
+
+# ---------------------------------------------------------------------------
+# grad of a vector field -- index order
+# ---------------------------------------------------------------------------
+
+
+def test_grad_vector_index_order_2d():
+    """``grad(u)[..., i, j] == d_i u_j``, checked against a closed form.
+
+    ``u = (0, sin(k x))`` has exactly one nonzero derivative, ``d_0 u_1``.  It
+    must land at ``[..., 0, 1]``; the transposed convention would put it at
+    ``[..., 1, 0]``, so this pins the order rather than just the symmetry.
+    """
+    op, N, L = make_operator(dim=2, N=64, length=1.0)
+    x = np.linspace(0, L, N, endpoint=False)
+    X, _ = np.meshgrid(x, x, indexing="ij")
+    k = 2 * np.pi / L
+
+    u = np.zeros((N, N, 2))
+    u[:, :, 1] = np.sin(k * X)
+
+    g = op.grad(jnp.array(u))
+    assert g.shape == (N, N, 1, 2, 2)
+    g = g[:, :, 0]  # single support
+
+    np.testing.assert_allclose(g[..., 0, 1], k * np.cos(k * X), atol=1e-10)
+    for i, j in [(0, 0), (1, 0), (1, 1)]:
+        np.testing.assert_allclose(
+            g[..., i, j], 0.0, atol=1e-10, err_msg=f"g[{i},{j}] should vanish"
+        )
+
+
+def test_grad_vector_1d():
+    """A 1D node field is ``(N, 1)``; its gradient is ``(N, 1, 1, 1)``."""
+    op, N, L = make_operator(dim=1, N=64, length=2 * np.pi)
+    k = 2.0
+    x = np.linspace(0, L, N, endpoint=False)
+    u = jnp.array(np.sin(k * x))[:, None]
+
+    g = op.grad(u)
+    assert g.shape == (N, 1, 1, 1)
+    np.testing.assert_allclose(g[:, 0, 0, 0], k * np.cos(k * x), atol=1e-11)

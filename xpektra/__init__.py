@@ -1,29 +1,27 @@
 import numpy as np
 
+from xpektra.preconditioner import (
+    GenericGreenPreconditioner,
+    IsotropicGreenPreconditioner,
+    make_generic_preconditioner,
+    make_isotropic_preconditioner,
+)
 from xpektra.projection_operator import (
     GalerkinProjection,
     MoulinecSuquetProjection,
     ProjectionOperator,
 )
 from xpektra.scheme import (
-    BackwardDifference,
     BackwardScheme,
-    CentralDifference,
     CentralScheme,
-    EighthOrderCentralDifference,
-    ForwardDifference,
     ForwardScheme,
     FourierScheme,
-    FourthOrderCentralDifference,
     Hex1RScheme,
     Quad1RScheme,
-    RotatedDifference,
-    SixthOrderCentralDifference,
     Tetra2Scheme,
 )
 from xpektra.space import SpectralSpace
 from xpektra.spectral_operator import SpectralOperator
-from xpektra.tensor_operator import TensorOperator
 from xpektra.transform import (
     FFTTransform,
     PencilFFTTransform,
@@ -33,35 +31,31 @@ from xpektra.transform import (
 
 __all__ = [
     # scheme
-    "BackwardDifference",
     "BackwardScheme",
-    "CentralDifference",
     "CentralScheme",
-    "EighthOrderCentralDifference",
     # transform
     "FFTTransform",
-    "ForwardDifference",
     "ForwardScheme",
     "FourierScheme",
-    "FourthOrderCentralDifference",
     # projection_operator
     "GalerkinProjection",
+    "GenericGreenPreconditioner",
     "Hex1RScheme",
+    "IsotropicGreenPreconditioner",
     "MoulinecSuquetProjection",
     "PencilFFTTransform",
     "ProjectionOperator",
     "Quad1RScheme",
-    "RotatedDifference",
-    "SixthOrderCentralDifference",
     "SlabFFTTransform2D",
     "SlabFFTTransform3D",
     "SpectralOperator",
     # space / operators
     "SpectralSpace",
-    "TensorOperator",
     "Tetra2Scheme",
     # helpers
     "make_field",
+    "make_generic_preconditioner",
+    "make_isotropic_preconditioner",
 ]
 
 

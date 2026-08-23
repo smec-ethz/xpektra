@@ -1,3 +1,20 @@
+# Copyright (C) 2025 ETH Zurich (SMEC)
+#
+# This file is part of xpektra.
+#
+# xpektra is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# xpektra is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
+
 from abc import ABC, abstractmethod
 
 import jax
@@ -5,28 +22,25 @@ import jax.numpy as jnp
 import sympy as sp
 from jax import Array
 
+from xpektra.linalg import contract
 from xpektra.space import SpectralSpace
-from xpektra.tensor_operator import _dot11, _dot12
 from xpektra.transform import FFTTransform
 
 __all__ = [
-    "BackwardDifference",
     "BackwardScheme",
-    "CentralDifference",
     "CentralScheme",
-    "EighthOrderCentralDifference",
-    "ForwardDifference",
     "ForwardScheme",
     "FourierScheme",
-    "FourthOrderCentralDifference",
     "Hex1RScheme",
     "Quad1RScheme",
-    "RotatedDifference",
-    "SixthOrderCentralDifference",
     "Tetra2Scheme",
 ]
 
 iota = 1j  # Imaginary unit
+
+# einsum subscripts for the tensor axes of a field whose gradient is taken.
+# Must avoid "q" (quadrature) and "i" (the derivative index).
+_TENSOR_SUBSCRIPTS = "jklmn"
 
 
 class Scheme(ABC):
@@ -34,67 +48,26 @@ class Scheme(ABC):
     Abstract base class for a complete discretization strategy.
 
     A Scheme is a self-contained object responsible for generating the
-    discrete gradient operator based on a given spectral space.
+    discrete gradient operator based on a given spectral space, and for
+    applying that operator (and its adjoint) to fields in Fourier space.
+
+    Subclasses supply only :meth:`compute_gradient_operator` -- either from
+    finite-difference stencils (:class:`FiniteDifferenceScheme`) or from a
+    closed-form symbol (:class:`FourierScheme`).  All four ``apply_*``
+    operations live here, so every scheme shares one convention:
+    ``divergence_operator = -conj(gradient_operator)``, which is what makes
+    ``div`` the adjoint of ``sym_grad`` and hence ``D^T C D`` symmetric.
+
+    ``n_quads`` is the number of derivation supports (quadrature points) per
+    voxel; multi-support schemes such as :class:`Tetra2Scheme` derive it from
+    their stencils.  ``gradient_operator`` is always ``(*spatial, n_quads, dim)``
+    -- the quadrature axis is present even when ``n_quads == 1`` -- so centre
+    fields have the same shape whichever scheme is in use, and none of the
+    operations below needs a branch.
     """
 
-    @abstractmethod
-    def compute_gradient_operator(self, wavenumbers_mesh: list[Array]) -> Array:
-        """
-        The primary output of any scheme. The gradient operator field has shape ( (N,)*dim, (dim,)*rank).
-        """
-        raise NotImplementedError
+    n_quads: int = 1
 
-    @abstractmethod
-    def is_compatible(self):
-        """
-        Checks if the scheme is compatible with the given transform.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def apply_gradient(self, u_hat: Array) -> Array:
-        """
-        Applies the gradient operator on the fly.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def apply_divergence(self, u_hat: Array) -> Array:
-        """
-        Applies the gradient operator on the fly.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def apply_symmetric_gradient(self, u_hat: Array) -> Array:
-        """
-        Applies the symmetric gradient operator on the fly.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def apply_laplacian(self, u_hat: Array) -> Array:
-        """
-        Applies the Laplacian operator on the fly.
-        """
-        raise NotImplementedError
-
-
-def _unit_offset(axis: int, dim: int, offset: int) -> tuple[int, ...]:
-    """Helper function to create a unit offset tuple for a given axis."""
-    return tuple(offset if i == axis else 0 for i in range(dim))
-
-
-class FiniteDifferenceScheme(Scheme):
-    """
-    Base class for schemes operating on a uniform Cartesian grid
-    where the differentiation is not diagonal in Fourier space.
-
-    Cannot be instantiated directly — use a concrete subclass
-    (e.g. CentralDifference, ForwardDifference).
-    """
-
-    n_quads: int
     dim: int
     space: SpectralSpace
     gradient_operator: Array
@@ -110,7 +83,7 @@ class FiniteDifferenceScheme(Scheme):
             wavenumbers_mesh=space.get_wavenumber_mesh()
         )
 
-        self.n_quads = len(self.support_stencils)
+        self.n_quads = self._n_supports()
 
         object.__setattr__(self, "_initialized", True)
 
@@ -145,11 +118,171 @@ class FiniteDifferenceScheme(Scheme):
         object.__setattr__(obj, "_initialized", True)
         return obj
 
+    def _n_supports(self) -> int:
+        """Number of derivation supports (quadrature points) per voxel."""
+        return 1
+
     def is_compatible(self):
+        """
+        Checks if the scheme is compatible with the given transform.
+        """
         if not isinstance(self.space.transform, FFTTransform):
             raise ValueError(  # noqa: TRY004
-                "FiniteDifferenceScheme is only compatible with FFTTransform."
+                f"{type(self).__name__} is only compatible with FFTTransform."
             )
+
+    @abstractmethod
+    def compute_gradient_operator(self, wavenumbers_mesh: list[Array]) -> Array:
+        """
+        The primary output of any scheme. The gradient operator field has shape ( (N,)*dim, (dim,)*rank).
+        """
+        raise NotImplementedError
+
+    @property
+    def divergence_operator(self):
+        """Returns the divergence operator in Fourier space."""
+        return -jnp.conj(self.gradient_operator)
+
+    @jax.jit
+    def apply_symmetric_gradient(self, u_hat: Array) -> Array:
+        """
+        Applies the symmetric gradient operator on the fly.
+        Computes: eps_hat_qij = 0.5 * (D_qi * u_hat_j + D_qj * u_hat_i)
+
+        Args:
+            u_hat: Node field in Fourier space, shape ``(*spatial, dim)``.
+
+        Returns:
+            Centre field in Fourier space, shape ``(*spatial, n_quads, dim, dim)``.
+        """
+        t = jnp.einsum("...qi,...j->...qij", self.gradient_operator, u_hat)
+        return 0.5 * (t + jnp.swapaxes(t, -1, -2))
+
+    @jax.jit
+    def apply_divergence(self, u_hat: Array) -> Array:
+        """
+        Applies the quadrature-averaged divergence operator on the fly.
+        Computes: div_hat_i = 1/n_q * sum_q -conj(D_qj) * u_hat_qji
+
+        Uses ``divergence_operator``, not ``gradient_operator``: the input lives at
+        the voxel centres, so the half-voxel phase is conjugated (Eq. 19₂ of
+        Amouzou-adoun et al., 2026).  That is what makes ``div`` the adjoint of
+        ``sym_grad``, and hence ``D^T C D`` symmetric.
+
+        For a multi-support scheme ``divergence_operator[..., q, :]`` is the
+        *mirror* support's symbol referenced to the nodes, so pairing each
+        quadrature point with its own entry here already performs the cross
+        derivation of Eq. (38) -- including the centre->node phase that
+        contracting against the other support's ``D`` directly would omit.
+
+        Args:
+            u_hat: Centre field in Fourier space, shape
+                ``(*spatial, n_quads, dim, dim)``.
+
+        Returns:
+            Node field in Fourier space, shape ``(*spatial, dim)``.
+        """
+        if u_hat.ndim < 3 or u_hat.shape[-3] != self.n_quads:
+            raise ValueError(
+                f"expected {self.n_quads} quadrature points on axis -3, "
+                f"got shape {u_hat.shape}"
+            )
+
+        # Note: We must transpose sigma_hat for the ddot
+        return (
+            contract("...qj,...qji->...i", self.divergence_operator, u_hat)
+            / self.n_quads
+        )
+
+    @jax.jit
+    def apply_gradient(self, u_hat: Array) -> Array:
+        """
+        Applies the gradient operator on the fly, for a node field of any rank.
+        Computes: grad_hat_qi... = D_qi * u_hat_...
+
+        The derivative index comes **first**: for a vector field
+        ``grad_qij = D_qi * u_j = d_i u_j``.  That matches
+        :meth:`apply_symmetric_gradient`, which builds the same product before
+        symmetrising, and :meth:`apply_divergence`, which contracts the operator
+        against axis ``-2`` of its input.  So ``div(grad(u))`` is the vector
+        Laplacian, and ``sym_grad(u) == 0.5 * (g + g^T)`` holds exactly.
+
+        Note this is the transpose of the continuum-mechanics ``grad u``
+        convention, in which ``(grad u)_ij = d_j u_i``; a deformation gradient is
+        therefore ``I + swapaxes(grad(u), -1, -2)``.
+
+        Args:
+            u_hat: Node field in Fourier space, shape ``(*spatial, *tensor)``.
+                Rank 0 (scalar) and rank 1 (vector) are the usual cases.
+
+        Returns:
+            Centre field in Fourier space, shape
+            ``(*spatial, n_quads, dim, *tensor)``.
+        """
+        rank = u_hat.ndim - self.dim
+        if rank < 0:
+            raise ValueError(
+                f"field has {u_hat.ndim} axes, fewer than the {self.dim} spatial "
+                f"dimensions; got shape {u_hat.shape}"
+            )
+        if rank > len(_TENSOR_SUBSCRIPTS):
+            raise ValueError(
+                f"gradient of a rank-{rank} field is not supported "
+                f"(maximum {len(_TENSOR_SUBSCRIPTS)})"
+            )
+
+        # rank 0 -> "...qi,...->...qi";  rank 1 -> "...qi,...j->...qij"
+        subs = _TENSOR_SUBSCRIPTS[:rank]
+        return jnp.einsum(
+            f"...qi,...{subs}->...qi{subs}", self.gradient_operator, u_hat
+        )
+
+    @jax.jit
+    def apply_laplacian(self, u_hat: Array) -> Array:
+        """
+        Applies the Laplacian operator on the fly.
+        Computes: lap_hat = 1/n_q * sum_q sum_i D_qi * -conj(D_qi) = -1/n_q sum_q ||D_q||^2
+
+        Real and negative semi-definite.  For a multi-support scheme this is the
+        cross derivation of Eq. (31): as in :meth:`apply_divergence`, ``_Dd`` is
+        the mirror support's symbol referenced to the nodes, so the centre->node
+        phase is included.  Contracting the two supports' ``D`` against each other
+        directly leaves a residual ``exp(i xi.h)``; pairing each support with
+        *itself* without the conjugate is sign-indefinite over roughly half the
+        spectrum.
+
+        Node -> node: the quadrature axis is summed away, not grown, so this
+        accepts a field of any tensor rank.
+        """
+        # -1/n_q sum_q ||D_q||^2
+        lap_op_hat = (
+            contract(
+                "...qi,...qi->...", self.gradient_operator, self.divergence_operator
+            )
+            / self.n_quads
+        )
+        return (
+            jnp.expand_dims(lap_op_hat, tuple(range(lap_op_hat.ndim, u_hat.ndim)))
+            * u_hat
+        )
+
+
+def _unit_offset(axis: int, dim: int, offset: int) -> tuple[int, ...]:
+    """Helper function to create a unit offset tuple for a given axis."""
+    return tuple(offset if i == axis else 0 for i in range(dim))
+
+
+class FiniteDifferenceScheme(Scheme):
+    """
+    Base class for schemes operating on a uniform Cartesian grid
+    where the differentiation is not diagonal in Fourier space.
+
+    Cannot be instantiated directly — use a concrete subclass
+    (e.g. CentralScheme, ForwardScheme).
+    """
+
+    def _n_supports(self) -> int:
+        return len(self.support_stencils)
 
     @property
     def stencils(self):
@@ -210,7 +343,7 @@ class FiniteDifferenceScheme(Scheme):
             for s in stencils
         ]
 
-        return Zs[0] if self.dim == 1 else jnp.stack(Zs, axis=-1)
+        return jnp.stack(Zs, axis=-1)
 
     def compute_gradient_operator(self, wavenumbers_mesh: list[Array]):
         """Builds the full gradient operator field using the scheme's stencils.
@@ -219,86 +352,23 @@ class FiniteDifferenceScheme(Scheme):
             wavenumbers_mesh: A list of arrays representing the meshgrid of wavenumbers.
 
         Returns:
-            An array representing the gradient operator in Fourier space, with shape ( (N,)*dim, (dim,)*rank).
+            The gradient operator in Fourier space, shape
+            ``(*spatial, n_quads, dim)``.  The quadrature axis sits *after* the
+            spatial axes so that ``transform.forward``/``inverse``, which act on
+            ``axes=range(dim)``, and the sharded transforms, whose
+            ``PartitionSpec`` objects are indexed from the left, both keep working
+            unchanged.  It is always present, length 1 for a single-support
+            scheme, so that every operation is a single branch-free einsum.
         """
         ops = [
             self.build_support_operator(stencils=s, wavenumber_mesh=wavenumbers_mesh)
             for s in self.support_stencils
         ]
-        return ops[0] if len(ops) == 1 else jnp.stack(ops, axis=0)
-
-    @property
-    def divergence_operator(self):
-        """Returns the divergence operator in Fourier space."""
-        return -jnp.conj(self.gradient_operator)
-
-    @jax.jit
-    def apply_symmetric_gradient(self, u_hat: Array) -> Array:
-        """
-        Applies the symmetric gradient operator on the fly.
-        Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
-        """
-        Dξs = self.gradient_operator
-        if self.dim == 1:
-            return Dξs * u_hat  # In 1D, symmetric gradient is just the gradient
-
-        t = jnp.einsum("...i,...j->...ij", Dξs, u_hat)  # D_i * u_j
-        return 0.5 * (t + jnp.swapaxes(t, -1, -2))  # 0.5 * (D_i * u_j + D_j * u_i)
-
-    @jax.jit
-    def apply_divergence(self, u_hat: Array) -> Array:
-        """
-        Applies the divergence operator on the fly.
-        Computes: div_hat_i = -conj(Dξ_j) * u_hat_ji
-
-        Uses ``divergence_operator``, not ``gradient_operator``: the input lives at
-        the voxel centres, so the half-voxel phase is conjugated (Eq. 19₂ of
-        Amouzou-adoun et al., 2026).  That is what makes ``div`` the adjoint of
-        ``sym_grad``, and hence ``D^T C D`` symmetric.
-        """
-        Dξs = self.divergence_operator
-        if self.dim == 1:
-            return Dξs * u_hat
-
-        # Note: We must transpose sigma_hat for the ddot
-        return jnp.einsum("...j,...ji->...i", Dξs, u_hat)
-
-    @jax.jit
-    def apply_gradient(self, u_hat: Array) -> Array:
-        """
-        Applies the gradient operator on the fly.
-        Computes: grad_hat_ij = Dξ_i * u_hat_j
-        """
-        Dξs = self.gradient_operator
-        if self.dim == 1:
-            return Dξs * u_hat
-
-        return Dξs * u_hat[..., None]
-
-    @jax.jit
-    def apply_laplacian(self, u_hat: Array) -> Array:
-        """
-        Applies the Laplacian operator on the fly.
-        Computes: lap_hat = -|Dξ|^2 * u_hat
-        """
-        Dξs = self.gradient_operator
-        Dξs_conj = self.divergence_operator
-        if self.dim == 1:
-            lap_op_hat = Dξs * Dξs_conj  # -|Dξ|^2
-            return lap_op_hat * u_hat
-
-        lap_op_hat = jnp.einsum("...i,...i->...", Dξs, Dξs_conj)  # -|Dξ|^2
-        return (
-            jnp.expand_dims(lap_op_hat, tuple(range(lap_op_hat.ndim, u_hat.ndim)))
-            * u_hat
-        )
+        return jnp.stack(ops, axis=-2)
 
 
 class ForwardScheme(FiniteDifferenceScheme):
     """Represents a forward difference scheme in Fourier space."""
-
-    def is_compatible(self):
-        super().is_compatible()
 
     @property
     def stencils(self):
@@ -316,9 +386,6 @@ class ForwardScheme(FiniteDifferenceScheme):
 class BackwardScheme(FiniteDifferenceScheme):
     """Represents a backward difference scheme in Fourier space."""
 
-    def is_compatible(self):
-        super().is_compatible()
-
     @property
     def stencils(self):
         h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
@@ -334,9 +401,6 @@ class BackwardScheme(FiniteDifferenceScheme):
 
 class CentralScheme(FiniteDifferenceScheme):
     """Represents a central difference scheme in Fourier space."""
-
-    def is_compatible(self):
-        super().is_compatible()
 
     @property
     def stencils(self):
@@ -492,13 +556,18 @@ class Tetra2Scheme(FiniteDifferenceScheme):
     """Double-tetrahedron scheme (TETRA2), Finel (2025); Amouzou-adoun et al. (2026).
 
     Two derivation supports per voxel, so ``gradient_operator`` has shape
-    ``(2, *spatial, 3)`` and strain/stress fields carry two values per voxel
+    ``(*spatial, 2, 3)`` and strain/stress fields carry two values per voxel
     (``n_quads = 2``; §2.7.1).  The displacement stays single-valued.
 
     Shapes are therefore *not* symmetric between gradient and divergence:
     ``apply_gradient``/``apply_symmetric_gradient`` map node -> 2x centre, while
     ``apply_divergence`` maps 2x centre -> node.  ``apply_laplacian`` is node ->
     node and does not grow the axis, because the two supports combine there.
+
+    All four operations are inherited unchanged from :class:`Scheme`: the
+    quadrature averaging of Eqs. (31) and (38) is already implied by
+    ``divergence_operator = -conj(gradient_operator)`` holding *per support*, so
+    this class only has to declare its stencils.
     """
 
     def is_compatible(self):
@@ -511,261 +580,24 @@ class Tetra2Scheme(FiniteDifferenceScheme):
     def support_stencils(self):
         return (tetra_t1_stencils(), tetra_t2_stencils())
 
-    @jax.jit
-    def apply_divergence(self, u_hat: Array) -> Array:
-        """Quadrature-averaged divergence of a 2-support centre field.
 
-        Computes Eq. (38): ``R = 1/2 (div_T2 sigma_1 + div_T1 sigma_2)``.
+class FourierScheme(Scheme):
+    """Exact spectral derivative, ``D_i = i xi_i``.
 
-        ``divergence_operator[r] = -conj(D_Tr)`` *is* the mirror tetrahedron's
-        symbol referenced to the nodes, so pairing each quadrature point with its
-        own entry here is that crossing -- including the centre->node phase that
-        contracting against ``D_T2`` directly would omit.
-
-        Args:
-            u_hat: Centre field in Fourier space, shape ``(2, *spatial, 3, 3)``.
-
-        Returns:
-            Node field in Fourier space, shape ``(*spatial, 3)``.
-        """
-        if u_hat.shape[0] != self.n_quads:
-            raise ValueError(
-                f"expected a leading axis of {self.n_quads} quadrature points, "
-                f"got shape {u_hat.shape}"
-            )
-
-        Dd1, Dd2 = self.divergence_operator
-        s1, s2 = u_hat
-        return 0.5 * (_dot12(Dd1, s1) + _dot12(Dd2, s2))
-
-    @jax.jit
-    def apply_laplacian(self, u_hat: Array) -> Array:
-        """Cross-derivation Laplacian, Eq. (31).
-
-        ``lap = sum_m D_Tr,m * Dd_Tr,m`` averaged over supports.  As in
-        ``apply_divergence``, ``divergence_operator[r] = -conj(D_Tr)`` is the mirror
-        tetrahedron's symbol referenced to the nodes, so this is the cross derivation
-        of Eq. (31) with the centre->node phase included.  The result is
-        ``-||D_T1||^2``: real and negative semi-definite, and identical for both
-        supports.  Contracting ``D_T1`` with ``D_T2`` directly leaves a residual
-        ``exp(i xi.h)``; pairing each support with *itself* is sign-indefinite over
-        roughly half the spectrum.
-        """
-        D1, D2 = self.gradient_operator
-        Dd1, Dd2 = self.divergence_operator
-        lap = 0.5 * (_dot11(D1, Dd1) + _dot11(D2, Dd2))
-        return jnp.expand_dims(lap, tuple(range(lap.ndim, u_hat.ndim))) * u_hat
-
-
-class DiagonalScheme(Scheme, ABC):
-    """
-    Base class for schemes operating on a uniform Cartesian grid
-    where the differentiation is diagonal in Fourier space.
-
-    Cannot be instantiated directly — use a concrete subclass
-    (e.g. FourierScheme, CentralDifference).
+    The only scheme whose symbol is not a finite stencil, so it builds
+    ``gradient_operator`` directly rather than through
+    :class:`FiniteDifferenceScheme`.  It is also the one case where the
+    adjoint convention costs nothing: ``-conj(i xi) = i xi``, so the shared
+    ``divergence_operator`` reduces to the gradient symbol itself and the
+    inherited ``apply_*`` reproduce the classical spectral operators exactly.
     """
 
-    def __setattr__(self, name, value):
-        """Enforce immutability after initialization.
+    def compute_gradient_operator(self, wavenumbers_mesh: list[Array]) -> Array:
+        """Builds the spectral gradient operator, shape ``(*spatial, 1, dim)``.
 
-        Attribute assignment is only allowed during ``__init__`` (before
-        ``_initialized`` is set).  Any attempt to mutate the instance
-        afterwards raises ``AttributeError``, mirroring the guarantees
-        previously provided by ``eqx.Module``.
+        The length-1 quadrature axis is inserted for the same reason as in
+        :meth:`FiniteDifferenceScheme.compute_gradient_operator`: it keeps the
+        inherited ``apply_*`` branch-free.
         """
-        if hasattr(self, "_initialized"):
-            raise AttributeError(f"Cannot modify frozen {type(self).__name__}")
-        object.__setattr__(self, name, value)
-
-    def __init_subclass__(cls) -> None:
-        """Automatically register all subclasses as PyTrees."""
-        jax.tree_util.register_pytree_node_class(cls)
-
-    def __init__(self, space: SpectralSpace):
-        self.space = space
-        self.dim = len(self.space.lengths)
-        self.is_compatible()
-        wavenumbers_mesh = space.get_wavenumber_mesh()
-        self.gradient_operator = self.compute_gradient_operator(
-            wavenumbers_mesh=wavenumbers_mesh
-        )
-        object.__setattr__(self, "_initialized", True)
-
-    def tree_flatten(self):
-        children = [self.gradient_operator]
-        aux_data = {"dim": self.dim, "space": self.space}
-        return children, aux_data
-
-    @classmethod
-    def tree_unflatten(cls, aux_data, children):
-        obj = object.__new__(cls)
-        object.__setattr__(obj, "gradient_operator", children[0])
-        object.__setattr__(obj, "dim", aux_data["dim"])
-        object.__setattr__(obj, "space", aux_data["space"])
-        object.__setattr__(obj, "_initialized", True)
-        return obj
-
-    def is_compatible(self):
-        if not isinstance(self.space.transform, FFTTransform):
-            raise ValueError(  # noqa: TRY004
-                "The provided scheme is not compatible with the spectral space's transform."
-            )
-
-    @jax.jit
-    def apply_symmetric_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """
-        Applies the symmetric gradient operator on the fly.
-        Computes: eps_hat_ij = 0.5 * (Dξ_i * u_hat_j + Dξ_j * u_hat_i)
-        """
-        Dξs = self.gradient_operator
-        if self.dim == 1:
-            return Dξs * u_hat  # In 1D, symmetric gradient is just the gradient
-
-        term1 = jnp.einsum("...i,...j->...ij", Dξs, u_hat)  # D_i * u_j
-        term2 = jnp.einsum("...j,...i->...ij", Dξs, u_hat)  # D_j * u_i
-        return 0.5 * (term1 + term2)
-
-    @jax.jit
-    def apply_divergence(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """
-        Applies the divergence operator on the fly.
-        Computes: div_hat_i = Dξ_j * u_hat_ji
-        """
-        Dξs = self.gradient_operator
-        if self.dim == 1:
-            return Dξs * u_hat
-
-        # Note: We must transpose sigma_hat for the ddot
-        return jnp.einsum("...j,...ji->...i", Dξs, u_hat)
-
-    @jax.jit
-    def apply_gradient(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """
-        Applies the gradient operator on the fly.
-        Computes: grad_hat_ij = Dξ_i * u_hat_j
-        """
-        Dξs = self.gradient_operator
-        if self.dim == 1:
-            return Dξs * u_hat
-
-        return Dξs * u_hat[..., None]
-
-    @jax.jit
-    def apply_laplacian(self, u_hat: Array) -> Array:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """
-        Applies the Laplacian operator on the fly.
-        Computes: lap_hat = -|Dξ|^2 * u_hat
-        """
-        Dξs = self.gradient_operator
-        if self.dim == 1:
-            lap_op_hat = Dξs * Dξs  # |Dξ|^2
-            return lap_op_hat * u_hat
-
-        lap_op_hat = jnp.einsum("...i,...i->...", Dξs, Dξs)  # |Dξ|^2
-        return lap_op_hat * u_hat
-
-    def compute_gradient_operator(self, wavenumbers_mesh) -> Array:
-        """Builds the full gradient operator field using the scheme's formula."""
-        # This factor is needed for certain schemes like 'rotated_difference'
-
-        factor = 1.0
-        if self.dim > 1:
-            # Note: A scheme's formula must handle this factor if it needs it.
-            for j in range(self.dim):
-                Δ = self.space.lengths[j] / self.space.shape[j]
-                factor *= 0.5 * (1 + jnp.exp(iota * wavenumbers_mesh[j] * Δ))
-
-        diff_vectors = []
-        for i in range(self.dim):
-            Dξ_i = self.formula(
-                xi=wavenumbers_mesh[i],
-                dx=self.space.lengths[i] / self.space.shape[i],
-                iota=iota,
-                factor=factor,
-            )
-            diff_vectors.append(Dξ_i)
-
-        if self.dim == 1:
-            return diff_vectors[0]
-        else:
-            return jnp.stack(diff_vectors, axis=-1)
-
-    @abstractmethod
-    def formula(self, xi, dx, iota, factor):
-        """
-        The core formula for the discrete derivative in Fourier space.
-        Must be implemented by concrete schemes.
-        """
-        raise NotImplementedError
-
-
-class FourierScheme(DiagonalScheme):
-    """
-    Class implementing the standard spectral 'Fourier' derivative.
-    """
-
-    def formula(self, xi, dx, iota, factor):
-        return iota * xi
-
-
-class CentralDifference(DiagonalScheme):
-    """Implements the standard central difference scheme."""
-
-    def formula(self, xi, dx, iota, factor):
-        return iota * jnp.sin(xi * dx) / dx
-
-
-class ForwardDifference(DiagonalScheme):
-    """Implements the forward difference scheme."""
-
-    def formula(self, xi, dx, iota, factor):
-        return (jnp.exp(iota * xi * dx) - 1) / dx
-
-
-class BackwardDifference(DiagonalScheme):
-    """Implements the backward difference scheme."""
-
-    def formula(self, xi, dx, iota, factor):
-        return (1 - jnp.exp(-iota * xi * dx)) / dx
-
-
-class RotatedDifference(DiagonalScheme):
-    """Implements the rotated finite difference scheme (Willot/HEX8R)."""
-
-    def formula(self, xi, dx, iota, factor):
-        if self.dim == 1:
-            raise RuntimeError("Rotated difference is not defined for 1D")
-        return 2 * iota * jnp.tan(xi * dx / 2) * factor / dx
-
-
-class FourthOrderCentralDifference(DiagonalScheme):
-    """Implements the fourth order difference scheme."""
-
-    def formula(self, xi, dx, iota, factor):
-        return iota * (
-            8 * jnp.sin(xi * dx) / (6 * dx) - jnp.sin(2 * xi * dx) / (6 * dx)
-        )
-
-
-class SixthOrderCentralDifference(DiagonalScheme):
-    """Implements the sixth order difference scheme."""
-
-    def formula(self, xi, dx, iota, factor):
-        return iota * (
-            9 * jnp.sin(xi * dx) / (6 * dx)
-            - 3 * jnp.sin(2 * xi * dx) / (10 * dx)
-            + jnp.sin(3 * xi * dx) / (30 * dx)
-        )
-
-
-class EighthOrderCentralDifference(DiagonalScheme):
-    """Implements the eighth order difference scheme."""
-
-    def formula(self, xi, dx, iota, factor):
-        return iota * (
-            8 * jnp.sin(xi * dx) / (5 * dx)
-            - 2 * jnp.sin(2 * xi * dx) / (5 * dx)
-            + 8 * jnp.sin(3 * xi * dx) / (105 * dx)
-            - jnp.sin(4 * xi * dx) / (140 * dx)
-        )
+        Ds = jnp.stack([iota * xi for xi in wavenumbers_mesh], axis=-1)
+        return Ds[..., None, :]

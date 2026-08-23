@@ -1,7 +1,23 @@
+# Copyright (C) 2025 ETH Zurich (SMEC)
+#
+# This file is part of xpektra.
+#
+# xpektra is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# xpektra is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
+
 from dataclasses import dataclass, field
 
 import jax
-import jax.numpy as jnp  # type: ignore
 from jax import Array
 
 from xpektra.transform import Transform
@@ -30,9 +46,9 @@ class SpectralSpace:
 
     """
 
-    lengths: tuple[float, ...] = field(metadata=dict(static=True))
-    shape: tuple[int, ...] = field(metadata=dict(static=True))
-    transform: Transform = field(metadata=dict(static=True))
+    lengths: tuple[float, ...] = field(metadata={"static": True})
+    shape: tuple[int, ...] = field(metadata={"static": True})
+    transform: Transform = field(metadata={"static": True})
 
     def get_wavenumber_mesh(self) -> list[Array]:
         """

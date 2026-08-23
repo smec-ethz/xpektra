@@ -10,11 +10,8 @@ import pytest
 
 from xpektra import SpectralSpace, make_field
 from xpektra.scheme import (
-    CentralDifference,
-    EighthOrderCentralDifference,
+    CentralScheme,
     FourierScheme,
-    FourthOrderCentralDifference,
-    SixthOrderCentralDifference,
 )
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
@@ -51,7 +48,8 @@ def compute_relative_error(N, SchemeClass):
 
     # compute Numerical Derivative
     # convert numpy array to JAX array for the library
-    f_prime_num = op.grad(jnp.array(f))
+    # grad of a scalar returns (*spatial, n_quads, dim); both are 1 here
+    f_prime_num = op.grad(jnp.array(f))[..., 0, 0]
 
     # compute Relative Error
     # relative_error = ||num - exact|| / ||exact||
@@ -62,10 +60,7 @@ def compute_relative_error(N, SchemeClass):
 @pytest.mark.parametrize(
     "SchemeClass, expected_order",
     [
-        (CentralDifference, 2),
-        (FourthOrderCentralDifference, 4),
-        (SixthOrderCentralDifference, 6),
-        (EighthOrderCentralDifference, 8),
+        (CentralScheme, 2),
     ],
 )
 def test_finite_difference_convergence(SchemeClass, expected_order):
@@ -122,7 +117,7 @@ def test_fourier_exactness():
     f_prime_exact = np.cos(x)
 
     # compute
-    f_prime_num = op.grad(jnp.array(f))
+    f_prime_num = op.grad(jnp.array(f))[..., 0, 0]
 
     # check error
     error = np.linalg.norm(f_prime_num - f_prime_exact)
@@ -135,28 +130,28 @@ def test_fourier_exactness():
 def test_gradient_shapes():
     """
     Smoke test to ensure 1D and 2D gradients return the correct array shapes.
-    (Verifies the fix for the (N,1) vs (N,) issue).
+    The quadrature axis is always present, length 1 for a single-support scheme.
     """
     N = 32
 
     # 1D Case
     space1 = SpectralSpace(lengths=(1.0,), shape=(N,), transform=FFTTransform(dim=1))
-    op1 = SpectralOperator(scheme=CentralDifference(space1), space=space1)
+    op1 = SpectralOperator(scheme=CentralScheme(space1), space=space1)
     u1 = make_field(dim=1, shape=(N,), rank=0)  # Shape (N,)
     grad1 = op1.grad(u1)
-    assert grad1.shape == (N,), (
-        f"1D Grad shape mismatch: got {grad1.shape}, expected {(N,)}"
+    assert grad1.shape == (N, 1, 1), (
+        f"1D Grad shape mismatch: got {grad1.shape}, expected {(N, 1, 1)}"
     )
 
     # 2D Case
     space2 = SpectralSpace(
         lengths=(1.0, 1.0), shape=(N, N), transform=FFTTransform(dim=2)
     )
-    op2 = SpectralOperator(scheme=CentralDifference(space2), space=space2)
+    op2 = SpectralOperator(scheme=CentralScheme(space2), space=space2)
     u2 = make_field(dim=2, shape=(N, N), rank=0)  # Shape (N, N)
     grad2 = op2.grad(u2)
-    assert grad2.shape == (N, N, 2), (
-        f"2D Grad shape mismatch: got {grad2.shape}, expected {(N, N, 2)}"
+    assert grad2.shape == (N, N, 1, 2), (
+        f"2D Grad shape mismatch: got {grad2.shape}, expected {(N, N, 1, 2)}"
     )
 
 

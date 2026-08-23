@@ -1,6 +1,19 @@
-"""
-Projection operators for the spectral methods.
-"""
+# Copyright (C) 2025 ETH Zurich (SMEC)
+#
+# This file is part of xpektra.
+#
+# xpektra is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# xpektra is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
 from abc import ABC, abstractmethod
 
@@ -8,6 +21,8 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 
+from xpektra.linalg import contract
+from xpektra.scheme import Scheme
 from xpektra.space import SpectralSpace
 
 __all__ = [
@@ -20,44 +35,23 @@ __all__ = [
 class ProjectionOperator(ABC):
     """Abstract base for projection operators.
 
-    Subclasses implement a specific projection strategy (Galerkin, Moulinec-Suquet, etc.)
-    and are passed to :class:`SpectralOperator` which delegates ``project()`` calls,
-    supplying ``gradient_operator`` and ``space`` at call time so that the scheme data
-    lives in a single place.
-
-    When a projection is attached to a :class:`SpectralOperator`, its
-    :meth:`build` method is called with the spectral space.  Subclasses that
-    need precomputation (e.g. materialising a Green's operator) should override
-    :meth:`build` and return a new instance with the precomputed data.
+    Subclasses implement a specific projection strategy (Galerkin,
+    Moulinec-Suquet, etc.) and are called directly on a Fourier-space field.
     """
 
     @abstractmethod
-    def project(
-        self, field_hat: Array, gradient_operator: Array, space: SpectralSpace
-    ) -> Array:
+    def __call__(self, field_hat: Array) -> Array:
         """Project a Fourier-space field.
 
         Args:
-            field_hat: Input field in Fourier space.
-            gradient_operator: The gradient operator array from the scheme.
-            space: The spectral space (for wavenumber mesh access).
+            field_hat: Input field in Fourier space, shape
+                ``(*spatial, n_quads, dim, dim)``.  The quadrature axis is
+                always present, length 1 for a single-support scheme.
 
         Returns:
-            The projected field in Fourier space.
+            The projected field in Fourier space, same shape.
         """
         raise NotImplementedError
-
-    def build(self, space: SpectralSpace) -> "ProjectionOperator":
-        """Precompute any data that depends on the spectral space.
-
-        Called by :class:`SpectralOperator` when the projection is attached.
-        The default implementation returns ``self`` unchanged (suitable for
-        stateless projections like :class:`GalerkinProjection`).
-
-        Subclasses that need precomputation should override this method and
-        return a **new instance** with the precomputed data populated.
-        """
-        return self
 
 
 @jax.tree_util.register_pytree_node_class
@@ -65,57 +59,72 @@ class GalerkinProjection(ProjectionOperator):
     """
     Material-independent Galerkin projection (matrix-free).
 
-    This implementation does not materialize the full 4th-order Ghat tensor.
-    It receives the gradient operator at call time from the owning
-    :class:`SpectralOperator`, avoiding duplication of the large array.
+    Projects a field onto the space of discrete gradients, ``eps_q,ij = D_q,j u_i``
+    for a single-valued ``u``.  The full 4th-order ``Ghat`` is never materialised;
+    the scheme is held directly, so its gradient operator is not duplicated.
+
+    The least-squares solution for ``u`` averages over the quadrature points --
+    ``u`` is shared by all of them, which is precisely the coupling that keeps this
+    off :class:`~xpektra.SpectralOperator`::
+
+        norm_sq  = mean_q sum_i |D_q,i|^2
+        temp_i   = mean_q conj(D_q,l) sigma_q,il / norm_sq
+        eps_q,ij = D_q,j * temp_i
+
+    For ``n_quads == 1`` this collapses to the classical single-support form.
+
+    Args:
+        scheme: The discretization scheme supplying the gradient operator.
 
     Example:
-        >>> op = SpectralOperator(scheme=scheme, space=space, projection=GalerkinProjection())
-        >>> projected = op.project(field_hat)
+        >>> proj = GalerkinProjection(scheme=scheme)
+        >>> projected = proj(field_hat)
     """
 
+    def __init__(self, scheme: Scheme) -> None:
+        self.scheme = scheme
+
     def tree_flatten(self):
-        return (), None
+        return (self.scheme,), None
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
-        return cls()
+        return cls(scheme=children[0])
 
     @jax.jit
-    def project(
-        self, field_hat: Array, gradient_operator: Array, space: SpectralSpace
-    ) -> Array:
+    def __call__(self, field_hat: Array) -> Array:
         """
         Applies the Galerkin projection on the fly.
 
-        Computes: eps_hat = [δ_im * Dξ_j * Dξ_inv_l] * sigma_hat_lm
-
         Args:
-            field_hat: The input field in Fourier space, shape (..., dim, dim).
-            gradient_operator: The gradient operator from the scheme.
-            space: Unused (accepted for interface compatibility).
+            field_hat: The input field in Fourier space, shape
+                ``(*spatial, n_quads, dim, dim)``.
+
         Returns:
-            The projected field in Fourier space, shape (..., dim, dim).
+            The projected field in Fourier space, same shape.
         """
-        Dξs = gradient_operator
+        scheme = self.scheme
+        n_quads = scheme.n_quads
 
-        # Calculate and store the inverse
-        norm_sq = jnp.einsum("...i,...i->...", Dξs, jnp.conj(Dξs)).real[..., None]
+        Dqs = scheme.gradient_operator  # (*spatial, n_quads, dim)
+        sigma = field_hat
 
-        # Create a safe denominator to avoid 0/0
+        # norm_sq = mean_q ||D_q||^2, real by construction
+        norm_sq = contract("...qi,...qi->...", Dqs, jnp.conj(Dqs)).real / n_quads
+
+        # Create a safe denominator to avoid 0/0 at the null modes
         norm_sq_safe = jnp.where(norm_sq == 0, 1.0, norm_sq)
 
-        # Dξ_inv_l = conj(Dξ_l) / ||Dξ||²
-        Dξ_inv = jnp.conj(Dξs) / norm_sq_safe
+        # temp_i = mean_q conj(D_q,l) sigma_q,il / norm_sq
+        temp_i = (
+            contract("...ql,...qil->...i", jnp.conj(Dqs), sigma)
+            / n_quads
+            / norm_sq_safe[..., None]
+        )
+        temp_i = jnp.where(norm_sq[..., None] == 0, 0.0, temp_i)
 
-        # Manually set the zero-frequency mode to 0.0
-        Dξ_inv = jnp.where(
-            norm_sq == 0, 0.0, Dξ_inv
-        )  # Compute inner term: temp_i = Dξ_inv_l * sigma_hat_il
-        temp_i = jnp.einsum("...l,...il->...i", Dξ_inv, field_hat)
-
-        # Compute outer term: eps_hat_ij = Dξ_j * temp_i
-        eps_hat = jnp.einsum("...j,...i->...ij", Dξs, temp_i)
+        # eps_q,ij = D_q,j * temp_i
+        eps_hat = jnp.einsum("...qj,...i->...qij", Dqs, temp_i)
 
         del temp_i
 
@@ -127,47 +136,34 @@ class MoulinecSuquetProjection(ProjectionOperator):
     """
     Moulinec-Suquet (MS) Green's operator for isotropic reference materials.
 
-    Construction takes only the reference material parameters.  The operator
-    tensor is precomputed automatically when the projection is attached to a
-    :class:`SpectralOperator` (via :meth:`build`).
+    The operator tensor is precomputed at construction, so changing the reference
+    material means building a new instance.
 
-    To change the reference material, use ``dataclasses.replace`` to swap the
-    projection on an existing :class:`SpectralOperator`::
-
-        from dataclasses import replace
-
-        new_op = replace(op, projection=MoulinecSuquetProjection(lambda0=new_lam, mu0=new_mu))
+    Note:
+        ``Ghat`` is derived for the exact Fourier symbol ``i*xi``.  Applying it to
+        a multi-support scheme's field is supported mechanically -- the same
+        ``Ghat`` is broadcast across the quadrature axis -- but it is *not* the
+        consistent projector for that discretization; use
+        :class:`GalerkinProjection` there.
 
     Args:
         lambda0: First Lamé parameter of the reference material.
         mu0: Shear modulus of the reference material.
+        space: The spectral space, used to build the operator.
 
     Example:
-        >>> proj = MoulinecSuquetProjection(lambda0=10.0, mu0=1.0)
-        >>> op = SpectralOperator(scheme=scheme, space=space, projection=proj)
-        >>> projected = op.project(field_hat)
+        >>> proj = MoulinecSuquetProjection(lambda0=10.0, mu0=1.0, space=space)
+        >>> projected = proj(field_hat)
     """
 
     lambda0: Array
     mu0: Array
-    _operator: Array | None
+    _operator: Array
 
-    def __init__(self, lambda0: Array, mu0: Array) -> None:
+    def __init__(self, lambda0: Array, mu0: Array, space: SpectralSpace) -> None:
         self.lambda0 = jnp.asarray(lambda0)
         self.mu0 = jnp.asarray(mu0)
-        self._operator = None
-
-    def build(self, space: SpectralSpace) -> "MoulinecSuquetProjection":
-        """Precompute the Green's operator tensor from the spectral space.
-
-        Returns a new instance with the precomputed operator populated.
-        Called automatically by :class:`SpectralOperator.__post_init__`.
-        """
-        obj = object.__new__(MoulinecSuquetProjection)
-        obj.lambda0 = self.lambda0
-        obj.mu0 = self.mu0
-        obj._operator = self._build_operator(space)
-        return obj
+        self._operator = self._build_operator(space)
 
     def tree_flatten(self):
         children = (self.lambda0, self.mu0, self._operator)
@@ -182,20 +178,20 @@ class MoulinecSuquetProjection(ProjectionOperator):
         return obj
 
     @jax.jit
-    def project(
-        self, field_hat: Array, gradient_operator: Array, space: SpectralSpace
-    ) -> Array:
+    def __call__(self, field_hat: Array) -> Array:
         """Apply the Moulinec-Suquet projection.
 
         Args:
-            field_hat: Input field in Fourier space, shape (..., dim, dim).
-            gradient_operator: Unused (accepted for interface compatibility).
-            space: Unused (operator is precomputed via :meth:`build`).
+            field_hat: Input field in Fourier space, shape
+                ``(*spatial, n_quads, dim, dim)``.
 
         Returns:
-            The projected field in Fourier space, shape (..., dim, dim).
+            The projected field in Fourier space, same shape.
         """
-        return jnp.einsum("...khij,...ij->...kh", self._operator, field_hat)
+        # Give Ghat a length-1 quadrature axis so it broadcasts over the
+        # supports; it is the same operator for every support.
+        Ghat = self._operator[..., None, :, :, :, :]
+        return contract("...khij,...ij->...kh", Ghat, field_hat)
 
     def _build_operator(self, space: SpectralSpace) -> Array:
         """Build the full Green's operator tensor.
@@ -220,9 +216,7 @@ class MoulinecSuquetProjection(ProjectionOperator):
         T1_num = t1_A + t1_B + t1_C + t1_D
         T1 = T1_num / (4.0 * self.mu0 * q_dot_q_safe[..., None, None, None])
 
-        const = (self.lambda0 + self.mu0) / (
-            self.mu0 * (self.lambda0 + 2.0 * self.mu0)
-        )
+        const = (self.lambda0 + self.mu0) / (self.mu0 * (self.lambda0 + 2.0 * self.mu0))
         q4 = jnp.einsum("...k,...h,...i,...j->...khij", q, q, q, q)
         T2 = const * q4 / (q_dot_q_safe**2)[..., None, None, None]
 

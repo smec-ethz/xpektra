@@ -3,11 +3,9 @@ import jax.numpy as jnp
 import numpy as np
 
 from xpektra.scheme import (
-    ForwardDifference,
     ForwardScheme,
     Hex1RScheme,
     Quad1RScheme,
-    RotatedDifference,
 )
 from xpektra.space import SpectralSpace
 from xpektra.spectral_operator import SpectralOperator
@@ -22,14 +20,47 @@ def _space(N=64, length=1.0, dim=2):
     )
 
 
+def _spacings(space):
+    return [space.lengths[i] / space.shape[i] for i in range(len(space.lengths))]
+
+
+def _rotated_reference(space):
+    """Closed-form Willot symbol, ``D_i = 2i tan(xi_i h_i / 2) / h_i * prod_j f_j``.
+
+    Kept as an independent hand-written formula so the stencil machinery is
+    still checked against something other than itself.
+    """
+    k_vals = space.get_wavenumber_mesh()
+    h_vals = _spacings(space)
+
+    factor = 1.0
+    for j, h in enumerate(h_vals):
+        factor = factor * 0.5 * (1 + jnp.exp(1j * k_vals[j] * h))
+
+    return jnp.stack(
+        [2j * jnp.tan(k_vals[i] * h / 2) * factor / h for i, h in enumerate(h_vals)],
+        axis=-1,
+    )
+
+
+def _forward_reference(space):
+    """Closed-form forward-difference symbol, ``D_i = (exp(i xi_i h_i) - 1) / h_i``."""
+    k_vals = space.get_wavenumber_mesh()
+    h_vals = _spacings(space)
+    return jnp.stack(
+        [(jnp.exp(1j * k_vals[i] * h) - 1) / h for i, h in enumerate(h_vals)],
+        axis=-1,
+    )
+
+
 def test_stencil_matches_rotated_difference():
-    """Stencil-built Fourier symbol reproduces the hand-coded RotatedDifference."""
+    """Stencil-built Fourier symbol reproduces the closed-form Willot symbol."""
     space = _space()
     k_vals = space.get_wavenumber_mesh()
     dx = space.lengths[0] / space.shape[0]
     dy = space.lengths[1] / space.shape[1]
 
-    reference = RotatedDifference(space=space).gradient_operator
+    reference = _rotated_reference(space)
 
     quad_1r = Quad1RScheme(space=space)
 
@@ -45,30 +76,13 @@ def test_stencil_matches_rotated_difference_3d():
     k_vals = space.get_wavenumber_mesh()
     h_vals = [space.lengths[i] / space.shape[i] for i in range(3)]
 
-    import time
-
-    start_time = time.perf_counter()
-    reference = RotatedDifference(space=space).gradient_operator
-    end_time = time.perf_counter()
-    print(
-        f"Time taken to compute reference gradient operator: {end_time - start_time:.6f} seconds"
-    )
+    reference = _rotated_reference(space)
 
     hex1r = Hex1RScheme(space=space)
 
     for axis, stencil in enumerate(hex1r.stencils):
-        start_time = time.perf_counter()
         _, Z_func = hex1r.build_fourier_operator(stencil=stencil)
-        end_time = time.perf_counter()
-        print(
-            f"Time taken to build Fourier operator for axis {axis}: {end_time - start_time:.6f} seconds"
-        )
-        start_time_eval = time.perf_counter()
         Z = Z_func(*k_vals, *h_vals)
-        end_time_eval = time.perf_counter()
-        print(
-            f"Time taken to evaluate Fourier operator for axis {axis}: {end_time_eval - start_time_eval:.6f} seconds"
-        )
         np.testing.assert_allclose(Z, reference[..., axis], atol=1e-12)
 
     op = SpectralOperator(scheme=hex1r, space=space)
@@ -85,14 +99,14 @@ def test_stencil_matches_rotated_difference_3d():
 
 
 def test_stencil_match_forward():
-    """Stencil-built Fourier symbol reproduces the hand-coded ForwardDifference."""
+    """Stencil-built Fourier symbol reproduces the closed-form forward difference."""
 
     space = _space()
     k_vals = space.get_wavenumber_mesh()
     dx = space.lengths[0] / space.shape[0]
     dy = space.lengths[1] / space.shape[1]
 
-    reference = ForwardDifference(space=space).gradient_operator
+    reference = _forward_reference(space)
     forward_scheme = ForwardScheme(space=space)
 
     for axis, stencil in enumerate(forward_scheme.stencils):

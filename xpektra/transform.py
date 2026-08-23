@@ -1,3 +1,20 @@
+# Copyright (C) 2025 ETH Zurich (SMEC)
+#
+# This file is part of xpektra.
+#
+# xpektra is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# xpektra is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
+
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -21,9 +38,9 @@ __all__ = [
 class Transform:
     """Abstract base class for all spectral transforms."""
 
-    dim: int | None = field(metadata=dict(static=True), default=None)
+    dim: int | None = field(metadata={"static": True}, default=None)
     device_mesh: jax.sharding.Mesh | None = field(
-        metadata=dict(static=True), default=None
+        metadata={"static": True}, default=None
     )
 
     @abstractmethod

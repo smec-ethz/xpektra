@@ -46,29 +46,16 @@ def _space(dim, n=N):
 def _random_fields(scheme, dim, seed=0):
     """A vector field and a *symmetric* tensor field, both in Fourier space.
 
-    ``sig`` always carries a leading quadrature axis, even for single-support
-    schemes, so the inner products below need no special-casing.
+    ``sig`` follows the library layout ``(*spatial, n_quads, dim, dim)``.  Because
+    the quadrature axis is trailing, the FFT is the same ``axes=range(dim)`` call
+    whatever ``n_quads`` is, and the operators below need no special-casing.
     """
     k1, k2 = jax.random.split(jax.random.PRNGKey(seed))
-    u = jnp.fft.fftn(
-        jax.random.normal(k1, (N,) * dim + (dim,)), axes=tuple(range(dim))
-    )
-    sig = jax.random.normal(k2, (scheme.n_quads,) + (N,) * dim + (dim, dim))
-    sig = jnp.fft.fftn(
-        0.5 * (sig + jnp.swapaxes(sig, -1, -2)), axes=tuple(range(1, dim + 1))
-    )
+    u = jnp.fft.fftn(jax.random.normal(k1, (N,) * dim + (dim,)), axes=tuple(range(dim)))
+    q = (scheme.n_quads,)
+    sig = jax.random.normal(k2, (N,) * dim + q + (dim, dim))
+    sig = jnp.fft.fftn(0.5 * (sig + jnp.swapaxes(sig, -1, -2)), axes=tuple(range(dim)))
     return u, sig
-
-
-def _sym_grad(scheme, u_hat):
-    """Symmetric gradient, always with a leading quadrature axis."""
-    eps = scheme.apply_symmetric_gradient(u_hat)
-    return eps[None] if scheme.n_quads == 1 else eps
-
-
-def _divergence(scheme, sig_hat):
-    """Divergence, taking the leading-quadrature-axis convention above."""
-    return scheme.apply_divergence(sig_hat[0] if scheme.n_quads == 1 else sig_hat)
 
 
 @pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
@@ -91,8 +78,8 @@ def test_divergence_is_adjoint_of_symmetric_gradient(cls, dim):
     scheme = cls(space=_space(dim))
     u, sig = _random_fields(scheme, dim)
 
-    lhs = jnp.vdot(_divergence(scheme, sig), u)
-    rhs = -jnp.sum(jnp.conj(sig) * _sym_grad(scheme, u)) / scheme.n_quads
+    lhs = jnp.vdot(scheme.apply_divergence(sig), u)
+    rhs = -jnp.sum(jnp.conj(sig) * scheme.apply_symmetric_gradient(u)) / scheme.n_quads
 
     np.testing.assert_allclose(lhs, rhs, rtol=1e-10)
 
@@ -116,6 +103,72 @@ def test_constant_field_has_zero_gradient(cls, dim):
     const_hat = jnp.fft.fftn(jnp.ones((N,) * dim), axes=tuple(range(dim)))
     grad = jnp.fft.ifftn(
         scheme.apply_gradient(const_hat),
-        axes=tuple(range(1, dim + 1)) if scheme.n_quads > 1 else tuple(range(dim)),
+        axes=tuple(range(dim)),
     )
     np.testing.assert_allclose(jnp.abs(grad).max(), 0.0, atol=1e-11)
+
+
+# ---------------------------------------------------------------------------
+# Gradient of a higher-rank field -- index convention
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
+def test_gradient_of_vector_shape(cls, dim):
+    """``grad`` grows a ``(n_quads, dim)`` pair in front of the field's own axes."""
+    scheme = cls(space=_space(dim))
+    u = jnp.zeros((N,) * dim + (dim,), dtype=complex)
+    assert scheme.apply_gradient(u).shape == (N,) * dim + (scheme.n_quads, dim, dim)
+
+    # rank 0 and rank 2 follow the same rule
+    a = jnp.zeros((N,) * dim, dtype=complex)
+    assert scheme.apply_gradient(a).shape == (N,) * dim + (scheme.n_quads, dim)
+    t = jnp.zeros((N,) * dim + (dim, dim), dtype=complex)
+    assert scheme.apply_gradient(t).shape == (N,) * dim + (
+        scheme.n_quads,
+        dim,
+        dim,
+        dim,
+    )
+
+
+@pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
+def test_symmetric_gradient_is_symmetrised_gradient(cls, dim):
+    """``sym_grad(u) == 0.5 * (g + g^T)`` -- pins the derivative-first convention.
+
+    Under the transposed (continuum-mechanics) convention ``apply_gradient``
+    would return ``g^T``, which still satisfies this identity; what it would
+    *not* satisfy is the derivative index sitting on the axis that
+    ``apply_divergence`` contracts.  That is covered by
+    :func:`test_divergence_of_gradient_is_laplacian`.
+    """
+    scheme = cls(space=_space(dim))
+    k = jax.random.PRNGKey(11)
+    u = jnp.fft.fftn(jax.random.normal(k, (N,) * dim + (dim,)), axes=tuple(range(dim)))
+
+    g = scheme.apply_gradient(u)
+    np.testing.assert_allclose(
+        scheme.apply_symmetric_gradient(u),
+        0.5 * (g + jnp.swapaxes(g, -1, -2)),
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
+def test_divergence_of_gradient_is_laplacian(cls, dim):
+    """``div(grad(u)) == laplacian(u)`` component-wise, for a vector field.
+
+    This is the property that actually fixes the index order: it holds only if
+    the derivative index of ``grad`` lands on axis ``-2``, the one
+    ``apply_divergence`` contracts.  With the transposed convention this would
+    compute ``grad(div u)`` instead.
+    """
+    scheme = cls(space=_space(dim))
+    k = jax.random.PRNGKey(13)
+    u = jnp.fft.fftn(jax.random.normal(k, (N,) * dim + (dim,)), axes=tuple(range(dim)))
+
+    np.testing.assert_allclose(
+        scheme.apply_divergence(scheme.apply_gradient(u)),
+        scheme.apply_laplacian(u),
+        atol=1e-12,
+    )
