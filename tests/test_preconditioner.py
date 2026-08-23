@@ -28,7 +28,7 @@ from xpektra.scheme import (
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
 
-N = 8
+N = 9
 
 SCHEMES = [(Quad1RScheme, 2), (Hex1RScheme, 3), (FourierScheme, 2)]
 IDS = [f"{c.__name__}-{d}d" for c, d in SCHEMES]

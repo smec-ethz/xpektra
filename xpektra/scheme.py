@@ -72,9 +72,18 @@ class Scheme(ABC):
     space: SpectralSpace
     gradient_operator: Array
 
-    def __init__(self, space: SpectralSpace):
+    def __init__(self, space: SpectralSpace, *, allow_even_grid: bool = False):
+        """
+        Args:
+            space: the spectral space.
+            allow_even_grid: opt out of the odd-grid requirement that
+                reduced-integration schemes impose.  Only for deliberately
+                studying the Nyquist null mode -- see
+                :meth:`FiniteDifferenceScheme._require_odd_shape`.
+        """
         self.space = space
         self.dim = len(space.lengths)
+        self.allow_even_grid = allow_even_grid
 
         # check compatibility of the scheme
         self.is_compatible()
@@ -105,7 +114,12 @@ class Scheme(ABC):
 
     def tree_flatten(self):
         children = [self.gradient_operator]
-        aux_data = {"dim": self.dim, "space": self.space, "n_quads": self.n_quads}
+        aux_data = {
+            "dim": self.dim,
+            "space": self.space,
+            "n_quads": self.n_quads,
+            "allow_even_grid": self.allow_even_grid,
+        }
         return children, aux_data
 
     @classmethod
@@ -115,6 +129,7 @@ class Scheme(ABC):
         object.__setattr__(obj, "dim", aux_data["dim"])
         object.__setattr__(obj, "space", aux_data["space"])
         object.__setattr__(obj, "n_quads", aux_data["n_quads"])
+        object.__setattr__(obj, "allow_even_grid", aux_data["allow_even_grid"])
         object.__setattr__(obj, "_initialized", True)
         return obj
 
@@ -284,6 +299,44 @@ class FiniteDifferenceScheme(Scheme):
     def _n_supports(self) -> int:
         return len(self.support_stencils)
 
+    def _require_odd_shape(self) -> None:
+        """Rejects an even grid, for schemes whose symbol vanishes at Nyquist.
+
+        A reduced-integration stencil carries a factor ``(1 + exp(i xi_j h))/2``
+        per direction, which is exactly zero at the Nyquist frequency
+        ``xi_j h = pi``.  That frequency exists only when the grid is even, and
+        when it does the whole gradient symbol vanishes there -- a *spurious*
+        zero-energy mode on top of the physical rigid translation at ``xi = 0``.
+
+        Measured at ``N = 8``: 2 null modes for Quad1R in 2D and **23** for
+        Hex1R in 3D, against 1 at ``N = 9``.  The damage is to conditioning as
+        much as to the null space: the smallest non-zero symbol drops from
+        ``5e-2`` of the maximum to round-off, so a Krylov solve loses the
+        spectral gap it depends on.  Switching ``N = 20`` to ``21`` took a
+        Galerkin solve from 106 iterations to 15.
+
+        Raised rather than warned because the modes are undetermined: a solver
+        leaves them at whatever the initial guess held, so the answer is not
+        merely slower to reach but partly arbitrary.
+
+        Pass ``allow_even_grid=True`` to opt out.  That is for deliberately
+        studying the null mode -- ``q1_ringing_2d.py`` compares reduced against
+        full integration precisely because the reduced symbol is blind to the
+        checkerboard mode -- not for making an inconvenient error go away.
+        """
+        if self.allow_even_grid:
+            return
+        even = [n for n in self.space.shape if n % 2 == 0]
+        if even:
+            raise ValueError(
+                f"{type(self).__name__} requires an odd grid in every direction, "
+                f"got shape {tuple(self.space.shape)}. At an even size the "
+                "Nyquist frequency exists and the scheme's symbol vanishes "
+                "there, adding spurious zero-energy modes and destroying the "
+                "spectral gap. Use an odd number of voxels, or pass "
+                "allow_even_grid=True if the null mode is what you are studying."
+            )
+
     @property
     def stencils(self):
         raise NotImplementedError
@@ -423,6 +476,7 @@ class Quad1RScheme(FiniteDifferenceScheme):
             raise ValueError("Quad1R scheme is only compatible with 2D space.")
 
         super().is_compatible()
+        self._require_odd_shape()
 
     @property
     def stencils(self):
@@ -454,6 +508,7 @@ class Hex1RScheme(FiniteDifferenceScheme):
             raise ValueError("Hex1R scheme is only compatible with 3D space.")
 
         super().is_compatible()
+        self._require_odd_shape()
 
     @property
     def stencils(self):
