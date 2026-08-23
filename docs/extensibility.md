@@ -2,42 +2,39 @@
 
 The modular, "abstract-or-final" design of `xpektra` is not just an internal feature; it's an open invitation for you to extend the library. You can implement entirely new schemes, formulations, or solvers without modifying any of the core `xpektra` code.
 
-The library's abstract classes (`Scheme`, `CartesianScheme`, `ProjectionOperator`) define a clear API "contract." To add new functionality, you simply create a new class that inherits from one of these base classes and provides the required methods.
+The library's abstract classes (`Scheme`, `FiniteDifferenceScheme`, `ProjectionOperator`) define a clear API "contract." To add new functionality, you simply create a new class that inherits from one of these base classes and provides the required methods.
 
 Here are a few examples of how you could extend the library.
 
 !!! example "Implementing a New Discretization `Scheme`"
 
-    **Goal:** You want to implement a specific finite difference scheme, like the `TETRA2` method, which is known for its stability.
+    **Goal:** You want to implement a specific finite difference scheme, for example a wider central difference.
 
-    **How:** You create a new class that inherits from `Scheme` if it is not cartesian or diagonal, otherwise you inherit from `DiagonalScheme`. Because the `TETRA2` logic is complex and non-separable, you would override the entire `_compute_gradient_operator` method to implement its unique mixing formula.
+    **How:** Almost always you inherit from `FiniteDifferenceScheme` and declare only the `stencils` — a list of `(offset, weight)` pairs per spatial direction. The base class turns each stencil into its Fourier symbol symbolically, and the four differential operations come for free from `Scheme`.
 
 ```python
-from xpektra.scheme import DiagonalScheme
+import sympy as sp
+from xpektra.scheme import FiniteDifferenceScheme, _unit_offset
 
-class TETRA2(DiagonalScheme):
-    """
-    Implements the TETRA2 finite difference scheme by overriding
-    the gradient operator computation.
-    """
-    def _compute_gradient_operator(self) -> Array:
-        # 1. Get wavenumber meshes from the base class
-        xi, yi, zi = self._wavenumbers_mesh
-        
-        # 2. Implement the private methods for the T1 and T2 operators
-        # D_T1 = self._operator_T1(...)
-        # D_T2 = self._operator_T2(...)
-        
-        # 3. Implement the mixing logic
-        # D_mixed = 0.5 * D_T1 + 0.5 * D_T2
-        
-        # 4. Stack and return the final operator
-        # return jnp.stack([D_mixed_x, D_mixed_y, D_mixed_z], axis=-1)
-        pass # Your implementation here
+class FourthOrderCentralScheme(FiniteDifferenceScheme):
+    """Fourth-order central difference, built from its stencil."""
+
+    @property
+    def stencils(self):
+        h = sp.symbols(f"h_1:{self.dim + 1}", real=True)
+        stencils = []
+        for i in range(self.dim):
+            stencils.append([
+                (_unit_offset(i, self.dim, -2),  1 / (12 * h[i])),
+                (_unit_offset(i, self.dim, -1), -8 / (12 * h[i])),
+                (_unit_offset(i, self.dim,  1),  8 / (12 * h[i])),
+                (_unit_offset(i, self.dim,  2), -1 / (12 * h[i])),
+            ])
+        return stencils
 
 # --- How you use it ---
-# space = SpectralSpace(dim=3, size=128)
-# my_scheme = TETRA2(space)
+# space = SpectralSpace(lengths=(1.0,) * 3, shape=(128,) * 3, transform=FFTTransform(dim=3))
+# my_scheme = FourthOrderCentralScheme(space)
 # projection = GalerkinProjection(scheme=my_scheme, tensor_op=tensor_op)
 ```
 

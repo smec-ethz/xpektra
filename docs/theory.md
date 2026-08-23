@@ -73,9 +73,10 @@ The original FFT methods used a **spectral** derivative ($D_k = i\xi_k$). This i
 ### Solution: Finite Difference / Finite Element Schemes
 To solve the ringing problem, modern methods use **local approximations** for derivatives. This is the entire purpose of the `Scheme` abstract class in `xpektra`: to let you "plug in" different derivative rules.
 
-* `CentralDifference`: This scheme is mathematically equivalent to a **Linear Finite Element (LFE)** formulation on a regular grid. It is extremely effective at eliminating ringing artifacts and is highly recommended.
-* `RotatedDifference`: This scheme (from Willot, 2015) is equivalent to a trilinear Finite Element formulation with **reduced integration** (like `HEX8R`). It is also very stable and robust.
-* **Extensibility:** The library is designed so you can implement your own advanced schemes (like `TETRA2`) by simply creating a new class that inherits from `Scheme` and provides the necessary logic.
+* `CentralScheme`: This scheme is mathematically equivalent to a **Linear Finite Element (LFE)** formulation on a regular grid. It is extremely effective at eliminating ringing artifacts and is highly recommended.
+* `Quad1RScheme` (2D) / `Hex1RScheme` (3D): These schemes (from Willot, 2015) are equivalent to a bi-/trilinear Finite Element formulation with **reduced integration** (like `HEX8R`). They are also very stable and robust.
+* `Tetra2Scheme` (3D): The double-tetrahedron scheme, with two derivation supports per voxel.
+* **Extensibility:** The library is designed so you can implement your own advanced schemes by creating a new class that inherits from `FiniteDifferenceScheme` and declares its stencils.
 
 ## Solver Strategy (Fixed-Point vs. Newton-Krylov)
 

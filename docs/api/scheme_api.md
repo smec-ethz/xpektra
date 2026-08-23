@@ -7,116 +7,123 @@ In **`xpektra`**, we define a discretization scheme which allows us to correctly
 
 In order to facilitate this, we define a base class `Scheme` which provides the necessary infrastructure to define a discretization scheme.
 
+`Scheme` owns the four differential operations, so every scheme shares a single
+adjoint convention: the divergence operator is $-\overline{D(\xi)}$, which is
+what makes `div` the adjoint of `sym_grad` and hence $D^{T} C D$ symmetric. A
+subclass supplies only `compute_gradient_operator`.
+
+`apply_gradient` accepts a node field of any rank and places the **derivative
+index first**, so for a vector field $(\nabla u)_{ij} = \partial_i u_j$. That is
+the axis `apply_divergence` contracts, which is why
+`div(grad(u)) == laplacian(u)`. Note this is the transpose of the
+continuum-mechanics convention $(\nabla u)_{ij} = \partial_j u_i$; a deformation
+gradient is therefore `I + swapaxes(grad(u), -1, -2)`.
+
 ::: xpektra.scheme.Scheme
     options:
         members: 
+            - __init__
             - compute_gradient_operator
             - is_compatible
-
-
-The `Scheme` class is a base class for all the discretization schemes. One can create different discretization schemes by subclassing the `Scheme` class and implementing the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **`xpektra`**, we have implemented the `CartesianScheme` which takes a regular grid in physical space and returns the gradient operator field in spectral space.
-
-::: xpektra.scheme.DiagonalScheme
-    options:
-        members: 
-            - __init__
             - apply_gradient
             - apply_symmetric_gradient
             - apply_divergence
             - apply_laplacian
+
+## Finite difference schemes
+
+Most schemes are defined by a *stencil* — a list of `(offset, weight)` pairs —
+rather than by a closed-form symbol. `FiniteDifferenceScheme` turns a stencil
+into its Fourier symbol $Z(\xi) = \sum_a w_a \exp(\iota\, \xi \cdot a h)$
+symbolically, so a new scheme only has to declare its `stencils`.
+
+A scheme may also carry more than one *derivation support* per voxel. The
+number of supports is `n_quads`, and the gradient operator is always
+`(*spatial, n_quads, dim)` — the quadrature axis is present even for a
+single-support scheme, so centre fields (strain, stress) have the same shape
+whichever scheme is in use.
+
+::: xpektra.scheme.FiniteDifferenceScheme
+    options:
+        members: 
+            - stencils
+            - support_stencils
+            - build_fourier_operator
             - compute_gradient_operator
-            - is_compatible
-            - formula
 
-To define the differentiation formula, we need to implement the `formula` method. The `formula` method should return the gradient operator field for a given wavenumber and grid spacing. In **`xpektra`**, we have various differentiation schemes available which can be used to define the differentiation formula.
-
-::: xpektra.scheme.FourierScheme
+::: xpektra.scheme.CentralScheme
     options:
         members: 
-            - formula  
+            - stencils
 
-The formula is given by:
-
-$$D(\xi) = \iota \xi$$
-
-where $\iota$ is the imaginary unit and $\xi$ is the wavenumber.
- 
-::: xpektra.scheme.CentralDifference
-    options:
-        members: 
-            - formula  
-            
-The formula is given by:
+The symbol is given by:
 
 $$D(\xi) = \iota \frac{\sin(\xi \Delta x)}{\Delta x}$$
 
 where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
- 
-::: xpektra.scheme.ForwardDifference
+
+::: xpektra.scheme.ForwardScheme
     options:
         members: 
-            - formula    
-            
-The formula is given by:
+            - stencils
+
+The symbol is given by:
 
 $$D(\xi) = \frac{\exp(\iota \xi \Delta x) - 1}{\Delta x}$$
 
-where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
-
-::: xpektra.scheme.BackwardDifference
+::: xpektra.scheme.BackwardScheme
     options:
         members: 
-            - formula
-            
-The formula is given by:
+            - stencils
+
+The symbol is given by:
 
 $$D(\xi) = \frac{1 - \exp(-\iota \xi \Delta x)}{\Delta x}$$
 
-where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
+### Rotated (Willot) schemes
 
+`Quad1RScheme` (2D) and `Hex1RScheme` (3D) are the rotated finite difference
+schemes of Willot. Their symbol is
 
-::: xpektra.scheme.RotatedDifference
+$$D_i(\xi) = \frac{2 \iota \tan(\xi_i \Delta x_i / 2)}{\Delta x_i} \prod_j \frac{1 + \exp(\iota \xi_j \Delta x_j)}{2}$$
+
+built here from the corresponding voxel-corner stencils rather than from the
+closed form.
+
+::: xpektra.scheme.Quad1RScheme
     options:
         members: 
-            - formula
+            - stencils
+            - is_compatible
 
-The formula is given by:
-
-$$D(\xi) = \frac{2 \iota \tan(\xi \Delta x / 2) \Delta x}{2 \Delta x}$$
-
-where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
-
-
-::: xpektra.scheme.FourthOrderCentralDifference
+::: xpektra.scheme.Hex1RScheme
     options:
         members: 
-            - formula
+            - stencils
+            - is_compatible
 
-The formula is given by:
+### Multi-support schemes
 
-$$D(\xi) = \iota \frac{8 \sin(\xi \Delta x) - 2 \sin(2 \xi \Delta x) + 8 \sin(3 \xi \Delta x) - \sin(4 \xi \Delta x)}{6 \Delta x}$$
-
-where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
-
-
-::: xpektra.scheme.SixthOrderCentralDifference
+::: xpektra.scheme.Tetra2Scheme
     options:
         members: 
-            - formula
+            - support_stencils
+            - is_compatible
 
-The formula is given by:
+## Spectral scheme
 
-$$D(\xi) = \iota \frac{9 \sin(\xi \Delta x) - 3 \sin(2 \xi \Delta x) + \sin(3 \xi \Delta x)}{6 \Delta x}$$
+`FourierScheme` is the one scheme whose symbol is not a finite stencil, so it
+builds its gradient operator directly.
 
-where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
-
-::: xpektra.scheme.EighthOrderCentralDifference
+::: xpektra.scheme.FourierScheme
     options:
         members: 
-            - formula
+            - compute_gradient_operator
 
-The formula is given by:
+The symbol is given by:
 
-$$D(\xi) = \iota \frac{8 \sin(\xi \Delta x) - 2 \sin(2 \xi \Delta x) + 8 \sin(3 \xi \Delta x) - \sin(4 \xi \Delta x)}{12 \Delta x}$$
+$$D(\xi) = \iota \xi$$
 
-where $\iota$ is the imaginary unit, $\xi$ is the wavenumber and $\Delta x$ is the grid spacing.
+where $\iota$ is the imaginary unit and $\xi$ is the wavenumber. Note that
+$-\overline{\iota \xi} = \iota \xi$, so for this scheme the shared adjoint
+convention reduces to the classical spectral operators.

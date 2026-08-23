@@ -55,19 +55,20 @@ space = SpectralSpace(lengths =(1, 10), shape=(64, 256), transform=transform)
 
 Discretization is handled by `Scheme` objects. These define *how* derivatives are computed. In `xpektra` we have divided the scheme based on the type of grid and how the differentiation looks in Fourier space. 
 
-Currently, we support cartersian based schemes with diagonalized differentiation operator in Fourier space.Some of the available schemes include:
+Currently, we support cartesian based schemes. Some of the available schemes include:
 
-  * **`Fourier`**: The standard spectral derivative ($D_k = i \xi_k$). Accurate but prone to Gibbs ringing.
-  * **`CentralDifference`**: A robust finite difference scheme ($D_k = i \sin(\xi_k h)/h$). Equivalent to Linear Finite Elements; eliminates ringing.
-  * **`RotatedDifference`**: An advanced finite difference scheme (Willot, 2015) offering high stability.
+  * **`FourierScheme`**: The standard spectral derivative ($D_k = i \xi_k$). Accurate but prone to Gibbs ringing.
+  * **`CentralScheme`**: A robust finite difference scheme ($D_k = i \sin(\xi_k h)/h$). Equivalent to Linear Finite Elements; eliminates ringing.
+  * **`Quad1RScheme`** (2D) / **`Hex1RScheme`** (3D): The rotated finite difference scheme (Willot, 2015) offering high stability.
+  * **`Tetra2Scheme`** (3D): The double-tetrahedron scheme, which carries two derivation supports per voxel.
 
 
 
 ```python
-from xpektra.scheme import RotatedDifference
+from xpektra.scheme import Hex1RScheme
 
 # Create a scheme attached to your space
-scheme = RotatedDifference(space=space)
+scheme = Hex1RScheme(space=space)
 ```
 
 !!! tip "Extending to Non-Cartesian grids or non-diagonalized differentiation"
@@ -99,24 +100,27 @@ u_real = op.inverse(u_hat) # Inverse transform
 
 The `SpectralOperator` is "smart" that means it delegates the math to the specific `Scheme` you chose, ensuring consistency.
 
-## The Algebra: `TensorOperator`
+## The Algebra: `xpektra.linalg`
 
-The `TensorOperator` is the low-level engine handling tensor contractions (dot products, traces) on the grid.
-
-While it powers the library internally, you rarely need to instantiate it yourself. The **`SpectralOperator`** exposes the most common tensor operations directly for convenience:
+Pointwise tensor algebra lives in `xpektra.linalg`, not on the operator. Contractions are named by an einsum-style spec rather than dispatched on array rank:
 
 ```python
-# Dot product (contraction)
-C = op.dot(A, B) 
+from xpektra import linalg
 
-# Double dot product (A : B)
-energy = op.ddot(sigma, epsilon)
+# single contraction (matrix product)
+C = linalg.contract("...ik,...kj->...ij", A, B)
 
-# Transpose
-grad_u_T = op.trans(grad_u)
+# double dot (A : B)
+energy = linalg.contract("...ij,...ji->...", sigma, epsilon)
+
+# operations whose axes are fixed need no spec
+grad_u_T = linalg.trans(grad_u)
+tr = linalg.trace(eps)
 ```
 
-If you need advanced tensor manipulations, the underlying engine is available via `op.tensor_op`.
+Naming the indices is deliberate. Rank cannot be inferred from `ndim`: a node field `(*spatial, dim)` and a centre field `(*spatial, n_quads)` have the same shape, and guessing between them dispatches the wrong contraction *silently*. The spec also lets `contract` pick a spelling that does not lower to a batched GEMM — see the `xpektra.linalg` module docstring.
+
+Constitutive laws are normally written for a single quadrature point and lifted with `op.auto_vmap`, in which case no quadrature axis appears inside them at all.
 
 
 ## The Physics: `ProjectionOperator`
