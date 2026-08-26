@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -27,15 +28,96 @@ from xpektra.space import SpectralSpace
 
 __all__ = [
     "GenericGreenPreconditioner",
+    "GreenPreconditioner",
     "IsotropicGreenPreconditioner",
+    "SpectralView",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
 ]
 
 
+class GreenPreconditioner(ABC):
+    """``M^-1`` as a Fourier symbol, plus the real-space wrapper around it.
+
+    This base declares no dataclass fields of its own, only the two attributes it
+    needs from every subclass.  A non-dataclass base contributes nothing to
+    ``dataclasses.fields``, so each concrete class keeps its own field list --
+    and its own ``@register_dataclass``, since registration is not inherited.
+
+    Args:
+        space: the spectral space, supplying the transform.
+        d: components per node -- 1 for a scalar field, ``ndim`` for a vector.
+    """
+
+    space: SpectralSpace
+    d: int
+
+    @abstractmethod
+    def apply_hat(self, r_hat: Array) -> Array:
+        """``z_hat = M^-1_hat r_hat``: the symbol, applied where it lives.
+        Applies the preconditioner to Fourier coefficients of the residual,
+        returning Fourier coefficients of the preconditioned residual.  The shape is
+        ``(*spatial, d)``, complex, and the transform is not involved.
+
+        Args:
+            r_hat: Fourier coefficients of the residual, shape ``(*spatial, d)``,
+                complex.
+        Returns:
+            Fourier coefficients of the preconditioned residual, shape
+                ``(*spatial, d)``, complex.
+
+        """
+
+    @jax.jit
+    def __call__(self, r_flat: Array) -> Array:
+        """Applies ``M^-1`` to a flattened residual, returning a flat vector in real space.
+
+        Args:
+            r_flat: Flattened residual, shape ``(n,)``, real.
+        Returns:
+            Flattened preconditioned residual, shape ``(n,)``, real.
+        """
+        canonical_shape = self.space.shape + (self.d,)
+        r_hat = self.space.transform.forward(r_flat.reshape(canonical_shape))
+        return self.space.transform.inverse(self.apply_hat(r_hat)).real.reshape(-1)
+
+    def in_fourier(self) -> "SpectralView":
+        """This preconditioner as a *callable* on Fourier coefficients.
+
+        Returns:
+            A callable that applies the preconditioner to Fourier coefficients.
+        """
+        return SpectralView(inner=self)
+
+
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
-class GenericGreenPreconditioner:
+class SpectralView:
+    """A preconditioner rebound so that ``__call__`` is the Fourier-space apply.
+
+    A separate *type* rather than a mode flag on the preconditioner itself.  The
+    two applies differ in shape and dtype -- flat real against ``(*spatial, d)``
+    complex -- so a single entry point covering both could not be honestly named
+    or annotated, and the mismatch that matters fails *silently*: handing an
+    already-transformed ``r_hat`` to the real-space path finds the reshape a
+    no-op, transforms a second time, drops an imaginary part, and returns wrong
+    numbers with no error.  Distinct types cannot be confused that way, and both
+    stay available from a single construction.
+
+    ``inner`` is a data field, so the symbol's arrays remain leaves and survive
+    being stored by a solver.
+    """
+
+    inner: GreenPreconditioner
+
+    @jax.jit
+    def __call__(self, r_hat: Array) -> Array:
+        return self.inner.apply_hat(r_hat)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class GenericGreenPreconditioner(GreenPreconditioner):
     """``z = M^-1 r`` for a generic reference operator, applied in Fourier space.
 
     ``G_hat`` is the pointwise inverse of the reference tangent's Fourier symbol,
@@ -59,16 +141,9 @@ class GenericGreenPreconditioner:
     d: int = field(metadata={"static": True})
 
     @jax.jit
-    def __call__(self, r_flat: Array) -> Array:
-        """Applies ``M^-1`` to a flattened residual, returning a flat vector.
-
-        Flat in and flat out because Krylov solvers work on vectors; the reshape
-        to ``(*spatial, d)`` is what the transform needs.
-        """
-        canonical_shape = self.space.shape + (self.d,)
-        r_hat = self.space.transform.forward(r_flat.reshape(canonical_shape))
-        z_hat = linalg.contract("...ij,...j->...i", self.G_hat, r_hat)
-        return self.space.transform.inverse(z_hat).real.reshape(-1)
+    def apply_hat(self, r_hat: Array) -> Array:
+        """One contraction per mode: the symbol is stored inverted already."""
+        return linalg.contract("...ij,...j->...i", self.G_hat, r_hat)
 
 
 def make_generic_preconditioner(
@@ -78,52 +153,6 @@ def make_generic_preconditioner(
     rtol: float = 1e-12,
 ) -> GenericGreenPreconditioner:
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
-
-    The reference operator is translation invariant, so its action is a
-    convolution and column ``i`` of the symbol is the FFT of the response to a
-    unit impulse at node 0 in direction ``i``.  Stacking the columns on
-    ``axis=-1`` puts response ``i`` at ``K_hat[..., :, i]``, so component ``j``
-    of response ``i`` lands at ``K_hat[..., j, i]``.
-
-    ``G_hat`` costs ``d*d`` complex numbers per pixel, which is the minimal
-    faithful representation of a *generic* symbol.
-    :class:`IsotropicGreenPreconditioner` gets away with ``O(d)`` only because
-    its symbol is identity-plus-rank-two, so Woodbury reduces the inverse to a
-    2x2 solve; nothing of the sort holds here.  Building it
-    inside ``__call__`` instead measured ~8x slower per apply, since every apply
-    would redo ``d`` tangent applies and ``d`` forward FFTs for a symbol that is
-    constant within a solve.
-
-    Call this again whenever the reference state changes (a new load increment,
-    say): the result has the same treedef, so no recompile follows.
-
-    Null modes are handled explicitly.  ``K_hat`` is singular at ``xi = 0``
-    (rigid translation) and, for a reduced-integration stencil, near the Nyquist
-    corner.  Their symbols come out at round-off (~1e-30) rather than exactly
-    zero, so an ``== 0`` test lets them through and the closed-form inverse then
-    blows up to ~1e29.  A *relative* threshold separates them: the identity is
-    inverted in their place and the result is zeroed there.
-
-    ``rtol`` gates the **Frobenius norm of the symbol**, not its determinant.
-    That distinction matters: for a ``d x d`` block ``det ~ lambda**d``, so a
-    determinant threshold is only ``rtol**(1/d)`` in the eigenvalues -- the
-    previous ``rtol=1e-12`` on ``|det|`` behaved like ``1e-4`` and silently
-    discarded 8 legitimate modes for ``Hex1RScheme`` at ``N=21``, while keeping
-    exactly one at ``N=9`` and ``N=15``, so the fault only appeared once the grid
-    resolved the near-null modes.
-
-    The magnitude test is also the criterion
-    :func:`make_isotropic_preconditioner` uses -- its ``alpha`` *is* the symbol
-    scale -- so the two constructions now agree by construction rather than by
-    coincidence, which is what ``test_isotropic_matches_the_generic_preconditioner``
-    pins.
-
-    Limitation: this detects a symbol that *vanishes*, which is what the null
-    modes of a translation-invariant operator look like.  It will not detect a
-    symbol that stays large but becomes singular.  That is a pathological
-    reference operator for this construction; :func:`xpektra.linalg.inv` is
-    unguarded by design, so it yields non-finite values that surface at once
-    rather than being silently absorbed.
 
     Args:
         residual_ref_fn: applies the reference operator to a flat vector of
@@ -174,26 +203,19 @@ def make_generic_preconditioner(
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
-class IsotropicGreenPreconditioner:
+class IsotropicGreenPreconditioner(GreenPreconditioner):
     """``z = M^-1 r`` with ``M = D^T C0 D`` for an *isotropic* reference material.
 
     Matrix free: where :class:`GenericGreenPreconditioner` stores a full
-    ``(d, d)`` complex block per mode, this stores only the two real vectors
-    ``g`` and ``h`` -- the real and imaginary parts of the scheme's gradient
-    symbol -- and two moduli.  For ``d = 3`` that is 6 reals per voxel against 18,
-    and there is no build cost at all: no impulse responses, no ``d`` tangent
-    applies, no ``d`` forward FFTs.
+    ``(d, d)`` complex block per mode, this stores the two real vectors ``g`` and
+    ``h``
 
-    The saving comes from structure.  The isotropic reference symbol is
-    ``alpha I + beta G G^T`` with ``G = [g, h]`` and ``alpha = mu0 (|g|^2 +
-    |h|^2)`` -- an identity plus a rank-*two* update -- so Sherman-Morrison-
-    Woodbury reduces the inverse to a 2x2 solve regardless of ``d``.  Nothing of
-    the sort holds for a general anisotropic or non-symmetric reference, which is
-    what :class:`GenericGreenPreconditioner` is for.
-
-    Attributes:
+    Args:
         g: ``Re(D_1)``, shape ``(*spatial, d)``.
         h: ``Im(D_1)``, shape ``(*spatial, d)``.
+        alpha: ``mu0 (|g|^2 + |h|^2)``, already floored at the null modes so
+            ``1/alpha`` stays finite there.
+        ok: ``False`` at the null modes, where the result is zeroed.
         lam0: first Lame parameter of the reference material.
         mu0: shear modulus of the reference material.
         space: the spectral space, supplying the transform.
@@ -203,6 +225,8 @@ class IsotropicGreenPreconditioner:
 
     g: Array
     h: Array
+    alpha: Array
+    ok: Array
     lam0: Array
     mu0: Array
     space: SpectralSpace = field(metadata={"static": True})
@@ -210,29 +234,15 @@ class IsotropicGreenPreconditioner:
     rtol: float = field(default=1e-12, metadata={"static": True})
 
     @jax.jit
-    def __call__(self, r_flat: Array) -> Array:
+    def apply_hat(self, r_hat: Array) -> Array:
+        """``z_hat = (I - G S^-1 G^T) r_hat / alpha`` -- the Woodbury apply."""
         g, h = self.g, self.h
-        beta = self.lam0 + self.mu0
-
         gg = linalg.contract("...i,...i->...", g, g)
         hh = linalg.contract("...i,...i->...", h, h)
         gh = linalg.contract("...i,...i->...", g, h)
-        alpha = self.mu0 * (gg + hh)
-
-        # The xi=0 mode is exactly zero, but the Nyquist corner comes out at
-        # ~1e-29 rather than 0 -- round-off in the stencil symbol.  An
-        # ``alpha > 0`` test lets it through and 1/alpha then blows up to ~1e28.
-        # The spectral gap is vast (the next mode is O(10)), so a relative
-        # threshold separates them cleanly.
-        ok = alpha > self.rtol * jnp.max(alpha)
-        safe = jnp.where(ok, alpha, 1.0)  # keep 1/alpha finite at the null modes
-
-        r_hat = self.space.transform.forward(
-            r_flat.reshape(self.space.shape + (self.d,))
-        )
 
         # ( alpha/beta I2 + G^T G )^-1 with G = [g, h]
-        a = safe / beta
+        a = self.alpha / (self.lam0 + self.mu0)
         s11, s22, s12 = a + gg, a + hh, gh
         det = s11 * s22 - s12 * s12
 
@@ -241,37 +251,14 @@ class IsotropicGreenPreconditioner:
         c1 = (s22 * p - s12 * q) / det
         c2 = (s11 * q - s12 * p) / det
 
-        z_hat = (r_hat - c1[..., None] * g - c2[..., None] * h) / safe[..., None]
-        z_hat = jnp.where(ok[..., None], z_hat, 0.0)
-
-        return self.space.transform.inverse(z_hat).real.reshape(-1)
+        z_hat = (r_hat - c1[..., None] * g - c2[..., None] * h) / self.alpha[..., None]
+        return jnp.where(self.ok[..., None], z_hat, 0.0)
 
 
 def make_isotropic_preconditioner(
     scheme, lam0: Array, mu0: Array, rtol: float = 1e-12
 ) -> IsotropicGreenPreconditioner:
     """Builds the isotropic Green preconditioner from a scheme's gradient symbol.
-
-    Nothing is precomputed beyond splitting the symbol into real and imaginary
-    parts, so this is cheap enough to rebuild whenever the reference moduli
-    change.
-
-    Only the *first* support's symbol is used, which is not the approximation it
-    looks like.  The true quadrature-averaged acoustic tensor is
-
-    ``A = mean_r [ mu0 |a_r|^2 I + lam0 conj(a_r) a_r^T + mu0 a_r a_r^H ]``
-
-    and the closed form below drops an antisymmetric part
-    ``i (lam0 - mu0) (g h^T - h g^T)``.  That part vanishes for every scheme in
-    the library: for the single-support schemes because their symbol is a common
-    complex factor times a real vector, so ``g`` and ``h`` are parallel; and for
-    TETRA2 because its supports satisfy ``a_2 = phi(xi) conj(a_1)`` with
-    ``|phi| = 1``, which makes the average real symmetric.  Verified to ~1e-16
-    relative by ``test_isotropic_symbol_is_the_exact_acoustic_tensor``.
-
-    A future scheme satisfying neither condition would silently degrade this from
-    exact to approximate -- still a usable preconditioner, since one only has to
-    be spectrally close, but no longer the exact inverse of its reference.
 
     Args:
         scheme: supplies ``gradient_operator``, ``space`` and ``dim``.
@@ -283,11 +270,27 @@ def make_isotropic_preconditioner(
         The preconditioner.
     """
     a1 = scheme.gradient_operator[..., 0, :]
+    g, h = a1.real, a1.imag
+    lam0, mu0 = jnp.asarray(lam0), jnp.asarray(mu0)
+
+    gg = linalg.contract("...i,...i->...", g, g)
+    hh = linalg.contract("...i,...i->...", h, h)
+    alpha = mu0 * (gg + hh)
+
+    # The xi=0 mode is exactly zero, but the Nyquist corner comes out at ~1e-29
+    # rather than 0 -- round-off in the stencil symbol.  An ``alpha > 0`` test
+    # lets it through and 1/alpha then blows up to ~1e28.  The spectral gap is
+    # vast (the next mode is O(10)), so a relative threshold separates them
+    # cleanly.
+    ok = alpha > rtol * jnp.max(alpha)
+
     return IsotropicGreenPreconditioner(
-        g=a1.real,
-        h=a1.imag,
-        lam0=jnp.asarray(lam0),
-        mu0=jnp.asarray(mu0),
+        g=g,
+        h=h,
+        alpha=jnp.where(ok, alpha, 1.0),  # keep 1/alpha finite at the null modes
+        ok=ok,
+        lam0=lam0,
+        mu0=mu0,
         space=scheme.space,
         d=scheme.dim,
         rtol=rtol,
