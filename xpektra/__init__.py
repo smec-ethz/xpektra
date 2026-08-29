@@ -18,6 +18,7 @@ from xpektra.scheme import (
     FourierScheme,
     Hex1RScheme,
     Quad1RScheme,
+    QuadFullScheme,
     Tetra2Scheme,
 )
 from xpektra.space import SpectralSpace
@@ -46,6 +47,7 @@ __all__ = [
     "PencilFFTTransform",
     "ProjectionOperator",
     "Quad1RScheme",
+    "QuadFullScheme",
     "SlabFFTTransform2D",
     "SlabFFTTransform3D",
     "SpectralOperator",
