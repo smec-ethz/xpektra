@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
+import itertools
 from abc import ABC, abstractmethod
 
 import jax
@@ -33,6 +34,7 @@ __all__ = [
     "FourierScheme",
     "Hex1RScheme",
     "Quad1RScheme",
+    "QuadFullScheme",
     "Tetra2Scheme",
 ]
 
@@ -498,6 +500,44 @@ class Quad1RScheme(FiniteDifferenceScheme):
 
         stencils = [dx_stencil, dy_stencil]
         return stencils
+
+
+def quad_stencils(z1, z2) -> list[list]:
+    """Bilinear Q1 derivative stencils at natural coordinate `(z1, z2)`."""
+    h1, h2 = sp.symbols("h_1 h_2", real=True)
+    corners = ((-1, -1), (1, -1), (-1, 1), (1, 1))
+
+    dx_stencil = [
+        (((s1 + 1) // 2, (s2 + 1) // 2), s1 * (1 + s2 * z2) / (2 * h1))
+        for s1, s2 in corners
+    ]
+    dy_stencil = [
+        (((s1 + 1) // 2, (s2 + 1) // 2), s2 * (1 + s1 * z1) / (2 * h2))
+        for s1, s2 in corners
+    ]
+    return [dx_stencil, dy_stencil]
+
+
+class QuadFullScheme(FiniteDifferenceScheme):
+    """Bilinear Q1 with full 2x2 Gauss integration, `n_quads = 4`.
+
+    Deliberately does **not** call `_require_odd_shape`: unlike the reduced scheme
+    this symbol has no Nyquist degeneracy, so an even grid costs it nothing.  The
+    example still runs odd, because `Quad1RScheme` -- the thing being compared
+    against -- does require it.
+    """
+
+    def is_compatible(self):
+        if self.dim != 2:
+            raise ValueError("QuadFull scheme is only compatible with 2D space.")
+        super().is_compatible()
+
+    @property
+    def support_stencils(self):
+        g = 1 / sp.sqrt(3)
+        return tuple(
+            quad_stencils(z1, z2) for z1, z2 in itertools.product((-g, g), (-g, g))
+        )
 
 
 class Hex1RScheme(FiniteDifferenceScheme):
