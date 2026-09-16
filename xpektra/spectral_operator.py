@@ -17,6 +17,7 @@
 
 import functools
 import inspect
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -120,6 +121,23 @@ class SpectralOperator:
         # the quadrature axis is trailing, so the
         # transform's ``axes=range(dim)`` batches over it in a single call.
         return self.space.transform.inverse(sym_grad_u_hat).real
+
+    @jax.jit
+    def eval(self, u: Array) -> Array:
+        """Evaluates a node field at the quadrature points.
+
+        ***Arguments***
+        - u: A real-valued node field of shape (N,)*dim + tensor axes.
+
+        ***Returns***
+        - The field at the quadrature points, shape
+          (N,)*dim + (n_quads,) + tensor axes -- the same points ``grad`` and
+          ``sym_grad`` evaluate at, so the result can go straight into an
+          ``auto_vmap``-ed law or ``integrate``.
+        """
+        u_hat = self.space.transform.forward(u)
+        u_q_hat = self.scheme.apply_interpolation(u_hat)
+        return self.space.transform.inverse(u_q_hat).real
 
     @jax.jit
     def laplacian(self, u: Array) -> Array:
@@ -259,19 +277,24 @@ class SpectralOperator:
 
     @jax.jit
     def integrate(self, density: Array) -> Array:
-        """Average over the quadrature axis, sum over the spatial axes.
+        """Integrate over the cell: voxel volume x mean over quadrature x sum over space.
+
+        This is a true integral, ``int f dV``, so energies built with it are
+        physical energies.  The differential operators (``grad``, ``div``,
+        ``laplacian``) stay pointwise and carry no volume, so for an energy
+        ``E = integrate(psi(sym_grad(u)))``
+
+            jax.grad(E)(u) == -V * div(sigma),   V = prod(lengths / shape).
+
+        ``jax.grad(E)`` is the nodal force; ``div(sigma)`` is the force density.
+        Take residuals and tangents from the energy, not from ``div``.
 
         The *mean* over quadrature points is what pairs with the ``1/n_quads``
-        inside ``apply_divergence``: it keeps ``jax.grad`` of an energy equal to
-        the discrete divergence of the corresponding stress, which is what makes
-        a Newton tangent symmetric.  Using ``sum`` instead scales the energy by
-        ``n_quads`` and breaks that.
+        inside ``apply_divergence``.  Using ``sum`` instead scales the energy by
+        ``n_quads`` and breaks the identity above.
 
         Tensor axes are preserved, so this returns a scalar for a scalar density
         and a summed tensor for a tensor-valued one.
-
-        Note there is no cell-volume factor: this is a discrete sum over voxels,
-        matching what the examples have always computed.
 
         Args:
             density: field of shape ``(*spatial, n_quads, *tensor)``.
@@ -286,4 +309,9 @@ class SpectralOperator:
                 f"integrate expects a quadrature axis of length {n_quads} at "
                 f"position {space_dim}, got shape {density.shape}."
             )
-        return density.mean(axis=space_dim).sum(axis=tuple(range(space_dim)))
+        cell_volume = math.prod(
+            length / n for length, n in zip(self.space.lengths, self.space.shape)
+        )
+        return cell_volume * density.mean(axis=space_dim).sum(
+            axis=tuple(range(space_dim))
+        )

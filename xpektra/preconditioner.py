@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
+import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -216,8 +217,9 @@ class IsotropicGreenPreconditioner(GreenPreconditioner):
         alpha: ``mu0 (|g|^2 + |h|^2)``, already floored at the null modes so
             ``1/alpha`` stays finite there.
         ok: ``False`` at the null modes, where the result is zeroed.
-        lam0: first Lame parameter of the reference material.
-        mu0: shear modulus of the reference material.
+        lam0: first Lame parameter of the reference material, times the voxel
+            volume.
+        mu0: shear modulus of the reference material, times the voxel volume.
         space: the spectral space, supplying the transform.
         d: components per node.
         rtol: relative threshold below which a mode is treated as null.
@@ -271,7 +273,13 @@ def make_isotropic_preconditioner(
     """
     a1 = scheme.gradient_operator[..., 0, :]
     g, h = a1.real, a1.imag
-    lam0, mu0 = jnp.asarray(lam0), jnp.asarray(mu0)
+    # ``op.integrate`` carries the voxel volume, so the tangent of an energy is
+    # ``V D^T C0 D``.  Scaling both moduli by V inverts that; the ratio inside
+    # the Woodbury solve is unchanged.
+    cell_volume = math.prod(
+        length / n for length, n in zip(scheme.space.lengths, scheme.space.shape)
+    )
+    lam0, mu0 = cell_volume * jnp.asarray(lam0), cell_volume * jnp.asarray(mu0)
 
     gg = linalg.contract("...i,...i->...", g, g)
     hh = linalg.contract("...i,...i->...", h, h)
