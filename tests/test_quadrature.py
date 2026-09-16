@@ -221,8 +221,39 @@ def test_integrate_averages_quadrature_and_sums_space(cls, dim):
     op = _op(cls, dim)
     nq = op.scheme.n_quads
     density = jnp.ones((N,) * dim + (nq,))
-    # mean over quadrature is 1, summed over N**dim voxels
-    np.testing.assert_allclose(op.integrate(density), float(N**dim), rtol=1e-13)
+    # mean over quadrature is 1, summed over N**dim voxels of volume 1/N**dim
+    np.testing.assert_allclose(op.integrate(density), 1.0, rtol=1e-13)
+
+
+@pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
+def test_integrate_is_a_true_integral(cls, dim):
+    """Non-unit lengths: the integral of 1 is the cell's volume."""
+    lengths = (2.0, 0.5, 3.0)[:dim]
+    space = SpectralSpace(
+        lengths=lengths, shape=(N,) * dim, transform=FFTTransform(dim=dim)
+    )
+    op = SpectralOperator(scheme=cls(space=space), space=space)
+    density = jnp.ones((N,) * dim + (op.scheme.n_quads,))
+    np.testing.assert_allclose(op.integrate(density), np.prod(lengths), rtol=1e-13)
+
+
+@pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
+def test_energy_gradient_is_volume_times_divergence(cls, dim):
+    """``jax.grad(integrate(psi)) == -V div(sigma)``: div stays pointwise."""
+    lengths = (2.0, 0.5, 3.0)[:dim]
+    space = SpectralSpace(
+        lengths=lengths, shape=(N,) * dim, transform=FFTTransform(dim=dim)
+    )
+    op = SpectralOperator(scheme=cls(space=space), space=space)
+    cell_volume = np.prod(lengths) / N**dim
+    u = jax.random.normal(jax.random.PRNGKey(0), (N,) * dim + (dim,))
+
+    energy = lambda u: 0.5 * op.integrate(
+        contract("...ij,...ij->...", op.sym_grad(u), op.sym_grad(u))
+    )
+    np.testing.assert_allclose(
+        jax.grad(energy)(u), -cell_volume * op.div(op.sym_grad(u)), atol=1e-12
+    )
 
 
 @pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)
@@ -235,7 +266,7 @@ def test_integrate_uses_the_mean_not_the_sum(cls, dim):
     op = _op(cls, dim)
     nq = op.scheme.n_quads
     density = jnp.ones((N,) * dim + (nq,))
-    assert float(op.integrate(density)) == pytest.approx(N**dim)  # not nq * N**dim
+    assert float(op.integrate(density)) == pytest.approx(1.0)  # not nq
 
 
 @pytest.mark.parametrize(("cls", "dim"), SCHEMES, ids=IDS)

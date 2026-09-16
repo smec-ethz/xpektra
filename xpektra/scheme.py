@@ -73,6 +73,7 @@ class Scheme(ABC):
     dim: int
     space: SpectralSpace
     gradient_operator: Array
+    interpolation_operator: Array
 
     def __init__(self, space: SpectralSpace, *, allow_even_grid: bool = False):
         """
@@ -90,8 +91,12 @@ class Scheme(ABC):
         # check compatibility of the scheme
         self.is_compatible()
 
+        wavenumbers_mesh = space.get_wavenumber_mesh()
         self.gradient_operator = self.compute_gradient_operator(
-            wavenumbers_mesh=space.get_wavenumber_mesh()
+            wavenumbers_mesh=wavenumbers_mesh
+        )
+        self.interpolation_operator = self.compute_interpolation_operator(
+            wavenumbers_mesh=wavenumbers_mesh
         )
 
         self.n_quads = self._n_supports()
@@ -115,7 +120,7 @@ class Scheme(ABC):
         jax.tree_util.register_pytree_node_class(cls)
 
     def tree_flatten(self):
-        children = [self.gradient_operator]
+        children = [self.gradient_operator, self.interpolation_operator]
         aux_data = {
             "dim": self.dim,
             "space": self.space,
@@ -128,6 +133,7 @@ class Scheme(ABC):
     def tree_unflatten(cls, aux_data, children):
         obj = object.__new__(cls)
         object.__setattr__(obj, "gradient_operator", children[0])
+        object.__setattr__(obj, "interpolation_operator", children[1])
         object.__setattr__(obj, "dim", aux_data["dim"])
         object.__setattr__(obj, "space", aux_data["space"])
         object.__setattr__(obj, "n_quads", aux_data["n_quads"])
@@ -154,6 +160,16 @@ class Scheme(ABC):
         The primary output of any scheme. The gradient operator field has shape ( (N,)*dim, (dim,)*rank).
         """
         raise NotImplementedError
+
+    def compute_interpolation_operator(self, wavenumbers_mesh: list[Array]) -> Array:
+        """Symbol that evaluates a node field at the quadrature points.
+
+        Shape ``(*spatial, n_quads)``.  The default is the identity at a single
+        point collocated with the nodes, which is exact for
+        :class:`FourierScheme`.  Finite-difference schemes build it from their
+        value stencils.
+        """
+        return jnp.ones_like(wavenumbers_mesh[0], dtype=complex)[..., None]
 
     @property
     def divergence_operator(self):
@@ -255,6 +271,41 @@ class Scheme(ABC):
         )
 
     @jax.jit
+    def apply_interpolation(self, u_hat: Array) -> Array:
+        """
+        Evaluates a node field at the quadrature points.
+        Computes: u_hat_q... = I_q * u_hat_...
+
+        ``I_q`` is the Fourier symbol of the shape-function values ``N_a(x_q)``,
+        referenced to the nodes exactly like ``gradient_operator``, so
+        ``interpolate`` and ``grad`` land on the same points.  Its adjoint (what
+        ``jax.grad`` of an integrated quantity produces) is the row-sum
+        lumping ``sum_q N_a(x_q) / n_quads``.
+
+        Args:
+            u_hat: Node field in Fourier space, shape ``(*spatial, *tensor)``.
+
+        Returns:
+            Centre field in Fourier space, shape ``(*spatial, n_quads, *tensor)``.
+        """
+        if self.interpolation_operator is None:
+            raise NotImplementedError(
+                f"{type(self).__name__} has {self.n_quads} derivative supports but "
+                "declares no matching `support_value_stencils`."
+            )
+        rank = u_hat.ndim - self.dim
+        if rank < 0:
+            raise ValueError(
+                f"field has {u_hat.ndim} axes, fewer than the {self.dim} spatial "
+                f"dimensions; got shape {u_hat.shape}"
+            )
+        interp = jnp.expand_dims(
+            self.interpolation_operator,
+            tuple(range(self.interpolation_operator.ndim, u_hat.ndim + 1)),
+        )
+        return interp * jnp.expand_dims(u_hat, self.dim)
+
+    @jax.jit
     def apply_laplacian(self, u_hat: Array) -> Array:
         """
         Applies the Laplacian operator on the fly.
@@ -347,6 +398,19 @@ class FiniteDifferenceScheme(Scheme):
     def support_stencils(self):
         return (self.stencils,)
 
+    @property
+    def value_stencils(self):
+        """Shape-function values ``N_a(x_q)`` as ``(offset, weight)`` pairs.
+
+        The default collocates the quadrature point with the node, the only
+        choice available to Forward/Backward/Central, which have no element.
+        """
+        return [((0,) * self.dim, 1)]
+
+    @property
+    def support_value_stencils(self):
+        return (self.value_stencils,)
+
     def build_fourier_operator(self, stencil: list, modules: str = "jax"):
         """
         Factory method to create a finite difference scheme from a given stencil.
@@ -421,6 +485,30 @@ class FiniteDifferenceScheme(Scheme):
         ]
         return jnp.stack(ops, axis=-2)
 
+    def compute_interpolation_operator(self, wavenumbers_mesh: list[Array]) -> Array:
+        """Builds the interpolation symbol from ``support_value_stencils``.
+
+        Returns:
+            Shape ``(*spatial, n_quads)``, one value stencil per support, or
+            ``None`` when a custom multi-support scheme declares no value
+            stencils -- ``grad``/``div`` still work, only ``apply_interpolation``
+            raises.
+        """
+        supports = self.support_value_stencils
+        if len(supports) != self._n_supports():
+            return None
+        spacings = [
+            self.space.lengths[i] / self.space.shape[i] for i in range(self.dim)
+        ]
+        # A stencil with a single node at offset 0 lambdifies to a constant.
+        zero = jnp.zeros_like(wavenumbers_mesh[0], dtype=complex)
+        ops = [
+            self.build_fourier_operator(stencil=s)[1](*wavenumbers_mesh, *spacings)
+            + zero
+            for s in supports
+        ]
+        return jnp.stack(ops, axis=-1)
+
 
 class ForwardScheme(FiniteDifferenceScheme):
     """Represents a forward difference scheme in Fourier space."""
@@ -481,6 +569,10 @@ class Quad1RScheme(FiniteDifferenceScheme):
         self._require_odd_shape()
 
     @property
+    def value_stencils(self):
+        return _corner_average(2)
+
+    @property
     def stencils(self):
         h1, h2 = sp.symbols("h_1 h_2", real=True)
 
@@ -500,6 +592,23 @@ class Quad1RScheme(FiniteDifferenceScheme):
 
         stencils = [dx_stencil, dy_stencil]
         return stencils
+
+
+def _corner_average(dim: int) -> list:
+    """Value stencil at the voxel centre: equal weight on all ``2**dim`` corners."""
+    return [
+        (offset, sp.Rational(1, 2**dim))
+        for offset in itertools.product((0, 1), repeat=dim)
+    ]
+
+
+def quad_values(z1, z2) -> list:
+    """Bilinear Q1 shape-function values at natural coordinate `(z1, z2)`."""
+    corners = ((-1, -1), (1, -1), (-1, 1), (1, 1))
+    return [
+        (((s1 + 1) // 2, (s2 + 1) // 2), (1 + s1 * z1) * (1 + s2 * z2) / 4)
+        for s1, s2 in corners
+    ]
 
 
 def quad_stencils(z1, z2) -> list[list]:
@@ -539,6 +648,13 @@ class QuadFullScheme(FiniteDifferenceScheme):
             quad_stencils(z1, z2) for z1, z2 in itertools.product((-g, g), (-g, g))
         )
 
+    @property
+    def support_value_stencils(self):
+        g = 1 / sp.sqrt(3)
+        return tuple(
+            quad_values(z1, z2) for z1, z2 in itertools.product((-g, g), (-g, g))
+        )
+
 
 class Hex1RScheme(FiniteDifferenceScheme):
     """Represents a 1st-order hexagonal scheme in Fourier space using Willot's method."""
@@ -549,6 +665,10 @@ class Hex1RScheme(FiniteDifferenceScheme):
 
         super().is_compatible()
         self._require_odd_shape()
+
+    @property
+    def value_stencils(self):
+        return _corner_average(3)
 
     @property
     def stencils(self):
@@ -674,6 +794,13 @@ class Tetra2Scheme(FiniteDifferenceScheme):
     @property
     def support_stencils(self):
         return (tetra_t1_stencils(), tetra_t2_stencils())
+
+    @property
+    def support_value_stencils(self):
+        # centroid of each tetrahedron: 1/4 on its four vertices
+        t1 = ((0, 0, 0), (1, 1, 0), (0, 1, 1), (1, 0, 1))
+        t2 = ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1))
+        return tuple([(v, sp.Rational(1, 4)) for v in t] for t in (t1, t2))
 
 
 class FourierScheme(Scheme):

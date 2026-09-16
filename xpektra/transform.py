@@ -26,6 +26,7 @@ from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
 __all__ = [
+    "DSTTransform",
     "FFTTransform",
     "PencilFFTTransform",
     "SlabFFTTransform2D",
@@ -194,6 +195,187 @@ class FFTTransform(Transform):
         ]
 
         return local(*k_vecs)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class DSTTransform(Transform):
+    """Discrete Sine Transform (DST) using FFT.
+
+    The DST is computed using the Fast Fourier Transform by embedding the
+    interior domain into an odd (antisymmetric) periodic extension.
+
+    For an N-point input along axis `a`, the odd extension constructs an array
+    of length 2*(N+1):
+        [0, u_0, ..., u_{N-1}, 0, -u_{N-1}, ..., -u_0]
+
+    Along a single DST-I axis, the transform satisfies:
+        dstI(actual_domain) = -0.5 * imag(FFT(full_domain)[actual_domain])
+    where `actual_domain` corresponds to indices 1 to N along that axis.
+
+    ***Arguments***
+    - dim: Number of spatial dimensions to transform over.
+    - axes: Axis or tuple of axes along which to apply the DST (e.g. 0, (0, 1), or (0, 1, 2)).
+      Any spatial axes (in 0 .. dim-1) not in `axes` are transformed using standard FFT.
+    - dst_axis: Alias for `axes`.
+    - fft_transform: The underlying FFTTransform to delegate the FFT to (can be
+      standard FFTTransform, SlabFFTTransform2D, SlabFFTTransform3D, or PencilFFTTransform).
+    - dst_type: The type of DST (default "DST-I").
+    """
+
+    axes: tuple[int, ...] = field(metadata={"static": True}, default=(0,))
+    fft_transform: FFTTransform = field(default_factory=FFTTransform)
+    dst_type: str = field(metadata={"static": True}, default="DST-I")
+
+    def __init__(
+        self,
+        dim: int | None = None,
+        axes: int | tuple[int, ...] | list[int] | None = None,
+        dst_axis: int | tuple[int, ...] | list[int] | None = None,
+        fft_transform: FFTTransform | None = None,
+        dst_type: str = "DST-I",
+        device_mesh: jax.sharding.Mesh | None = None,
+    ):
+        if axes is None and dst_axis is None:
+            norm_axes = (0,)
+        elif axes is None:
+            norm_axes = (dst_axis,) if isinstance(dst_axis, int) else tuple(dst_axis)
+        else:
+            norm_axes = (axes,) if isinstance(axes, int) else tuple(axes)
+
+        if fft_transform is None:
+            if dim is None:
+                dim = max(norm_axes) + 1 if norm_axes else 1
+            fft_transform = FFTTransform(dim=dim, device_mesh=device_mesh)
+        else:
+            if dim is None:
+                dim = fft_transform.dim
+            if device_mesh is None:
+                device_mesh = fft_transform.device_mesh
+
+        norm_axes = tuple(a % dim if a < 0 else a for a in norm_axes)
+
+        object.__setattr__(self, "dim", dim)
+        object.__setattr__(self, "device_mesh", device_mesh)
+        object.__setattr__(self, "axes", norm_axes)
+        object.__setattr__(self, "fft_transform", fft_transform)
+        object.__setattr__(self, "dst_type", dst_type)
+
+    @property
+    def dst_axis(self) -> tuple[int, ...]:
+        return self.axes
+
+    @property
+    def physical_spec(self) -> P | None:
+        return self.fft_transform.physical_spec
+
+    @property
+    def spectral_spec(self) -> P | None:
+        return self.fft_transform.spectral_spec
+
+    def _extend_odd(self, u_interior: Array, axis: int) -> Array:
+        """Extend an interior field with odd symmetry along `axis` to the full periodic domain.
+
+        For an N-point input along `axis`, constructs an array of length 2*(N+1):
+            [0, u_0, ..., u_{N-1}, 0, -u_{N-1}, ..., -u_0]
+        """
+        axis = axis % u_interior.ndim
+        zeros = jnp.zeros(
+            u_interior.shape[:axis] + (1,) + u_interior.shape[axis + 1 :],
+            dtype=u_interior.dtype,
+        )
+        return jnp.concatenate(
+            [zeros, u_interior, zeros, -jnp.flip(u_interior, axis=axis)],
+            axis=axis,
+        )
+
+    def forward(self, x: Array) -> Array:
+        """Compute the forward DST along `self.axes` via the underlying FFTTransform.
+
+        ***Arguments***
+        - x: Input array of shape (Nx, Ny, ..., *tensor_axes)
+        ***Returns***
+        - Transformed array of the same shape
+        """
+        x_ext = x
+        for axis in self.axes:
+            x_ext = self._extend_odd(x_ext, axis=axis)
+
+        # Delegate the FFT of the extended domain to the underlying FFTTransform
+        fft_full = self.fft_transform.forward(x_ext)
+
+        # Slice the actual interior domain modes: [1 : N + 1] along DST axes
+        slices = tuple(
+            slice(1, x.shape[i] + 1) if i in self.axes else slice(None)
+            for i in range(x.ndim)
+        )
+        x_actual = fft_full[slices]
+
+        # Each odd extension introduces (-2i), so scale by (i/2) per DST axis
+        factor = (0.5j) ** len(self.axes)
+        x_hat = factor * x_actual
+
+        if len(self.axes) == self.dim and not jnp.iscomplexobj(x):
+            return x_hat.real
+        return x_hat
+
+    def inverse(self, x_hat: Array) -> Array:
+        """Compute the inverse DST along `self.axes` via the underlying FFTTransform.
+
+        ***Arguments***
+        - x_hat: Transformed array of shape (Nx, Ny, ..., *tensor_axes)
+        ***Returns***
+        - Inverse transformed array of the same shape
+        """
+        x_hat_ext = x_hat
+        for axis in self.axes:
+            x_hat_ext = self._extend_odd(x_hat_ext, axis=axis)
+
+        fft_dst = jnp.fft.fftn(x_hat_ext, axes=self.axes)
+        slices = tuple(
+            slice(1, x_hat.shape[i] + 1) if i in self.axes else slice(None)
+            for i in range(x_hat.ndim)
+        )
+        x_dst = fft_dst[slices]
+
+        # Scale factor for inverse DST: prod( 2 / (N_a + 1) * (i / 2) ) = prod( i / (N_a + 1) )
+        scale = 1.0
+        for a in self.axes:
+            scale = scale * (1j / (x_hat.shape[a] + 1))
+        x_dst = x_dst * scale
+
+        # iFFT along remaining spatial axes (if any)
+        fft_axes = tuple(i for i in range(self.dim) if i not in self.axes)
+        if fft_axes:
+            x_rec = jnp.fft.ifftn(x_dst, axes=fft_axes)
+        else:
+            x_rec = x_dst
+
+        if len(self.axes) == self.dim and not jnp.iscomplexobj(x_hat):
+            return x_rec.real
+        return x_rec
+
+    def get_wavenumber_vector(self, size: int, length: float) -> Array:
+        """Returns the real-valued wavenumber vector for DST-I.
+
+        For DST-I on N points over length L, the wavenumbers are:
+        k = π * [1, 2, ..., N] / L
+        """
+        return jnp.arange(1, size + 1) * (jnp.pi / length)
+
+    def get_wavenumber_mesh(
+        self, shape: tuple[int, ...], lengths: tuple[float, ...]
+    ) -> list[Array]:
+        """Returns the wavenumber meshgrid for the given shape and lengths."""
+        k_vecs = []
+        for i, (n, length) in enumerate(zip(shape, lengths)):
+            if i in self.axes:
+                k_vecs.append(self.get_wavenumber_vector(size=n, length=length))
+            else:
+                k_vecs.append(
+                    self.fft_transform.get_wavenumber_vector(size=n, length=length)
+                )
+        return list(jnp.meshgrid(*k_vecs, indexing="ij"))
 
 
 @jax.tree_util.register_dataclass

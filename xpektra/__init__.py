@@ -24,6 +24,7 @@ from xpektra.scheme import (
 from xpektra.space import SpectralSpace
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import (
+    DSTTransform,
     FFTTransform,
     PencilFFTTransform,
     SlabFFTTransform2D,
@@ -35,6 +36,7 @@ __all__ = [
     "BackwardScheme",
     "CentralScheme",
     # transform
+    "DSTTransform",
     "FFTTransform",
     "ForwardScheme",
     "FourierScheme",
