@@ -455,7 +455,8 @@ class FiniteDifferenceScheme(Scheme):
 
     def build_support_operator(self, stencils: tuple, wavenumber_mesh: list[Array]):
         spacings = [
-            self.space.lengths[i] / self.space.shape[i] for i in range(self.dim)
+            self.space.extended_lengths[i] / self.space.extended_shape[i]
+            for i in range(self.dim)
         ]
         Zs = [
             self.build_fourier_operator(stencil=s)[1](*wavenumber_mesh, *spacings)
@@ -498,7 +499,8 @@ class FiniteDifferenceScheme(Scheme):
         if len(supports) != self._n_supports():
             return None
         spacings = [
-            self.space.lengths[i] / self.space.shape[i] for i in range(self.dim)
+            self.space.extended_lengths[i] / self.space.extended_shape[i]
+            for i in range(self.dim)
         ]
         # A stencil with a single node at offset 0 lambdifies to a constant.
         zero = jnp.zeros_like(wavenumbers_mesh[0], dtype=complex)

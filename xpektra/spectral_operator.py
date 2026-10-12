@@ -48,7 +48,7 @@ class SpectralOperator:
     ``(*spatial, dim)`` from a centre field ``(*spatial, n_quads)`` and silently
     dispatched the wrong rule.
 
-    ***Args**
+    ***Args***
     - space: The spectral space.
     - scheme: The differential scheme.
 
@@ -310,7 +310,10 @@ class SpectralOperator:
                 f"position {space_dim}, got shape {density.shape}."
             )
         cell_volume = math.prod(
-            length / n for length, n in zip(self.space.lengths, self.space.shape)
+            length / n
+            for length, n in zip(
+                self.space.extended_lengths, self.space.extended_shape
+            )
         )
         density_phys = density[self.space.physical_slices]
         return cell_volume * density_phys.mean(axis=space_dim).sum(

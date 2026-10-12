@@ -3,7 +3,6 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from scipy.fft import dst as scipy_dst
-
 from xpektra.transform import DSTTransform, FFTTransform
 
 jax.config.update("jax_enable_x64", True)
@@ -121,10 +120,10 @@ def test_spectral_space_extend_axes():
         extend_axes={1: "dst1"},
         transform=FFTTransform(dim=2),
     )
-    assert space.physical_shape == (31, 31)
-    assert space.physical_lengths == (1.0, 1.0)
-    assert space.shape == (31, 64)
-    assert space.lengths == (1.0, 2.0)
+    assert space.shape == (31, 31)
+    assert space.lengths == (1.0, 1.0)
+    assert space.extended_shape == (31, 64)
+    assert space.extended_lengths == (1.0, 2.0)
 
     # Fluctuation field (default extend_axes: dst1 along axis 1)
     u = jnp.ones((31, 31, 2))
@@ -145,4 +144,3 @@ def test_spectral_space_extend_axes():
     leaves, treedef = jax.tree_util.tree_flatten(space)
     space_rec = jax.tree_util.tree_unflatten(treedef, leaves)
     assert space == space_rec
-

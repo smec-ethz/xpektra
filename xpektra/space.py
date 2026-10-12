@@ -31,42 +31,41 @@ def _extend_domain(
     lengths: tuple[float, ...],
     axes: dict[int, str | tuple[str, ...]],
 ) -> tuple[tuple[int, ...], tuple[float, ...]]:
+    """Compute the extended domain shape and lengths based on specified axes and extension types.
+
+    ***Args***
+    - shape: The original shape of the domain.
+    - lengths: The original lengths of the domain.
+    - axes: A dictionary mapping axis indices to extension types (e.g., 'dst1', 'dct2', 'dst2', 'dct1').
+
+    ***Returns***
+    - A tuple containing the new shape and new lengths after applying the specified extensions.
+
+    """
     ndim = len(shape)
     new_shape = list(shape)
     new_lengths = list(lengths)
 
     for axis, kind in axes.items():
         norm_axis = axis % ndim
-        kinds = (kind,) if isinstance(kind, str) else tuple(kind)
-        shapes_for_axis = []
-        lengths_for_axis = []
+        k = kind if isinstance(kind, str) else kind[0]
+        k_str = k.lower()
+        n = shape[norm_axis]
+        length = lengths[norm_axis]
 
-        for k in kinds:
-            k_str = k.lower()
-            n = shape[norm_axis]
-            length = lengths[norm_axis]
-
-            if k_str == "dst1":
-                shapes_for_axis.append(2 * (n + 1))
-                lengths_for_axis.append(2.0 * length)
-            elif k_str in ("dct2", "dst2"):
-                shapes_for_axis.append(2 * n)
-                lengths_for_axis.append(2.0 * length)
-            elif k_str == "dct1":
-                shapes_for_axis.append(2 * (n - 1))
-                lengths_for_axis.append(2.0 * length)
-            else:
-                raise ValueError(
-                    f"Unknown extension type '{k}'. Supported: 'dst1', 'dct2', 'dst2', 'dct1'."
-                )
-
-        if len(set(shapes_for_axis)) > 1:
+        if k_str == "dst1":
+            new_shape[norm_axis] = 2 * (n + 1)
+            new_lengths[norm_axis] = 2.0 * length
+        elif k_str in ("dct2", "dst2"):
+            new_shape[norm_axis] = 2 * n
+            new_lengths[norm_axis] = 2.0 * length
+        elif k_str == "dct1":
+            new_shape[norm_axis] = 2 * (n - 1)
+            new_lengths[norm_axis] = 2.0 * length
+        else:
             raise ValueError(
-                f"Axis {axis} has incompatible extension shapes for kinds {kinds}: {shapes_for_axis}."
+                f"Unknown extension type '{k}'. Supported: 'dst1', 'dct2', 'dst2', 'dct1'."
             )
-
-        new_shape[norm_axis] = shapes_for_axis[0]
-        new_lengths[norm_axis] = lengths_for_axis[0]
 
     return tuple(new_shape), tuple(new_lengths)
 
@@ -145,7 +144,7 @@ def _extend_field(
 class SpectralSpace:
     """Defines the spectral space.
 
-    ***Arguments***
+    ***Args***
     - lengths: The lengths of the spatial domain.
     - shape: The grid resolution shape of the spatial domain.
     - transform: The transform to be used in the spectral space.
@@ -154,24 +153,11 @@ class SpectralSpace:
       If provided, `shape` and `lengths` define the physical domain, and the
       periodized computational domain is computed automatically.
 
-    ***Attributes***
-    - shape: The computational (periodized) grid shape used by operators and transforms.
-    - lengths: The computational (periodized) domain lengths.
-    - physical_shape: The physical interior domain shape before extension.
-    - physical_lengths: The physical domain lengths before extension.
-    - extend_axes: The mapping from axis to extension type.
-
-    ***Methods***
-    - extend_field(field, axes=None): Extends an array field. If `axes` is None,
-      defaults to `self.extend_axes`.
-    - get_wavenumber_mesh(): Returns the wavenumber meshgrid for the space.
     """
 
     lengths: tuple[float, ...] = field(metadata={"static": True})
     shape: tuple[int, ...] = field(metadata={"static": True})
     transform: Transform = field(metadata={"static": True})
-    physical_lengths: tuple[float, ...] = field(metadata={"static": True})
-    physical_shape: tuple[int, ...] = field(metadata={"static": True})
     extended_lengths: tuple[float, ...] = field(metadata={"static": True})
     extended_shape: tuple[int, ...] = field(metadata={"static": True})
     physical_slices: tuple[slice, ...] = field(metadata={"static": True})
@@ -185,39 +171,36 @@ class SpectralSpace:
         shape: tuple[int, ...],
         transform: Transform,
         extend_axes: dict[int, str | tuple[str, ...]] | None = None,
-        physical_lengths: tuple[float, ...] | None = None,
-        physical_shape: tuple[int, ...] | None = None,
+        extended_lengths: tuple[float, ...] | None = None,
+        extended_shape: tuple[int, ...] | None = None,
+        physical_slices: tuple[slice, ...] | None = None,
     ):
-        phys_shape = tuple(shape) if physical_shape is None else tuple(physical_shape)
-        phys_lengths = (
-            tuple(float(l) for l in lengths)
-            if physical_lengths is None
-            else tuple(float(l) for l in physical_lengths)
-        )
         ext_axes = {} if extend_axes is None else dict(extend_axes)
 
-        if ext_axes and (physical_shape is None or physical_lengths is None):
-            comp_shape, comp_lengths = _extend_domain(
-                phys_shape, phys_lengths, ext_axes
-            )
+        if extended_shape is not None and extended_lengths is not None:
+            ext_shape = tuple(extended_shape)
+            ext_lengths = tuple(float(l) for l in extended_lengths)
+        elif ext_axes:
+            ext_shape, ext_lengths = _extend_domain(shape, lengths, ext_axes)
         else:
-            comp_shape = tuple(shape)
-            comp_lengths = tuple(float(l) for l in lengths)
+            ext_shape = tuple(shape)
+            ext_lengths = tuple(float(l) for l in lengths)
 
-        ndim = len(phys_shape)
-        ext_set = {ax % ndim for ax in ext_axes}
-        phys_slices = tuple(
-            slice(0, comp_shape[i] // 2) if i % ndim in ext_set else slice(None)
-            for i in range(ndim)
-        )
+        ndim = len(shape)
+        if physical_slices is not None:
+            phys_slices = tuple(physical_slices)
+        else:
+            ext_set = {ax % ndim for ax in ext_axes}
+            phys_slices = tuple(
+                slice(0, ext_shape[i] // 2) if i in ext_set else slice(None)
+                for i in range(ndim)
+            )
 
-        object.__setattr__(self, "shape", comp_shape)
-        object.__setattr__(self, "lengths", comp_lengths)
-        object.__setattr__(self, "extended_shape", comp_shape)
-        object.__setattr__(self, "extended_lengths", comp_lengths)
+        object.__setattr__(self, "shape", shape)
+        object.__setattr__(self, "lengths", tuple(float(l) for l in lengths))
+        object.__setattr__(self, "extended_shape", ext_shape)
+        object.__setattr__(self, "extended_lengths", ext_lengths)
         object.__setattr__(self, "transform", transform)
-        object.__setattr__(self, "physical_shape", phys_shape)
-        object.__setattr__(self, "physical_lengths", phys_lengths)
         object.__setattr__(self, "physical_slices", phys_slices)
         object.__setattr__(self, "extend_axes", ext_axes)
 
@@ -235,9 +218,7 @@ class SpectralSpace:
         target_axes = self.extend_axes if axes is None else axes
         if not target_axes:
             return field
-        return _extend_field(
-            field, axes=target_axes, spatial_dim=len(self.physical_lengths)
-        )
+        return _extend_field(field, axes=target_axes, spatial_dim=len(self.lengths))
 
     def get_wavenumber_mesh(self) -> list[Array]:
         """Creates a list of coordinate arrays for the wavenumbers.
@@ -245,4 +226,6 @@ class SpectralSpace:
         ***Returns***
         - A list of arrays representing the wavenumber meshgrid.
         """
-        return self.transform.get_wavenumber_mesh(self.shape, self.lengths)
+        return self.transform.get_wavenumber_mesh(
+            self.extended_shape, self.extended_lengths
+        )
