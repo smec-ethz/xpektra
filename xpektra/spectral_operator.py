@@ -67,6 +67,27 @@ class SpectralOperator:
     scheme: Scheme
     space: SpectralSpace = field(metadata={"static": True})
 
+    def _check_spatial_shape(self, field: Array, name: str = "field") -> None:
+        """Validate that the field's leading dimensions match the computational domain."""
+        space_dim = len(self.space.lengths)
+        if field.ndim < space_dim:
+            raise ValueError(
+                f"{name} has {field.ndim} dimensions, but space requires at least "
+                f"{space_dim} spatial dimensions."
+            )
+        field_spatial = field.shape[:space_dim]
+        if field_spatial != self.space.extended_shape:
+            if self.space.shape != self.space.extended_shape and field_spatial == self.space.shape:
+                raise ValueError(
+                    f"Input '{name}' has physical shape {field_spatial}, but the operator "
+                    f"expects extended shape {self.space.extended_shape}. "
+                    f"Did you forget to call `space.extend_primal({name})`?"
+                )
+            raise ValueError(
+                f"Input '{name}' spatial shape {field_spatial} does not match "
+                f"space.extended_shape {self.space.extended_shape}."
+            )
+
     @jax.jit
     def grad(self, u: Array) -> Array:
         """Applies the gradient operator to the input real-valued array u.
@@ -84,6 +105,7 @@ class SpectralOperator:
         continuum-mechanics ``grad u``, so a deformation gradient is
         ``I + swapaxes(grad(u), -1, -2)``.
         """
+        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         grad_u_hat = self.scheme.apply_gradient(u_hat)
         grad_u = self.space.transform.inverse(grad_u_hat)
@@ -98,7 +120,7 @@ class SpectralOperator:
         ***Returns***
         - The divergence of v, a real-valued array of shape (N,)*dim.
         """
-
+        self._check_spatial_shape(v, "v")
         v_hat = self.space.transform.forward(v)
         div_v_hat = self.scheme.apply_divergence(v_hat)
         div_v = self.space.transform.inverse(div_v_hat)
@@ -116,6 +138,7 @@ class SpectralOperator:
           (N,)*dim + (n_quads,) + (dim, dim).  The quadrature axis is always
           present, length 1 for a single-support scheme.
         """
+        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         sym_grad_u_hat = self.scheme.apply_symmetric_gradient(u_hat)
         # the quadrature axis is trailing, so the
@@ -135,6 +158,7 @@ class SpectralOperator:
           ``sym_grad`` evaluate at, so the result can go straight into an
           ``auto_vmap``-ed law or ``integrate``.
         """
+        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         u_q_hat = self.scheme.apply_interpolation(u_hat)
         return self.space.transform.inverse(u_q_hat).real
@@ -148,6 +172,7 @@ class SpectralOperator:
         ***Returns***
         - The Laplacian of u, a real-valued array of shape (N,)*dim.
         """
+        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         lap_u_hat = self.scheme.apply_laplacian(u_hat)
         lap_u = self.space.transform.inverse(lap_u_hat)
@@ -162,6 +187,7 @@ class SpectralOperator:
         ***Returns***
         - The transformed array u_hat, a complex-valued array of shape (N,)*dim.
         """
+        self._check_spatial_shape(u, "u")
         return self.space.transform.forward(u)
 
     @jax.jit
@@ -247,15 +273,33 @@ class SpectralOperator:
                         continue
                     rank = ranks.get(name, 0)
                     extra = value.ndim - space_dim - rank
-                    if extra <= 0:
-                        # Fewer axes than a full field, so it cannot be carrying
-                        # a quadrature axis: a uniform constant (``jnp.asarray(
-                        # mu0)`` for a homogeneous reference) or an otherwise
-                        # partially broadcast field.  Broadcasting is the only
-                        # available reading, and numpy will align it correctly
-                        # inside the law.
+                    if extra == 0:
+                        # Full field on the spatial grid without quadrature axis (e.g. material field).
+                        if (
+                            self.space.shape != self.space.extended_shape
+                            and value.shape[:space_dim] != self.space.extended_shape
+                        ):
+                            raise ValueError(
+                                f"Argument '{name}' passed to {fn.__name__} has spatial shape "
+                                f"{value.shape[:space_dim]}, but operator requires extended shape "
+                                f"{self.space.extended_shape}. For material fields (e.g. lam, mu), "
+                                f"did you forget to call `space.extend_material_field({name})`?"
+                            )
+                        in_axes.append(None)
+                    elif extra < 0:
+                        # Fewer axes than a full field: a uniform constant (such as jnp.asarray(mu0)
+                        # or a uniform tensor eps0) that is broadcast across the grid.
                         in_axes.append(None)
                     elif extra == 1 and value.shape[space_dim] == n_quads:
+                        if (
+                            self.space.shape != self.space.extended_shape
+                            and value.shape[:space_dim] != self.space.extended_shape
+                        ):
+                            raise ValueError(
+                                f"Argument '{name}' passed to {fn.__name__} has spatial shape "
+                                f"{value.shape[:space_dim]}, but operator requires extended shape "
+                                f"{self.space.extended_shape}."
+                            )
                         in_axes.append(space_dim)
                     else:
                         raise ValueError(
@@ -309,12 +353,21 @@ class SpectralOperator:
                 f"integrate expects a quadrature axis of length {n_quads} at "
                 f"position {space_dim}, got shape {density.shape}."
             )
-        cell_volume = math.prod(
-            length / n
-            for length, n in zip(
-                self.space.extended_lengths, self.space.extended_shape
+        if density.shape[:space_dim] != self.space.extended_shape:
+            if (
+                self.space.shape != self.space.extended_shape
+                and density.shape[:space_dim] == self.space.shape
+            ):
+                raise ValueError(
+                    f"integrate received density with physical spatial shape "
+                    f"{density.shape[:space_dim]} instead of extended shape "
+                    f"{self.space.extended_shape}."
+                )
+            raise ValueError(
+                f"integrate expects density spatial shape {self.space.extended_shape}, "
+                f"got {density.shape[:space_dim]}."
             )
-        )
+        cell_volume = self.space.cell_volume
         density_phys = density[self.space.physical_slices]
         return cell_volume * density_phys.mean(axis=space_dim).sum(
             axis=tuple(range(space_dim))

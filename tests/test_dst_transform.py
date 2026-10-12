@@ -127,15 +127,26 @@ def test_spectral_space_extend_axes():
 
     # Fluctuation field (default extend_axes: dst1 along axis 1)
     u = jnp.ones((31, 31, 2))
-    u_ext = space.extend_field(u)
+    u_ext = space.extend_primal(u)
     assert u_ext.shape == (31, 64, 2)
     # Check boundary zeros: u_ext at y=0 (index 0) and y=32 (index N+1) must be 0
     np.testing.assert_allclose(u_ext[:, 0, :], 0.0)
     np.testing.assert_allclose(u_ext[:, 32, :], 0.0)
 
-    # Material field (override with dct2 along axis 1)
+    # Dual restriction (adjoint)
+    key = jax.random.PRNGKey(42)
+    r_ext = jax.random.normal(key, (31, 64, 2))
+    u_rand = jax.random.normal(key, (31, 31, 2))
+    r_phys = space.restrict_dual(r_ext)
+    assert r_phys.shape == (31, 31, 2)
+    # Adjoint identity: <r_ext, E u> == <E^T r_ext, u>
+    inner_ext = jnp.sum(r_ext * space.extend_primal(u_rand))
+    inner_phys = jnp.sum(r_phys * u_rand)
+    np.testing.assert_allclose(inner_ext, inner_phys, atol=1e-12, rtol=1e-12)
+
+    # Material field (extend_material_field automatically uses dct2)
     lam = jnp.arange(31 * 32, dtype=float).reshape(31, 32)
-    lam_ext = space.extend_field(lam, axes={1: "dct2"})
+    lam_ext = space.extend_material_field(lam)
     assert lam_ext.shape == (31, 64)
     # Check even reflection: lam_ext[:, 32:] == lam_ext[:, :32][:, ::-1]
     np.testing.assert_allclose(lam_ext[:, 32:], lam_ext[:, :32][:, ::-1])
@@ -144,3 +155,41 @@ def test_spectral_space_extend_axes():
     leaves, treedef = jax.tree_util.tree_flatten(space)
     space_rec = jax.tree_util.tree_unflatten(treedef, leaves)
     assert space == space_rec
+
+
+def test_operator_shape_checks():
+    from xpektra import SpectralOperator, SpectralSpace
+    from xpektra.scheme import QuadFullScheme
+
+    space = SpectralSpace(
+        lengths=(1.0, 1.0),
+        shape=(31, 31),
+        extend_axes={1: "dst1"},
+        transform=FFTTransform(dim=2),
+    )
+    scheme = QuadFullScheme(space=space)
+    op = SpectralOperator(scheme=scheme, space=space)
+
+    # 1. Unextended displacement passed to op.sym_grad / op.grad
+    u_phys = jnp.ones((31, 31, 2))
+    with pytest.raises(ValueError, match="extend_primal"):
+        op.sym_grad(u_phys)
+
+    with pytest.raises(ValueError, match="extend_primal"):
+        op.grad(u_phys)
+
+    # 2. Unextended material field passed to auto_vmap
+    @op.auto_vmap(eps=2)
+    def law(eps, lam):
+        return lam * eps
+
+    u_ext = space.extend_primal(u_phys)
+    eps = op.sym_grad(u_ext)
+    lam_phys = jnp.ones((31, 32))
+    with pytest.raises(ValueError, match="extend_material_field"):
+        law(eps, lam_phys)
+
+    # 3. Unextended density passed to op.integrate
+    density_phys = jnp.ones((31, 31, scheme.n_quads))
+    with pytest.raises(ValueError, match="integrate received density with physical spatial shape"):
+        op.integrate(density_phys)

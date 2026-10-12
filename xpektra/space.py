@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
+import math
 from dataclasses import dataclass, field
 
 import jax
@@ -73,10 +74,9 @@ def _extend_domain(
 def _extend_axis_single(res: Array, norm_axis: int, kind: str) -> Array:
     kind = kind.lower()
     if kind == "dst1":
-        zeros = jnp.zeros(
-            res.shape[:norm_axis] + (1,) + res.shape[norm_axis + 1 :],
-            dtype=res.dtype,
-        )
+        sl_zero = [slice(None)] * res.ndim
+        sl_zero[norm_axis] = slice(0, 1)
+        zeros = jnp.zeros_like(res[tuple(sl_zero)])
         return jnp.concatenate(
             [zeros, res, zeros, -jnp.flip(res, axis=norm_axis)],
             axis=norm_axis,
@@ -136,6 +136,83 @@ def _extend_field(
                 )
         else:
             res = _extend_axis_single(res, norm_axis, kind)
+    return res
+
+
+def _restrict_axis_single(res: Array, norm_axis: int, kind: str) -> Array:
+    kind = kind.lower()
+    axis_len = res.shape[norm_axis]
+    if kind == "dst1":
+        # Extended length is 2*(N+1) = 2N + 2. Physical interior length is N = axis_len // 2 - 1.
+        n = axis_len // 2 - 1
+        sl_pos = [slice(None)] * res.ndim
+        sl_pos[norm_axis] = slice(1, n + 1)
+        sl_neg = [slice(None)] * res.ndim
+        sl_neg[norm_axis] = slice(n + 2, 2 * n + 2)
+        return res[tuple(sl_pos)] - jnp.flip(res[tuple(sl_neg)], axis=norm_axis)
+    elif kind == "dct2":
+        # Extended length is 2*N. Physical length is N = axis_len // 2.
+        n = axis_len // 2
+        sl_pos = [slice(None)] * res.ndim
+        sl_pos[norm_axis] = slice(0, n)
+        sl_neg = [slice(None)] * res.ndim
+        sl_neg[norm_axis] = slice(n, 2 * n)
+        return res[tuple(sl_pos)] + jnp.flip(res[tuple(sl_neg)], axis=norm_axis)
+    elif kind == "dst2":
+        # Extended length is 2*N. Physical length is N = axis_len // 2.
+        n = axis_len // 2
+        sl_pos = [slice(None)] * res.ndim
+        sl_pos[norm_axis] = slice(0, n)
+        sl_neg = [slice(None)] * res.ndim
+        sl_neg[norm_axis] = slice(n, 2 * n)
+        return res[tuple(sl_pos)] - jnp.flip(res[tuple(sl_neg)], axis=norm_axis)
+    elif kind == "dct1":
+        # Extended length is 2*(N-1) = 2N - 2. Physical length is N = axis_len // 2 + 1.
+        n = axis_len // 2 + 1
+        sl_pos = [slice(None)] * res.ndim
+        sl_pos[norm_axis] = slice(0, n)
+        r_first = res[tuple(sl_pos)]
+        sl_neg = [slice(None)] * res.ndim
+        sl_neg[norm_axis] = slice(n, 2 * n - 2)
+        r_mirrored = jnp.flip(res[tuple(sl_neg)], axis=norm_axis)
+        sl_interior = [slice(None)] * res.ndim
+        sl_interior[norm_axis] = slice(1, n - 1)
+        return r_first.at[tuple(sl_interior)].add(r_mirrored)
+    else:
+        raise ValueError(
+            f"Unknown extension type '{kind}'. Supported: 'dst1', 'dct2', 'dst2', 'dct1'."
+        )
+
+
+def _restrict_field(
+    field: Array,
+    axes: dict[int, str | tuple[str, ...]],
+    spatial_dim: int | None = None,
+) -> Array:
+    res = field
+    ndim = spatial_dim if spatial_dim is not None else res.ndim
+    for axis, kind in axes.items():
+        norm_axis = axis % ndim
+        if isinstance(kind, (tuple, list)):
+            if res.ndim > ndim:
+                n_comps = res.shape[-1]
+                if len(kind) != n_comps:
+                    raise ValueError(
+                        f"Axis {axis} has {len(kind)} extension rules, "
+                        f"but field has {n_comps} components."
+                    )
+                comps = [
+                    _restrict_axis_single(res[..., c], norm_axis, k)
+                    for c, k in enumerate(kind)
+                ]
+                res = jnp.stack(comps, axis=-1)
+            else:
+                raise ValueError(
+                    f"Field with {res.ndim} dimensions cannot be restricted with "
+                    f"per-component rules for {ndim} spatial dimensions."
+                )
+        else:
+            res = _restrict_axis_single(res, norm_axis, kind)
     return res
 
 
@@ -204,10 +281,10 @@ class SpectralSpace:
         object.__setattr__(self, "physical_slices", phys_slices)
         object.__setattr__(self, "extend_axes", ext_axes)
 
-    def extend_field(
+    def extend_primal(
         self, field: Array, axes: dict[int, str | tuple[str, ...]] | None = None
     ) -> Array:
-        """Extend an array field along specified axes according to reflection symmetries.
+        """Extend a primal field (e.g. displacement u) along specified axes according to boundary symmetries.
 
         If `axes` is None, uses `self.extend_axes`. Supported types:
         - 'dst1': DST-I odd reflection with boundary zeros, length becomes 2*(N+1).
@@ -220,6 +297,39 @@ class SpectralSpace:
             return field
         return _extend_field(field, axes=target_axes, spatial_dim=len(self.lengths))
 
+    def restrict_dual(
+        self, field: Array, axes: dict[int, str | tuple[str, ...]] | None = None
+    ) -> Array:
+        """Restrict an extended dual field (e.g. force or residual) back to the physical domain.
+
+        Applies the exact mathematical adjoint E^T of the extension operator E.
+        If `axes` is None, uses `self.extend_axes`.
+        """
+        target_axes = self.extend_axes if axes is None else axes
+        if not target_axes:
+            return field
+        return _restrict_field(field, axes=target_axes, spatial_dim=len(self.lengths))
+
+    def extend_material_field(
+        self,
+        field: Array,
+        axes: tuple[int, ...] | list[int] | dict[int, str] | None = None,
+    ) -> Array:
+        """Extend a material field (e.g. lam, mu) using even (DCT-2) symmetry along extended axes.
+
+        By default, applies 'dct2' cell-boundary reflection along all axes present in `self.extend_axes`.
+        """
+        if axes is None:
+            target_axes = {ax: "dct2" for ax in self.extend_axes}
+        elif isinstance(axes, dict):
+            target_axes = axes
+        else:
+            target_axes = {ax: "dct2" for ax in axes}
+
+        if not target_axes:
+            return field
+        return _extend_field(field, axes=target_axes, spatial_dim=len(self.lengths))
+
     def get_wavenumber_mesh(self) -> list[Array]:
         """Creates a list of coordinate arrays for the wavenumbers.
 
@@ -228,4 +338,11 @@ class SpectralSpace:
         """
         return self.transform.get_wavenumber_mesh(
             self.extended_shape, self.extended_lengths
+        )
+
+    @property
+    def cell_volume(self) -> float:
+        """The voxel / grid cell volume of the computational domain."""
+        return math.prod(
+            length / n for length, n in zip(self.extended_lengths, self.extended_shape)
         )

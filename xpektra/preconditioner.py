@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 import jax
 import jax.numpy as jnp
 from jax import Array
+from jax.sharding import NamedSharding
 
 from xpektra import linalg
 from xpektra.space import SpectralSpace
@@ -78,8 +79,11 @@ class GreenPreconditioner(ABC):
         Returns:
             Flattened preconditioned residual, shape ``(n,)``, real.
         """
-        canonical_shape = self.space.shape + (self.d,)
-        r_hat = self.space.transform.forward(r_flat.reshape(canonical_shape))
+        canonical_shape = self.space.extended_shape + (self.d,)
+        r = r_flat.reshape(canonical_shape)
+        if getattr(self, "sharding", None) is not None:
+            r = jax.reshard(r, self.sharding)
+        r_hat = self.space.transform.forward(r)
         return self.space.transform.inverse(self.apply_hat(r_hat)).real.reshape(-1)
 
     def in_fourier(self) -> "SpectralView":
@@ -140,6 +144,7 @@ class GenericGreenPreconditioner(GreenPreconditioner):
     G_hat: Array
     space: SpectralSpace = field(metadata={"static": True})
     d: int = field(metadata={"static": True})
+    sharding: NamedSharding | None = field(default=None, metadata={"static": True})
 
     @jax.jit
     def apply_hat(self, r_hat: Array) -> Array:
@@ -152,6 +157,7 @@ def make_generic_preconditioner(
     space: SpectralSpace,
     d: int,
     rtol: float = 1e-12,
+    sharding: NamedSharding | None = None,
 ) -> GenericGreenPreconditioner:
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
 
@@ -163,29 +169,32 @@ def make_generic_preconditioner(
         d: components per node.
         rtol: a mode is treated as null when the Frobenius norm of its symbol
             falls below ``rtol`` times the largest such norm.
+        sharding: optional sharding for parallel distributed environments.
 
     Returns:
         The preconditioner.
     """
-    canonical_shape = space.shape + (d,)
-    zero_node = (0,) * len(space.shape)
+    canonical_shape = space.extended_shape + (d,)
+    zero_node = (0,) * len(space.extended_shape)
 
-    seeds = jnp.stack(
-        [
-            jnp.zeros(canonical_shape).at[zero_node + (i,)].set(1.0).reshape(-1)
-            for i in range(d)
-        ]
-    )
-    u_ref = jnp.zeros(canonical_shape).reshape(-1)
+    def _init_field(arr: Array) -> Array:
+        if sharding is not None:
+            return jax.device_put(arr, sharding)
+        return arr
 
-    # action of the tangent on a vector v, i.e. K v
-    def mv(v: Array) -> Array:
-        return jax.jvp(residual_ref_fn, (u_ref,), (v,))[1]
+    u_ref = _init_field(jnp.zeros(canonical_shape)).reshape(-1)
 
-    K_refs = jax.vmap(mv)(seeds)
-    columns = [
-        space.transform.forward(K_refs[i].reshape(canonical_shape)) for i in range(d)
-    ]
+    columns = []
+    for i in range(d):
+        seed_i = _init_field(
+            jnp.zeros(canonical_shape).at[zero_node + (i,)].set(1.0)
+        )
+        K_ref_i = jax.jvp(residual_ref_fn, (u_ref,), (seed_i.reshape(-1),))[1]
+        K_ref_i_field = K_ref_i.reshape(canonical_shape)
+        if sharding is not None:
+            K_ref_i_field = jax.reshard(K_ref_i_field, sharding)
+        columns.append(space.transform.forward(K_ref_i_field))
+
     K_hat = jnp.stack(columns, axis=-1)
 
     # Gate on the *magnitude* of the symbol, not on its determinant.  See the
@@ -199,7 +208,7 @@ def make_generic_preconditioner(
     K_safe = jnp.where(ok[..., None, None], K_hat, eye)
     G_hat = jnp.where(ok[..., None, None], linalg.inv(K_safe), 0.0)
 
-    return GenericGreenPreconditioner(G_hat=G_hat, space=space, d=d)
+    return GenericGreenPreconditioner(G_hat=G_hat, space=space, d=d, sharding=sharding)
 
 
 @jax.tree_util.register_dataclass
@@ -276,9 +285,7 @@ def make_isotropic_preconditioner(
     # ``op.integrate`` carries the voxel volume, so the tangent of an energy is
     # ``V D^T C0 D``.  Scaling both moduli by V inverts that; the ratio inside
     # the Woodbury solve is unchanged.
-    cell_volume = math.prod(
-        length / n for length, n in zip(scheme.space.lengths, scheme.space.shape)
-    )
+    cell_volume = scheme.space.cell_volume
     lam0, mu0 = cell_volume * jnp.asarray(lam0), cell_volume * jnp.asarray(mu0)
 
     gg = linalg.contract("...i,...i->...", g, g)
