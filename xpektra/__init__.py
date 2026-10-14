@@ -27,8 +27,11 @@ from xpektra.transform import (
     DSTTransform,
     FFTTransform,
     PencilFFTTransform,
+    RFFTTransform,
     SlabFFTTransform2D,
     SlabFFTTransform3D,
+    SlabRFFTTransform2D,
+    SlabRFFTTransform3D,
 )
 
 __all__ = [
@@ -50,8 +53,11 @@ __all__ = [
     "ProjectionOperator",
     "Quad1RScheme",
     "QuadFullScheme",
+    "RFFTTransform",
     "SlabFFTTransform2D",
     "SlabFFTTransform3D",
+    "SlabRFFTTransform2D",
+    "SlabRFFTTransform3D",
     "SpectralOperator",
     # space / operators
     "SpectralSpace",

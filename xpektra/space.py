@@ -16,13 +16,13 @@
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import jax
 import jax.numpy as jnp
 from jax import Array
 
-from xpektra.transform import Transform
+from xpektra.transform import RFFTTransform, Transform
 
 __all__ = ["SpectralSpace"]
 
@@ -284,6 +284,8 @@ class SpectralSpace:
         object.__setattr__(self, "lengths", tuple(float(l) for l in lengths))
         object.__setattr__(self, "extended_shape", ext_shape)
         object.__setattr__(self, "extended_lengths", ext_lengths)
+        if isinstance(transform, RFFTTransform) and transform.shape is None:
+            transform = replace(transform, shape=ext_shape[: transform.dim])
         object.__setattr__(self, "transform", transform)
         object.__setattr__(self, "physical_slices", phys_slices)
         object.__setattr__(self, "extend_axes", ext_axes)

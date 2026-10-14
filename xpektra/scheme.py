@@ -25,7 +25,7 @@ from jax import Array
 
 from xpektra.linalg import contract
 from xpektra.space import SpectralSpace
-from xpektra.transform import FFTTransform
+from xpektra.transform import DSTTransform, FFTTransform
 
 __all__ = [
     "BackwardScheme",
@@ -149,9 +149,9 @@ class Scheme(ABC):
         """
         Checks if the scheme is compatible with the given transform.
         """
-        if not isinstance(self.space.transform, FFTTransform):
+        if not isinstance(self.space.transform, (FFTTransform, DSTTransform)):
             raise ValueError(  # noqa: TRY004
-                f"{type(self).__name__} is only compatible with FFTTransform."
+                f"{type(self).__name__} is only compatible with FFTTransform or DSTTransform."
             )
 
     @abstractmethod
@@ -561,7 +561,13 @@ class CentralScheme(FiniteDifferenceScheme):
 
 
 class Quad1RScheme(FiniteDifferenceScheme):
-    """Represents a 1st-order quadrature scheme in Fourier space using Willot's method."""
+    """Represents a 1st-order quadrature scheme in Fourier space using Willot's method.
+
+    This scheme is a reduced-integration stencil that requires an odd number of grid points
+    in each direction to avoid Nyquist degeneracy. It is compatible only with 2D space.
+    The solution is evaluated at the corners of each voxel, and the gradients of the solution
+    at the voxel center (1 gauss point) using a bilinear interpolation of the values at the corners.
+    """
 
     def is_compatible(self):
         if self.dim != 2:
@@ -632,10 +638,13 @@ def quad_stencils(z1, z2) -> list[list]:
 class QuadFullScheme(FiniteDifferenceScheme):
     """Bilinear Q1 with full 2x2 Gauss integration, `n_quads = 4`.
 
-    Deliberately does **not** call `_require_odd_shape`: unlike the reduced scheme
-    this symbol has no Nyquist degeneracy, so an even grid costs it nothing.  The
-    example still runs odd, because `Quad1RScheme` -- the thing being compared
-    against -- does require it.
+    This scheme has no Nyquist degeneracy at even frequencies, therefore, it
+    works for both odd and even grid points. Unlike `Quad1RScheme`, which requires
+    odd grid points.
+
+    The solution is evaluated at the corners of each voxel, and the gradients of the solution
+    at the voxel centers (4 gauss points) using a bilinear interpolation of the values at the corners.
+
     """
 
     def is_compatible(self):
@@ -771,6 +780,11 @@ def tetra_t2_stencils() -> list[list]:
 
 class Tetra2Scheme(FiniteDifferenceScheme):
     """Double-tetrahedron scheme (TETRA2), Finel (2025); Amouzou-adoun et al. (2026).
+
+    This is a 3D scheme with two tetrahedra per voxel, each carrying its own derivative
+    support.  The solution is evaluated at the corners of each voxel, and the gradients of the solution
+    at the voxel centers (2 gauss points) in two different tetrahedra using a linear interpolation
+    of the values at the corners.
 
     Two derivation supports per voxel, so ``gradient_operator`` has shape
     ``(*spatial, 2, 3)`` and strain/stress fields carry two values per voxel

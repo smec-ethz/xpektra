@@ -29,8 +29,11 @@ __all__ = [
     "DSTTransform",
     "FFTTransform",
     "PencilFFTTransform",
+    "RFFTTransform",
     "SlabFFTTransform2D",
     "SlabFFTTransform3D",
+    "SlabRFFTTransform2D",
+    "SlabRFFTTransform3D",
 ]
 
 
@@ -190,6 +193,96 @@ class FFTTransform(Transform):
 
         # shard_map requires each input to already carry the sharding declared
         # in in_specs; it will not reshard implicitly.
+        k_vecs = [
+            jax.device_put(k, NamedSharding(self.device_mesh, spec))
+            for k, spec in zip(k_vecs, in_specs)
+        ]
+
+        return local(*k_vecs)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class RFFTTransform(FFTTransform):
+    """
+    Real-to-complex Fast Fourier Transform (RFFT).
+
+    Exploits Hermitian symmetry of real-valued spatial fields to reduce memory
+    and computation by approximately 2x compared to complex-to-complex FFT.
+    The last transformed axis is reduced from length N to N // 2 + 1 in Fourier space.
+
+    ***Arguments***
+    - dim: Number of spatial dimensions to transform over.
+    - shape: Optional original spatial shape tuple. If provided, ensures exact
+      inverse dimension recovery even for odd grid sizes along the last axis.
+
+    Example:
+
+    ```python
+    rfft_transform = RFFTTransform(dim=2)
+    x_hat = rfft_transform.forward(x)
+    x = rfft_transform.inverse(x_hat)
+    ```
+    """
+
+    shape: tuple[int, ...] | None = field(metadata={"static": True}, default=None)
+
+    def forward(self, x: Array) -> Array:
+        """
+        Computes the real-to-complex FFT.
+
+        ***Arguments***
+        - x: Input real-valued array of shape (Nx, Ny, ..., *tensor_axes)
+        ***Returns***
+        - x_hat: Transformed array of shape (Nx, ..., N_last // 2 + 1, *tensor_axes)
+        """
+        axes = range(self.dim)
+        return jnp.fft.rfftn(x, axes=axes)
+
+    def inverse(self, x_hat: Array) -> Array:
+        """
+        Computes the inverse complex-to-real FFT.
+
+        ***Arguments***
+        - x_hat: Input array in frequency space of shape (Nx, ..., N_last // 2 + 1, *tensor_axes)
+        ***Returns***
+        - x: Inverse transformed real-valued array of shape (Nx, Ny, ..., *tensor_axes)
+        """
+        axes = range(self.dim)
+        s = self.shape[: self.dim] if self.shape is not None else None
+        return jnp.fft.irfftn(x_hat, s=s, axes=axes)
+
+    def get_rfft_wavenumber_vector(self, size: int, length: float) -> Array:
+        """
+        Returns the non-negative real-valued wavenumber vector for the last RFFT axis.
+        """
+        freqs = jnp.fft.rfftfreq(size, d=length / size)
+        return freqs * 2 * jnp.pi
+
+    def get_wavenumber_mesh(
+        self, shape: tuple[int, ...], lengths: tuple[float, ...]
+    ) -> list[Array]:
+        """
+        Returns the wavenumber meshgrid for the RFFT domain.
+        """
+        k_vecs = [
+            self.get_rfft_wavenumber_vector(size=n, length=length)
+            if i == self.dim - 1
+            else self.get_wavenumber_vector(size=n, length=length)
+            for i, (n, length) in enumerate(zip(shape[: self.dim], lengths[: self.dim]))
+        ]
+
+        if self.spectral_spec is None:
+            return list(jnp.meshgrid(*k_vecs, indexing="ij"))
+
+        in_specs = tuple(P(axis) for axis in self.spectral_spec)
+
+        @jax.shard_map(
+            in_specs=in_specs, out_specs=self.spectral_spec, mesh=self.device_mesh
+        )
+        def local(*k_local):
+            return jnp.meshgrid(*k_local, indexing="ij")
+
         k_vecs = [
             jax.device_put(k, NamedSharding(self.device_mesh, spec))
             for k, spec in zip(k_vecs, in_specs)
@@ -465,6 +558,150 @@ class SlabFFTTransform3D(FFTTransform):
             xl = jnp.fft.ifft(xl, axis=0)  # axis 0 complete -> local
             xl = jax.lax.all_to_all(xl, "x", split_axis=0, concat_axis=1, tiled=True)
             return jnp.fft.ifftn(xl, axes=(1, 2))
+
+        return local(x_hat)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class SlabRFFTTransform2D(RFFTTransform):
+    """2-D RFFT with a 1-D device mesh using slab decomposition.
+
+    Input (physical domain) is sharded along axis 0: shape (Nx, Ny).
+    Output (spectral half-space) is sharded along axis 1: shape (Nx, Ny // 2 + 1 + pad).
+
+    Because the RFFT dimension (Ny // 2 + 1) is typically odd (e.g. 65 for Ny=128),
+    padding is applied dynamically so that axis 1 divides evenly across the device mesh
+    during the collective transpose, and stripped upon inverse transform.
+    """
+
+    physical_spec: ClassVar[P] = P("x", None)
+    spectral_spec: ClassVar[P] = P(None, "x")
+
+    def __post_init__(self):
+        assert self.dim == 2, "SlabRFFTTransform2D is only implemented for 2D FFT."
+        self._validate_mesh()
+
+    def forward(self, x):
+        """Forward 2-D RFFT. Input sharded on axis 0, output sharded on axis 1."""
+        p = self.device_mesh.shape["x"]
+        n1 = x.shape[1]
+        m1 = n1 // 2 + 1
+        pad_len = (-m1) % p
+
+        @jax.shard_map(
+            in_specs=self.physical_spec,
+            out_specs=self.spectral_spec,
+            mesh=self.device_mesh,
+        )
+        def local(xl):
+            xl = jnp.fft.rfft(xl, axis=1)
+            if pad_len > 0:
+                pad_shape = [(0, 0)] * xl.ndim
+                pad_shape[1] = (0, pad_len)
+                xl = jnp.pad(xl, pad_shape)
+            xl = jax.lax.all_to_all(xl, "x", split_axis=1, concat_axis=0, tiled=True)
+            return jnp.fft.fft(xl, axis=0)
+
+        return local(x)
+
+    def inverse(self, x_hat):
+        """Inverse 2-D RFFT. Input sharded on axis 1, output sharded on axis 0."""
+        p = self.device_mesh.shape["x"]
+        n1 = self.shape[1] if self.shape is not None else (x_hat.shape[1] - 1) * 2
+        m1 = n1 // 2 + 1
+        pad_len = (-m1) % p
+
+        @jax.shard_map(
+            in_specs=self.spectral_spec,
+            out_specs=self.physical_spec,
+            mesh=self.device_mesh,
+        )
+        def local(xl):
+            xl = jnp.fft.ifft(xl, axis=0)
+            xl = jax.lax.all_to_all(xl, "x", split_axis=0, concat_axis=1, tiled=True)
+            if pad_len > 0:
+                xl = xl.take(jnp.arange(m1), axis=1)
+            return jnp.fft.irfft(xl, n=n1, axis=1)
+
+        return local(x_hat)
+
+    def get_wavenumber_mesh(
+        self, shape: tuple[int, ...], lengths: tuple[float, ...]
+    ) -> list[Array]:
+        """Returns the padded wavenumber meshgrid matching the 2D slab layout."""
+        p = self.device_mesh.shape["x"]
+        n1 = shape[1]
+        m1 = n1 // 2 + 1
+        pad_len = (-m1) % p
+
+        k0 = self.get_wavenumber_vector(size=shape[0], length=lengths[0])
+        k1 = self.get_rfft_wavenumber_vector(size=n1, length=lengths[1])
+        if pad_len > 0:
+            k1 = jnp.pad(k1, (0, pad_len))
+
+        in_specs = tuple(P(axis) for axis in self.spectral_spec)
+
+        @jax.shard_map(
+            in_specs=in_specs, out_specs=self.spectral_spec, mesh=self.device_mesh
+        )
+        def local(*k_local):
+            return jnp.meshgrid(*k_local, indexing="ij")
+
+        k_vecs = [
+            jax.device_put(k, NamedSharding(self.device_mesh, spec))
+            for k, spec in zip([k0, k1], in_specs)
+        ]
+        return local(*k_vecs)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class SlabRFFTTransform3D(RFFTTransform):
+    """3-D RFFT with a 1-D device mesh using slab decomposition.
+
+    Input (physical domain) is sharded along axis 0: shape (Nx, Ny, Nz).
+    Output (spectral half-space) is sharded along axis 1: shape (Nx, Ny, Nz // 2 + 1).
+
+    Because the RFFT half-spectrum reduction occurs along axis 2 (which is entirely local
+    in both physical and spectral layouts), no padding is required for the collective transpose.
+    """
+
+    physical_spec: ClassVar[P] = P("x", None, None)
+    spectral_spec: ClassVar[P] = P(None, "x", None)
+
+    def __post_init__(self):
+        assert self.dim == 3, "SlabRFFTTransform3D is only implemented for 3D FFT."
+        self._validate_mesh()
+
+    def forward(self, x):
+        """Forward 3-D RFFT. Input sharded on axis 0, output sharded on axis 1."""
+
+        @jax.shard_map(
+            in_specs=self.physical_spec,
+            out_specs=self.spectral_spec,
+            mesh=self.device_mesh,
+        )
+        def local(xl):
+            xl = jnp.fft.rfftn(xl, axes=(1, 2))
+            xl = jax.lax.all_to_all(xl, "x", split_axis=1, concat_axis=0, tiled=True)
+            return jnp.fft.fft(xl, axis=0)
+
+        return local(x)
+
+    def inverse(self, x_hat):
+        """Inverse 3-D RFFT. Input sharded on axis 1, output sharded on axis 0."""
+
+        @jax.shard_map(
+            in_specs=self.spectral_spec,
+            out_specs=self.physical_spec,
+            mesh=self.device_mesh,
+        )
+        def local(xl):
+            xl = jnp.fft.ifft(xl, axis=0)
+            xl = jax.lax.all_to_all(xl, "x", split_axis=0, concat_axis=1, tiled=True)
+            s_local = (self.shape[1], self.shape[2]) if self.shape is not None else None
+            return jnp.fft.irfftn(xl, s=s_local, axes=(1, 2))
 
         return local(x_hat)
 
