@@ -26,12 +26,19 @@ from xpektra.transform import Transform
 
 __all__ = ["SpectralSpace"]
 
+type Shape = tuple[int, ...]
+type Lengths = tuple[float, ...]
+type AxisExtensionKind = str | tuple[str, ...]
+type AxisExtensionMap = dict[int, AxisExtensionKind]
+
+_SUPPORTED_EXTENSIONS = ("dst1", "dct2", "dst2", "dct1")
+
 
 def _extend_domain(
-    shape: tuple[int, ...],
-    lengths: tuple[float, ...],
-    axes: dict[int, str | tuple[str, ...]],
-) -> tuple[tuple[int, ...], tuple[float, ...]]:
+    shape: Shape,
+    lengths: Lengths,
+    axes: AxisExtensionMap,
+) -> tuple[Shape, Lengths]:
     """Compute the extended domain shape and lengths based on specified axes and extension types.
 
     ***Args***
@@ -65,7 +72,7 @@ def _extend_domain(
             new_lengths[norm_axis] = 2.0 * length
         else:
             raise ValueError(
-                f"Unknown extension type '{k}'. Supported: 'dst1', 'dct2', 'dst2', 'dct1'."
+                f"Unknown extension type '{k}'. Supported: {', '.join(f"'{s}'" for s in _SUPPORTED_EXTENSIONS)}."
             )
 
     return tuple(new_shape), tuple(new_lengths)
@@ -99,13 +106,13 @@ def _extend_axis_single(res: Array, norm_axis: int, kind: str) -> Array:
         return jnp.concatenate([res, flipped_interior], axis=norm_axis)
     else:
         raise ValueError(
-            f"Unknown extension type '{kind}'. Supported: 'dst1', 'dct2', 'dst2', 'dct1'."
+            f"Unknown extension type '{kind}'. Supported: {', '.join(f"'{s}'" for s in _SUPPORTED_EXTENSIONS)}."
         )
 
 
 def _extend_field(
     field: Array,
-    axes: dict[int, str | tuple[str, ...]],
+    axes: AxisExtensionMap,
     spatial_dim: int | None = None,
 ) -> Array:
     res = field
@@ -180,13 +187,13 @@ def _restrict_axis_single(res: Array, norm_axis: int, kind: str) -> Array:
         return r_first.at[tuple(sl_interior)].add(r_mirrored)
     else:
         raise ValueError(
-            f"Unknown extension type '{kind}'. Supported: 'dst1', 'dct2', 'dst2', 'dct1'."
+            f"Unknown extension type '{kind}'. Supported: {', '.join(f"'{s}'" for s in _SUPPORTED_EXTENSIONS)}."
         )
 
 
 def _restrict_field(
     field: Array,
-    axes: dict[int, str | tuple[str, ...]],
+    axes: AxisExtensionMap,
     spatial_dim: int | None = None,
 ) -> Array:
     res = field
@@ -232,24 +239,24 @@ class SpectralSpace:
 
     """
 
-    lengths: tuple[float, ...] = field(metadata={"static": True})
-    shape: tuple[int, ...] = field(metadata={"static": True})
+    lengths: Lengths = field(metadata={"static": True})
+    shape: Shape = field(metadata={"static": True})
     transform: Transform = field(metadata={"static": True})
-    extended_lengths: tuple[float, ...] = field(metadata={"static": True})
-    extended_shape: tuple[int, ...] = field(metadata={"static": True})
+    extended_lengths: Lengths = field(metadata={"static": True})
+    extended_shape: Shape = field(metadata={"static": True})
     physical_slices: tuple[slice, ...] = field(metadata={"static": True})
-    extend_axes: dict[int, str | tuple[str, ...]] = field(
+    extend_axes: AxisExtensionMap = field(
         metadata={"static": True}, default_factory=dict
     )
 
     def __init__(
         self,
-        lengths: tuple[float, ...],
-        shape: tuple[int, ...],
+        lengths: Lengths,
+        shape: Shape,
         transform: Transform,
-        extend_axes: dict[int, str | tuple[str, ...]] | None = None,
-        extended_lengths: tuple[float, ...] | None = None,
-        extended_shape: tuple[int, ...] | None = None,
+        extend_axes: AxisExtensionMap | None = None,
+        extended_lengths: Lengths | None = None,
+        extended_shape: Shape | None = None,
         physical_slices: tuple[slice, ...] | None = None,
     ):
         ext_axes = {} if extend_axes is None else dict(extend_axes)
@@ -282,7 +289,7 @@ class SpectralSpace:
         object.__setattr__(self, "extend_axes", ext_axes)
 
     def extend_primal(
-        self, field: Array, axes: dict[int, str | tuple[str, ...]] | None = None
+        self, field: Array, axes: AxisExtensionMap | None = None
     ) -> Array:
         """Extend a primal field (e.g. displacement u) along specified axes according to boundary symmetries.
 
@@ -298,7 +305,7 @@ class SpectralSpace:
         return _extend_field(field, axes=target_axes, spatial_dim=len(self.lengths))
 
     def restrict_dual(
-        self, field: Array, axes: dict[int, str | tuple[str, ...]] | None = None
+        self, field: Array, axes: AxisExtensionMap | None = None
     ) -> Array:
         """Restrict an extended dual field (e.g. force or residual) back to the physical domain.
 

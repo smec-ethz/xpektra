@@ -114,13 +114,21 @@ so a call site can migrate before its spec has been measured.
 """
 
 from collections.abc import Callable
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, TypedDict, Unpack
 
 import jax
 import jax.numpy as jnp
 from jax import Array
 
 __all__ = ["contract", "det", "dyad", "einsum", "inv", "trace", "trans"]
+
+type ContractionFn = Callable[[Array, Array], Array]
+
+
+class EinsumKwargs(TypedDict, total=False):
+    optimize: bool | str
+    precision: Any
+    preferred_element_type: Any
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +235,7 @@ class _Contraction(NamedTuple):
             large would answer it differently.
     """
 
-    broadcast: Callable[[Array, Array], Array]
+    broadcast: ContractionFn
     n_axes: tuple[int, int]
     cpu_prefers_dot: bool = False
 
@@ -358,7 +366,7 @@ def contract(spec: str, A: Array, B: Array) -> Array:
     return jax.lax.platform_dependent(A, B, cpu=_dot, default=entry.broadcast)
 
 
-def einsum(spec: Any, *operands: Any, **kwargs: Any) -> Array:
+def einsum(spec: Any, *operands: Any, **kwargs: Unpack[EinsumKwargs]) -> Array:
     """Drop-in replacement for ``jnp.einsum`` that routes measured contractions.
 
     A two-operand string spec naming one of the measured contractions takes the

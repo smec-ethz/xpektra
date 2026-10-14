@@ -110,8 +110,9 @@ class FFTTransform(Transform):
         )
         missing = tuple(a for a in required if a not in self.device_mesh.axis_names)
         assert not missing, (
-            f"{name} requires mesh axes {required}, but the mesh provides "
-            f"{self.device_mesh.axis_names} (missing {missing})."
+            f"{name} requires mesh axes {', '.join(f"'{a}'" for a in required)}, "
+            f"but the mesh provides {', '.join(f"'{a}'" for a in self.device_mesh.axis_names)} "
+            f"(missing {', '.join(f"'{a}'" for a in missing)})."
         )
 
     def forward(self, x: Array) -> Array:

@@ -17,7 +17,6 @@
 
 import functools
 import inspect
-import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -77,7 +76,10 @@ class SpectralOperator:
             )
         field_spatial = field.shape[:space_dim]
         if field_spatial != self.space.extended_shape:
-            if self.space.shape != self.space.extended_shape and field_spatial == self.space.shape:
+            if (
+                self.space.shape != self.space.extended_shape
+                and field_spatial == self.space.shape
+            ):
                 raise ValueError(
                     f"Input '{name}' has physical shape {field_spatial}, but the operator "
                     f"expects extended shape {self.space.extended_shape}. "
@@ -205,7 +207,7 @@ class SpectralOperator:
     # The quadrature boundary
     # ------------------------------------------------------------------
 
-    def auto_vmap(self, **ranks: int) -> Callable:
+    def auto_vmap[F: Callable](self, **ranks: int) -> Callable[[F], F]:
         """Decorator: lift a per-quadrature-point law to a full centre field.
 
         A constitutive law is written for **one** quadrature point but for the
@@ -249,13 +251,13 @@ class SpectralOperator:
         space_dim = len(self.space.lengths)
         n_quads = self.scheme.n_quads
 
-        def decorator(fn: Callable) -> Callable:
+        def decorator(fn: F) -> F:
             signature = inspect.signature(fn)
             names = list(signature.parameters)
             unknown = set(ranks) - set(names)
             if unknown:
                 raise TypeError(
-                    f"auto_vmap got ranks for parameters {sorted(unknown)}, "
+                    f"auto_vmap got ranks for parameters {', '.join(f"'{p}'" for p in sorted(unknown))}, "
                     f"which {fn.__name__} does not take."
                 )
 

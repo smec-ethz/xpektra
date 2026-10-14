@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
-import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -36,6 +35,9 @@ __all__ = [
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
 ]
+
+
+type ResidualFn = Callable[[Array], Array]
 
 
 class GreenPreconditioner(ABC):
@@ -153,7 +155,7 @@ class GenericGreenPreconditioner(GreenPreconditioner):
 
 
 def make_generic_preconditioner(
-    residual_ref_fn: Callable[[Array], Array],
+    residual_ref_fn: ResidualFn,
     space: SpectralSpace,
     d: int,
     rtol: float = 1e-12,
@@ -186,9 +188,7 @@ def make_generic_preconditioner(
 
     columns = []
     for i in range(d):
-        seed_i = _init_field(
-            jnp.zeros(canonical_shape).at[zero_node + (i,)].set(1.0)
-        )
+        seed_i = _init_field(jnp.zeros(canonical_shape).at[zero_node + (i,)].set(1.0))
         K_ref_i = jax.jvp(residual_ref_fn, (u_ref,), (seed_i.reshape(-1),))[1]
         K_ref_i_field = K_ref_i.reshape(canonical_shape)
         if sharding is not None:
