@@ -100,12 +100,12 @@ class SpectralOperator:
 
         ***Returns***
         - The gradient of u, a real-valued array of shape
-          (N,)*dim + (n_quads, dim) + tensor axes.
+          (N,)*dim + (n_quads,) + tensor axes + (dim,).
 
-        The derivative index comes first: for a vector field
-        ``grad(u)[..., i, j] == d_i u_j``.  This is the transpose of the
+        The derivative index comes last: for a vector field
+        ``grad(u)[..., i, j] == d_j u_i``.  This matches the
         continuum-mechanics ``grad u``, so a deformation gradient is
-        ``I + swapaxes(grad(u), -1, -2)``.
+        ``I + grad(u)``.
         """
         self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
@@ -118,9 +118,9 @@ class SpectralOperator:
         """Applies the divergence operator to the input real-valued array v.
 
         ***Arguments***
-        - v: A real-valued array of shape (N,)*dim + (dim,).
+        - v: A real-valued centre field of shape (N,)*dim + (n_quads, dim, dim).
         ***Returns***
-        - The divergence of v, a real-valued array of shape (N,)*dim.
+        - The divergence of v, a real-valued array of shape (N,)*dim + (dim,).
         """
         self._check_spatial_shape(v, "v")
         v_hat = self.space.transform.forward(v)

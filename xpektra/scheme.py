@@ -41,8 +41,8 @@ __all__ = [
 iota = 1j  # Imaginary unit
 
 # einsum subscripts for the tensor axes of a field whose gradient is taken.
-# Must avoid "q" (quadrature) and "i" (the derivative index).
-_TENSOR_SUBSCRIPTS = "jklmn"
+# Must avoid "q" (quadrature) and "d" (the derivative index).
+_TENSOR_SUBSCRIPTS = "ijklmn"
 
 
 class Scheme(ABC):
@@ -180,7 +180,7 @@ class Scheme(ABC):
     def apply_symmetric_gradient(self, u_hat: Array) -> Array:
         """
         Applies the symmetric gradient operator on the fly.
-        Computes: eps_hat_qij = 0.5 * (D_qi * u_hat_j + D_qj * u_hat_i)
+        Computes: eps_hat_qij = 0.5 * (u_hat_i * D_qj + u_hat_j * D_qi)
 
         Args:
             u_hat: Node field in Fourier space, shape ``(*spatial, dim)``.
@@ -188,14 +188,14 @@ class Scheme(ABC):
         Returns:
             Centre field in Fourier space, shape ``(*spatial, n_quads, dim, dim)``.
         """
-        t = jnp.einsum("...qi,...j->...qij", self.gradient_operator, u_hat)
+        t = jnp.einsum("...qd,...i->...qid", self.gradient_operator, u_hat)
         return 0.5 * (t + jnp.swapaxes(t, -1, -2))
 
     @jax.jit
     def apply_divergence(self, u_hat: Array) -> Array:
         """
         Applies the quadrature-averaged divergence operator on the fly.
-        Computes: div_hat_i = 1/n_q * sum_q -conj(D_qj) * u_hat_qji
+        Computes: div_hat_i = 1/n_q * sum_q -conj(D_qj) * u_hat_qij
 
         Uses ``divergence_operator``, not ``gradient_operator``: the input lives at
         the voxel centres, so the half-voxel phase is conjugated (Eq. 19₂ of
@@ -221,9 +221,8 @@ class Scheme(ABC):
                 f"got shape {u_hat.shape}"
             )
 
-        # Note: We must transpose sigma_hat for the ddot
         return (
-            contract("...qj,...qji->...i", self.divergence_operator, u_hat)
+            contract("...qd,...qid->...i", self.divergence_operator, u_hat)
             / self.n_quads
         )
 
@@ -231,18 +230,18 @@ class Scheme(ABC):
     def apply_gradient(self, u_hat: Array) -> Array:
         """
         Applies the gradient operator on the fly, for a node field of any rank.
-        Computes: grad_hat_qi... = D_qi * u_hat_...
+        Computes: grad_hat_q...d = u_hat_... * D_qd
 
-        The derivative index comes **first**: for a vector field
-        ``grad_qij = D_qi * u_j = d_i u_j``.  That matches
+        The derivative index comes **last**: for a vector field
+        ``grad_qij = u_i * D_qj = d_j u_i``.  That matches
         :meth:`apply_symmetric_gradient`, which builds the same product before
         symmetrising, and :meth:`apply_divergence`, which contracts the operator
-        against axis ``-2`` of its input.  So ``div(grad(u))`` is the vector
+        against axis ``-1`` of its input.  So ``div(grad(u))`` is the vector
         Laplacian, and ``sym_grad(u) == 0.5 * (g + g^T)`` holds exactly.
 
-        Note this is the transpose of the continuum-mechanics ``grad u``
-        convention, in which ``(grad u)_ij = d_j u_i``; a deformation gradient is
-        therefore ``I + swapaxes(grad(u), -1, -2)``.
+        This follows the continuum-mechanics ``grad u`` convention, in which
+        ``(grad u)_ij = d_j u_i``; a deformation gradient is therefore
+        ``I + grad(u)``.
 
         Args:
             u_hat: Node field in Fourier space, shape ``(*spatial, *tensor)``.
@@ -250,7 +249,7 @@ class Scheme(ABC):
 
         Returns:
             Centre field in Fourier space, shape
-            ``(*spatial, n_quads, dim, *tensor)``.
+            ``(*spatial, n_quads, *tensor, dim)``.
         """
         rank = u_hat.ndim - self.dim
         if rank < 0:
@@ -264,10 +263,10 @@ class Scheme(ABC):
                 f"(maximum {len(_TENSOR_SUBSCRIPTS)})"
             )
 
-        # rank 0 -> "...qi,...->...qi";  rank 1 -> "...qi,...j->...qij"
+        # rank 0 -> "...qd,...->...qd";  rank 1 -> "...qd,...i->...qid"
         subs = _TENSOR_SUBSCRIPTS[:rank]
         return jnp.einsum(
-            f"...qi,...{subs}->...qi{subs}", self.gradient_operator, u_hat
+            f"...qd,...{subs}->...q{subs}d", self.gradient_operator, u_hat
         )
 
     @jax.jit

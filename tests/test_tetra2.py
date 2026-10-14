@@ -206,8 +206,8 @@ def test_generic_operators_reproduce_the_written_out_crossed_pairing(scheme):
 
     # Eq. (38): R = 1/2 (div_T2 sigma_1 + div_T1 sigma_2)
     expected_div = 0.5 * (
-        jnp.einsum("...i,...ij->...j", Dd1, sigma[..., 0, :, :])
-        + jnp.einsum("...i,...ij->...j", Dd2, sigma[..., 1, :, :])
+        jnp.einsum("...j,...ij->...i", Dd1, sigma[..., 0, :, :])
+        + jnp.einsum("...j,...ij->...i", Dd2, sigma[..., 1, :, :])
     )
     np.testing.assert_allclose(scheme.apply_divergence(sigma), expected_div, atol=1e-12)
 

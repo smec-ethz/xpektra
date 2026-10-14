@@ -37,9 +37,9 @@ LEAD = (4, 5)
 # ``test_every_table_entry_is_covered``.
 SPECS = [
     # scheme / projection operators
-    ("...qj,...qji->...i", (Q, D), (Q, D, D)),  # apply_divergence
+    ("...qj,...qji->...i", (Q, D), (Q, D, D)),  # _bcast_div
     ("...qi,...qi->...", (Q, D), (Q, D)),  # apply_laplacian, Galerkin norm_sq
-    ("...ql,...qil->...i", (Q, D), (Q, D, D)),  # GalerkinProjection
+    ("...ql,...qil->...i", (Q, D), (Q, D, D)),  # apply_divergence, GalerkinProjection
     ("...khij,...ij->...kh", (D, D, D, D), (D, D)),  # MoulinecSuquetProjection
     # TensorOperator.dot
     ("...i,...i->...", (D,), (D,)),
