@@ -74,6 +74,14 @@ def _count_dots(fn, *args) -> int:
     return jax.jit(fn).lower(*args).compile().as_text().count(" dot(")
 
 
+def _has_dot(fn, *args) -> bool:
+    """True if the function lowers to a dot_general in StableHLO or compiles to a dot."""
+    lowered = jax.jit(fn).lower(*args)
+    if "dot_general" in lowered.as_text():
+        return True
+    return lowered.compile().as_text().count(" dot(") > 0
+
+
 def _opcodes(txt: str) -> set[str]:
     """HLO instruction opcodes only.
 
@@ -143,7 +151,7 @@ def test_einsum_reference_does_emit_a_dot(spec, sa, sb):
     fails, the spec sums over nothing shared and belongs in ``jnp.einsum``.
     """
     A, B = _operands(sa, sb)
-    assert _count_dots(lambda a, b: jnp.einsum(spec, a, b), A, B) > 0, (
+    assert _has_dot(lambda a, b: jnp.einsum(spec, a, b), A, B), (
         f"{spec!r} does not lower to a dot; it does not need an entry"
     )
 
