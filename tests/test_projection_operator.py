@@ -216,7 +216,7 @@ class TestGalerkinMultiSupport:
             u = jax.random.normal(k1, (8, 8, 8, 3)) + 1j * jax.random.normal(
                 k2, (8, 8, 8, 3)
             )
-            g = jnp.einsum("...qj,...i->...qij", scheme.gradient_operator, u)
+            g = scheme.apply_gradient(u)
             np.testing.assert_allclose(
                 proj(g),
                 g,

@@ -162,12 +162,12 @@ def _bcast_vec_mat(A: Array, B: Array) -> Array:
 
 
 def _bcast_div(A: Array, B: Array) -> Array:
-    """``...ab,...abc->...c`` -- ``apply_divergence``: ``Dd_qj sigma_qji``."""
+    """``...ab,...abc->...c`` -- vector against axis -2: ``Dd_qj sigma_qji``."""
     return jnp.sum(A[..., :, :, None] * B, axis=(-3, -2))
 
 
 def _bcast_galerkin(A: Array, B: Array) -> Array:
-    """``...ab,...acb->...c`` -- Galerkin: ``conj(D_ql) sigma_qil``."""
+    """``...ab,...acb->...c`` -- ``apply_divergence`` and Galerkin: ``conj(D_ql) sigma_qil``."""
     return jnp.sum(A[..., :, None, :] * B, axis=(-3, -1))
 
 

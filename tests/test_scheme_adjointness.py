@@ -137,10 +137,9 @@ def test_gradient_of_vector_shape(cls, dim):
 def test_symmetric_gradient_is_symmetrised_gradient(cls, dim):
     """``sym_grad(u) == 0.5 * (g + g^T)`` -- pins the derivative-first convention.
 
-    Under the transposed (continuum-mechanics) convention ``apply_gradient``
-    would return ``g^T``, which still satisfies this identity; what it would
-    *not* satisfy is the derivative index sitting on the axis that
-    ``apply_divergence`` contracts.  That is covered by
+    Under the continuum-mechanics convention ``apply_gradient``
+    returns ``g`` with derivative index on axis ``-1``; ``apply_divergence``
+    contracts axis ``-1``.  That is covered by
     :func:`test_divergence_of_gradient_is_laplacian`.
     """
     scheme = cls(space=_space(dim))
@@ -159,10 +158,8 @@ def test_symmetric_gradient_is_symmetrised_gradient(cls, dim):
 def test_divergence_of_gradient_is_laplacian(cls, dim):
     """``div(grad(u)) == laplacian(u)`` component-wise, for a vector field.
 
-    This is the property that actually fixes the index order: it holds only if
-    the derivative index of ``grad`` lands on axis ``-2``, the one
-    ``apply_divergence`` contracts.  With the transposed convention this would
-    compute ``grad(div u)`` instead.
+    This property holds because the derivative index of ``grad`` lands on
+    axis ``-1``, matching the axis that ``apply_divergence`` contracts.
     """
     scheme = cls(space=_space(dim))
     k = jax.random.PRNGKey(13)

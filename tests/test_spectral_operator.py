@@ -87,8 +87,8 @@ def test_div_2d_shape():
 
 def test_div_2d_correctness():
     """
-    sigma[j, i] = sin(2pi*x/L) * delta_{j,0} * delta_{i,0}
-    => div(sigma)_i = sum_j d sigma_{ji} / dx_j
+    sigma[i, j] = sin(2pi*x/L) * delta_{i,0} * delta_{j,0}
+    => div(sigma)_i = sum_j d sigma_{ij} / dx_j
     => div(sigma)_0 = d sigma_{00} / dx_0 = (2pi/L) cos(2pi*x/L)
     => div(sigma)_1 = 0
     """
@@ -151,11 +151,11 @@ def test_sym_grad_1d_matches_grad():
 
 
 def test_grad_vector_index_order_2d():
-    """``grad(u)[..., i, j] == d_i u_j``, checked against a closed form.
+    """``grad(u)[..., i, j] == d_j u_i``, checked against a closed form.
 
     ``u = (0, sin(k x))`` has exactly one nonzero derivative, ``d_0 u_1``.  It
-    must land at ``[..., 0, 1]``; the transposed convention would put it at
-    ``[..., 1, 0]``, so this pins the order rather than just the symmetry.
+    must land at ``[..., 1, 0]``; the calculus convention would put it at
+    ``[..., 0, 1]``, so this pins the order rather than just the symmetry.
     """
     op, N, L = make_operator(dim=2, N=64, length=1.0)
     x = np.linspace(0, L, N, endpoint=False)
@@ -169,8 +169,8 @@ def test_grad_vector_index_order_2d():
     assert g.shape == (N, N, 1, 2, 2)
     g = g[:, :, 0]  # single support
 
-    np.testing.assert_allclose(g[..., 0, 1], k * np.cos(k * X), atol=1e-10)
-    for i, j in [(0, 0), (1, 0), (1, 1)]:
+    np.testing.assert_allclose(g[..., 1, 0], k * np.cos(k * X), atol=1e-10)
+    for i, j in [(0, 0), (0, 1), (1, 1)]:
         np.testing.assert_allclose(
             g[..., i, j], 0.0, atol=1e-10, err_msg=f"g[{i},{j}] should vanish"
         )

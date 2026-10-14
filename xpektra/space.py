@@ -32,6 +32,21 @@ type AxisExtensionKind = str | tuple[str, ...]
 type AxisExtensionMap = dict[int, AxisExtensionKind]
 
 _SUPPORTED_EXTENSIONS = ("dst1", "dct2", "dst2", "dct1")
+_AXIS_NAMES = ("x", "y", "z")
+
+
+class AxisTuple(tuple):
+    """A tuple of axis indices that also supports membership testing by axis name ('x', 'y', 'z')."""
+
+    def __contains__(self, item):
+        if isinstance(item, str):
+            item_l = item.lower()
+            if item_l in _AXIS_NAMES:
+                return super().__contains__(_AXIS_NAMES.index(item_l))
+            return False
+        elif isinstance(item, int):
+            return super().__contains__(item)
+        return False
 
 
 def _extend_domain(
