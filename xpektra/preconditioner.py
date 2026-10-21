@@ -18,6 +18,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
@@ -27,11 +28,15 @@ from jax.sharding import NamedSharding
 from xpektra import linalg
 from xpektra.space import SpectralSpace
 
+if TYPE_CHECKING:
+    from xpektra.solution_space import SolutionSpace
+
 __all__ = [
     "GenericGreenPreconditioner",
     "GreenPreconditioner",
     "IsotropicGreenPreconditioner",
     "SpectralView",
+    "adapt_green_preconditioner",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
 ]
@@ -95,6 +100,17 @@ class GreenPreconditioner(ABC):
             A callable that applies the preconditioner to Fourier coefficients.
         """
         return SpectralView(inner=self)
+
+    def adapt(self, solution_space: "SolutionSpace") -> Callable[[Array], Array]:
+        """Adapt this extended Green preconditioner to a physical SolutionSpace with boundary conditions.
+
+        Args:
+            solution_space: Physical SolutionSpace with boundary conditions.
+
+        Returns:
+            Callable[[Array], Array]: Physical-domain preconditioner M(r).
+        """
+        return adapt_green_preconditioner(self, solution_space)
 
 
 @jax.tree_util.register_dataclass
@@ -160,7 +176,8 @@ def make_generic_preconditioner(
     d: int,
     rtol: float = 1e-12,
     sharding: NamedSharding | None = None,
-) -> GenericGreenPreconditioner:
+    solution_space: "SolutionSpace | None" = None,
+) -> GenericGreenPreconditioner | Callable[[Array], Array]:
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
 
     Args:
@@ -172,9 +189,11 @@ def make_generic_preconditioner(
         rtol: a mode is treated as null when the Frobenius norm of its symbol
             falls below ``rtol`` times the largest such norm.
         sharding: optional sharding for parallel distributed environments.
+        solution_space: optional physical SolutionSpace with boundary conditions.
+            When provided, returns an adapted physical preconditioner M(r).
 
     Returns:
-        The preconditioner.
+        The preconditioner (or adapted physical preconditioner if solution_space is provided).
     """
     canonical_shape = space.extended_shape + (d,)
     zero_node = (0,) * len(space.extended_shape)
@@ -208,7 +227,10 @@ def make_generic_preconditioner(
     K_safe = jnp.where(ok[..., None, None], K_hat, eye)
     G_hat = jnp.where(ok[..., None, None], linalg.inv(K_safe), 0.0)
 
-    return GenericGreenPreconditioner(G_hat=G_hat, space=space, d=d, sharding=sharding)
+    precond = GenericGreenPreconditioner(G_hat=G_hat, space=space, d=d, sharding=sharding)
+    if solution_space is not None:
+        return precond.adapt(solution_space)
+    return precond
 
 
 @jax.tree_util.register_dataclass
@@ -267,8 +289,12 @@ class IsotropicGreenPreconditioner(GreenPreconditioner):
 
 
 def make_isotropic_preconditioner(
-    scheme, lam0: Array, mu0: Array, rtol: float = 1e-12
-) -> IsotropicGreenPreconditioner:
+    scheme,
+    lam0: Array,
+    mu0: Array,
+    rtol: float = 1e-12,
+    solution_space: "SolutionSpace | None" = None,
+) -> IsotropicGreenPreconditioner | Callable[[Array], Array]:
     """Builds the isotropic Green preconditioner from a scheme's gradient symbol.
 
     Args:
@@ -276,9 +302,11 @@ def make_isotropic_preconditioner(
         lam0: first Lame parameter of the reference material.
         mu0: shear modulus of the reference material.
         rtol: relative threshold below which a mode is treated as null.
+        solution_space: optional physical SolutionSpace with boundary conditions.
+            When provided, returns an adapted physical preconditioner M(r).
 
     Returns:
-        The preconditioner.
+        The preconditioner (or adapted physical preconditioner if solution_space is provided).
     """
     a1 = scheme.gradient_operator[..., 0, :]
     g, h = a1.real, a1.imag
@@ -299,7 +327,7 @@ def make_isotropic_preconditioner(
     # cleanly.
     ok = alpha > rtol * jnp.max(alpha)
 
-    return IsotropicGreenPreconditioner(
+    precond = IsotropicGreenPreconditioner(
         g=g,
         h=h,
         alpha=jnp.where(ok, alpha, 1.0),  # keep 1/alpha finite at the null modes
@@ -310,3 +338,106 @@ def make_isotropic_preconditioner(
         d=scheme.dim,
         rtol=rtol,
     )
+    if solution_space is not None:
+        return precond.adapt(solution_space)
+    return precond
+
+
+def adapt_green_preconditioner(
+    G: GreenPreconditioner | dict[str, GreenPreconditioner],
+    solution_space: "SolutionSpace",
+) -> Callable[[Array], Array]:
+    """Adapt extended-grid GreenPreconditioner(s) to a physical SolutionSpace with boundary conditions.
+
+    Applies the exact symmetric projection:
+        M(r) = mask · 2^{n_d} W⁻¹ Eᵀ G(E W⁻¹ mask · r)
+
+    Args:
+        G (GreenPreconditioner | dict[str, GreenPreconditioner]):
+            Preconditioner on the extended periodic grid, or a dict of preconditioners per field.
+        solution_space (SolutionSpace): Physical solution space with boundary conditions.
+
+    Returns:
+        Callable[[Array], Array]: Physical-domain preconditioner function mapping residual to search direction.
+    """
+    if isinstance(G, dict):
+        g_dict = G
+    elif isinstance(G, GreenPreconditioner):
+        if len(solution_space.fields) == 1:
+            field_name = next(iter(solution_space.fields.keys()))
+            g_dict = {field_name: G}
+        else:
+            raise ValueError(
+                f"SolutionSpace has multiple fields {list(solution_space.fields.keys())}. "
+                "Please provide a dictionary mapping field names to GreenPreconditioner instances."
+            )
+    else:
+        raise TypeError(
+            f"Expected a GreenPreconditioner instance or dict of GreenPreconditioners, got {type(G).__name__}. "
+            "Only Fourier-space Green preconditioners on the extended grid can be adapted "
+            "to a SolutionSpace."
+        )
+
+    for name, g in g_dict.items():
+        if not isinstance(g, GreenPreconditioner):
+            raise TypeError(
+                f"Field '{name}' has preconditioner of type {type(g).__name__}, expected GreenPreconditioner."
+            )
+        if g.space.extended_shape != solution_space.space.extended_shape:
+            raise ValueError(
+                f"Preconditioner grid shape {g.space.extended_shape} for field '{name}' does not match "
+                f"SolutionSpace extended grid shape {solution_space.space.extended_shape}."
+            )
+
+    scale = float(2 ** len(solution_space.space.non_periodic_axes))
+    is_single_scalar = (
+        len(solution_space.fields) == 1
+        and next(iter(solution_space.fields.values())).shape == ()
+    )
+
+    @jax.jit
+    def M(r: Array) -> Array:
+        is_flat = (r.ndim == 1)
+        if is_flat:
+            r_arr = r.reshape(solution_space.shape)
+        elif is_single_scalar and r.shape == solution_space.node_shape:
+            r_arr = r[..., None]
+        else:
+            r_arr = r
+
+        # 1. Mask residual
+        r_masked = solution_space.apply_mask(r_arr)
+
+        # 2. Scale by W⁻¹
+        r_scaled = solution_space.apply_inv_weights(r_masked)
+
+        # 3. Extend to extended grid (E)
+        r_ext_state = solution_space.primal_to_extended(r_scaled)
+
+        # 4. Apply Green preconditioner(s)
+        z_ext_dict = {}
+        for name, g in g_dict.items():
+            field = solution_space.fields[name]
+            field_r_ext = getattr(r_ext_state, name)
+            z = g(field_r_ext)
+            expected_shape = solution_space.space.extended_shape + field.shape
+            if z.shape != expected_shape:
+                z = z.reshape(expected_shape)
+            z_ext_dict[name] = z
+
+        # 5. Restrict to physical domain (Eᵀ)
+        z_phys = solution_space.dual_to_physical(**z_ext_dict)
+
+        # 6. Scale by 2^{n_d} W⁻¹
+        z_scaled = scale * solution_space.apply_inv_weights(z_phys)
+
+        # 7. Mask
+        z_out = solution_space.apply_mask(z_scaled)
+
+        if is_flat:
+            return z_out.reshape(-1)
+        if is_single_scalar and r.shape == solution_space.node_shape:
+            return z_out[..., 0]
+        return z_out
+
+    return M

@@ -3,6 +3,7 @@ import numpy as np
 from xpektra.preconditioner import (
     GenericGreenPreconditioner,
     IsotropicGreenPreconditioner,
+    adapt_green_preconditioner,
     make_generic_preconditioner,
     make_isotropic_preconditioner,
 )
@@ -21,10 +22,10 @@ from xpektra.scheme import (
     QuadFullScheme,
     Tetra2Scheme,
 )
+from xpektra.solution_space import Field, SolutionSpace, State
 from xpektra.space import SpectralSpace
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import (
-    DSTTransform,
     FFTTransform,
     PencilFFTTransform,
     RFFTTransform,
@@ -38,8 +39,11 @@ __all__ = [
     # scheme
     "BackwardScheme",
     "CentralScheme",
+    # solution_space
+    "Field",
+    "SolutionSpace",
+    "State",
     # transform
-    "DSTTransform",
     "FFTTransform",
     "ForwardScheme",
     "FourierScheme",
@@ -63,6 +67,7 @@ __all__ = [
     "SpectralSpace",
     "Tetra2Scheme",
     # helpers
+    "adapt_green_preconditioner",
     "make_field",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
