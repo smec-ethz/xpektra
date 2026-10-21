@@ -25,7 +25,7 @@ from jax import Array
 
 from xpektra.linalg import contract
 from xpektra.space import SpectralSpace
-from xpektra.transform import DSTTransform, FFTTransform
+from xpektra.transform import FFTTransform
 
 __all__ = [
     "BackwardScheme",
@@ -149,9 +149,9 @@ class Scheme(ABC):
         """
         Checks if the scheme is compatible with the given transform.
         """
-        if not isinstance(self.space.transform, (FFTTransform, DSTTransform)):
+        if not isinstance(self.space.transform, FFTTransform):
             raise ValueError(  # noqa: TRY004
-                f"{type(self).__name__} is only compatible with FFTTransform or DSTTransform."
+                f"{type(self).__name__} is only compatible with FFTTransform."
             )
 
     @abstractmethod
