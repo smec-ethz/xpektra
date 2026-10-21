@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from xpektra import SpectralSpace, make_field
+from xpektra import SpectralSpace
 from xpektra.scheme import (
     CentralScheme,
     FourierScheme,
@@ -137,7 +137,7 @@ def test_gradient_shapes():
     # 1D Case
     space1 = SpectralSpace(lengths=(1.0,), shape=(N,), transform=FFTTransform(dim=1))
     op1 = SpectralOperator(scheme=CentralScheme(space1), space=space1)
-    u1 = make_field(dim=1, shape=(N,), rank=0)  # Shape (N,)
+    u1 = jnp.zeros((N,))  # Shape (N,)
     grad1 = op1.grad(u1)
     assert grad1.shape == (N, 1, 1), (
         f"1D Grad shape mismatch: got {grad1.shape}, expected {(N, 1, 1)}"
@@ -148,7 +148,7 @@ def test_gradient_shapes():
         lengths=(1.0, 1.0), shape=(N, N), transform=FFTTransform(dim=2)
     )
     op2 = SpectralOperator(scheme=CentralScheme(space2), space=space2)
-    u2 = make_field(dim=2, shape=(N, N), rank=0)  # Shape (N, N)
+    u2 = jnp.zeros((N, N))  # Shape (N, N)
     grad2 = op2.grad(u2)
     assert grad2.shape == (N, N, 1, 2), (
         f"2D Grad shape mismatch: got {grad2.shape}, expected {(N, N, 1, 2)}"

@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from xpektra import SpectralSpace, make_field
+from xpektra import SpectralSpace
 from xpektra.scheme import FourierScheme
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
@@ -66,7 +66,7 @@ def test_laplacian_2d():
 @pytest.mark.parametrize("dim", [1, 2])
 def test_laplacian_shape(dim):
     op, N, _ = make_operator(dim)
-    u = make_field(dim=dim, shape=(N,) * dim, rank=0)
+    u = jnp.zeros((N,) * dim)
     result = op.laplacian(u)
     assert result.shape == (N,) * dim
 
@@ -80,7 +80,7 @@ def test_div_2d_shape():
     """div of a rank-2 tensor field returns a vector field."""
     op, N, _ = make_operator(dim=2)
     # centre field: (*spatial, n_quads, dim, dim)
-    sigma = make_field(dim=2, shape=(N, N, 1), rank=2)
+    sigma = jnp.zeros((N, N, 1, 2, 2))
     result = op.div(sigma)
     assert result.shape == (N, N, 2)
 

@@ -124,11 +124,7 @@ class GalerkinProjection(ProjectionOperator):
         temp_i = jnp.where(norm_sq[..., None] == 0, 0.0, temp_i)
 
         # eps_q,ij = D_q,j * temp_i
-        eps_hat = jnp.einsum("...qj,...i->...qij", Dqs, temp_i)
-
-        del temp_i
-
-        return eps_hat
+        return jnp.einsum("...qj,...i->...qij", Dqs, temp_i)
 
 
 @jax.tree_util.register_pytree_node_class

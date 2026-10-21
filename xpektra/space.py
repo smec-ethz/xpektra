@@ -50,12 +50,14 @@ class AxisTuple(tuple):
 class SpectralSpace:
     """Defines the spectral space domain.
 
-    ***Args***
-    - lengths: The lengths of the spatial domain.
-    - shape: The physical voxel resolution shape of the domain.
-    - transform: The transform to be used in the spectral space.
-    - non_periodic_axes: Non-periodic axes (names 'x', 'y', 'z' or indices),
-      which are mirrored to 2N on the extended computational grid.
+    Args:
+        lengths: The lengths of the spatial domain.
+        shape: The physical voxel resolution shape of the domain.
+        transform: The transform to be used in the spectral space.
+        non_periodic_axes: Non-periodic axes (names 'x', 'y', 'z'),
+          which are mirrored to 2N on the extended computational grid.
+          This is used for non-periodic boundary conditions. By default,
+          all axes are periodic.
     """
 
     lengths: Lengths = field(metadata={"static": True})
@@ -73,21 +75,19 @@ class SpectralSpace:
         lengths: Lengths,
         shape: Shape,
         transform: Transform,
-        non_periodic_axes: tuple[str | int, ...]
-        | list[str | int]
-        | str
-        | int
-        | None = None,
+        non_periodic_axes: tuple[str, ...] | list[str] | str | None = None,
         extended_lengths: Lengths | None = None,
         extended_shape: Shape | None = None,
         physical_slices: tuple[slice, ...] | None = None,
     ):
         ndim = len(shape)
 
-        if non_periodic_axes is not None:
+        if isinstance(non_periodic_axes, AxisTuple):
+            np_axes = non_periodic_axes
+        elif non_periodic_axes is not None:
             raw_axes = (
                 (non_periodic_axes,)
-                if isinstance(non_periodic_axes, (str, int))
+                if isinstance(non_periodic_axes, str)
                 else tuple(non_periodic_axes)
             )
             normalized = []
@@ -98,11 +98,9 @@ class SpectralSpace:
                         normalized.append(_AXIS_NAMES.index(ax_l))
                     else:
                         raise ValueError(f"Invalid axis name '{ax}' for {ndim}D space.")
-                elif isinstance(ax, int):
-                    normalized.append(ax % ndim)
                 else:
                     raise TypeError(
-                        f"Axis must be str or int, got {type(ax).__name__}."
+                        f"Axis must be a string ('x', 'y', 'z'), got {type(ax).__name__}."
                     )
             np_axes = AxisTuple(sorted(set(normalized)))
         else:

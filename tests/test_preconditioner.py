@@ -48,6 +48,10 @@ def _operator(cls, dim):
     return SpectralOperator(scheme=cls(space=space), space=space), space
 
 
+def _solution_space(space, dim=1):
+    return SolutionSpace(space, u=Field(shape=() if dim == 1 else (dim,)))
+
+
 def _helmholtz(op, space, dim):
     """``u - laplacian(u)`` on a scalar field: linear, shift invariant, no null mode.
 
@@ -67,7 +71,7 @@ def test_inverts_a_nonsingular_reference(cls, dim):
     """``M^-1 K v == v`` when the reference has no null modes."""
     op, space = _operator(cls, dim)
     K = _helmholtz(op, space, dim)
-    M_inv = make_generic_preconditioner(K, space, d=1)
+    M_inv = make_generic_preconditioner(K, _solution_space(space, 1))
 
     v = jax.random.normal(jax.random.PRNGKey(0), (N**dim,))
     np.testing.assert_allclose(M_inv(K(v)), v, atol=1e-10)
@@ -86,7 +90,7 @@ def test_null_modes_are_projected_not_inverted(cls, dim):
     def K(u_flat):
         return (-op.laplacian(u_flat.reshape(space.shape))).reshape(-1)
 
-    M_inv = make_generic_preconditioner(K, space, d=1)
+    M_inv = make_generic_preconditioner(K, _solution_space(space, 1))
 
     assert jnp.all(jnp.isfinite(M_inv.G_hat)), "null mode produced a non-finite inverse"
 
@@ -102,7 +106,7 @@ def test_is_a_left_inverse_off_the_null_space(cls, dim):
     def K(u_flat):
         return (-op.laplacian(u_flat.reshape(space.shape))).reshape(-1)
 
-    M_inv = make_generic_preconditioner(K, space, d=1)
+    M_inv = make_generic_preconditioner(K, _solution_space(space, 1))
 
     r = jax.random.normal(jax.random.PRNGKey(1), (N**dim,))
     z = M_inv(r)
@@ -119,7 +123,7 @@ def test_handles_a_vector_field_reference():
         u = u_flat.reshape(space.shape + (dim,))
         return (u - op.laplacian(u)).reshape(-1)
 
-    M_inv = make_generic_preconditioner(K, space, d=dim)
+    M_inv = make_generic_preconditioner(K, _solution_space(space, dim))
     assert M_inv.G_hat.shape == space.shape + (dim, dim)
 
     v = jax.random.normal(jax.random.PRNGKey(2), (n_u,))
@@ -143,7 +147,7 @@ def test_makes_no_symmetry_assumption():
         drift = g[..., 0, 0] + 0.5 * g[..., 0, 1]
         return (u - op.laplacian(u) + 0.7 * drift).reshape(-1)
 
-    M_inv = make_generic_preconditioner(K, space, d=1)
+    M_inv = make_generic_preconditioner(K, _solution_space(space, 1))
 
     # the symbol really is non-Hermitian, so the test is not vacuous
     K_hat_asym = jnp.max(jnp.abs(M_inv.G_hat - jnp.conj(M_inv.G_hat)))
@@ -168,7 +172,7 @@ def test_treedef_is_stable_across_rebuilds():
             u = u_flat.reshape(space.shape)
             return (scale * u - op.laplacian(u)).reshape(-1)
 
-        return make_generic_preconditioner(K, space, d=1)
+        return make_generic_preconditioner(K, _solution_space(space, 1))
 
     a, b = make(1.0), make(2.5)
     assert jax.tree_util.tree_structure(a) == jax.tree_util.tree_structure(b)
@@ -180,7 +184,7 @@ def test_survives_a_jit_boundary():
     dim = 2
     op, space = _operator(Quad1RScheme, dim)
     K = _helmholtz(op, space, dim)
-    M_inv = make_generic_preconditioner(K, space, d=1)
+    M_inv = make_generic_preconditioner(K, _solution_space(space, 1))
 
     r = jax.random.normal(jax.random.PRNGKey(4), (N**dim,))
     out = jax.jit(lambda m, x: m(x))(M_inv, r)
@@ -240,9 +244,10 @@ def test_isotropic_matches_the_generic_preconditioner(cls, dim):
     )
     op = SpectralOperator(scheme=cls(space=space), space=space)
     K = _isotropic_reference(op, space, dim)
+    V = _solution_space(space, dim)
 
-    M_iso = make_isotropic_preconditioner(op.scheme, LAM0, MU0)
-    M_gen = make_generic_preconditioner(K, space, d=dim)
+    M_iso = make_isotropic_preconditioner(op.scheme, LAM0, MU0, V)
+    M_gen = make_generic_preconditioner(K, V)
 
     r = jax.random.normal(jax.random.PRNGKey(0), (n**dim * dim,))
     got, ref = M_gen(r), M_iso(r)
@@ -263,8 +268,9 @@ def test_null_modes_are_gated_on_magnitude_not_determinant(cls, dim):
         lengths=(1.0,) * dim, shape=(n,) * dim, transform=FFTTransform(dim=dim)
     )
     op = SpectralOperator(scheme=cls(space=space), space=space)
+    V = _solution_space(space, dim)
     M_gen = make_generic_preconditioner(
-        _isotropic_reference(op, space, dim), space, dim
+        _isotropic_reference(op, space, dim), V
     )
 
     zeroed = int(jnp.sum(jnp.all(jnp.abs(M_gen.G_hat) == 0.0, axis=(-2, -1))))
@@ -281,7 +287,8 @@ def test_isotropic_is_a_left_inverse_on_the_range(cls, dim):
     """
     op, space = _operator(cls, dim)
     K = _isotropic_reference(op, space, dim)
-    M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0)
+    V = _solution_space(space, dim)
+    M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0, V)
 
     r = jax.random.normal(jax.random.PRNGKey(1), (N**dim * dim,))
     z = M_inv(r)
@@ -292,7 +299,8 @@ def test_isotropic_is_a_left_inverse_on_the_range(cls, dim):
 def test_isotropic_projects_out_rigid_translation(cls, dim):
     """The ``xi = 0`` mode is annihilated, so the output has zero mean per component."""
     op, space = _operator(cls, dim)
-    M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0)
+    V = _solution_space(space, dim)
+    M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0, V)
 
     r = jax.random.normal(jax.random.PRNGKey(2), (N**dim * dim,))
     z = M_inv(r).reshape(space.shape + (dim,))
@@ -309,6 +317,7 @@ def test_isotropic_stores_less_than_the_generic(cls, dim):
     """
     op, space = _operator(cls, dim)
     K = _isotropic_reference(op, space, dim)
+    V = _solution_space(space, dim)
 
     def nbytes(tree):
         return sum(
@@ -317,14 +326,15 @@ def test_isotropic_stores_less_than_the_generic(cls, dim):
             if hasattr(leaf, "nbytes")
         )
 
-    iso = nbytes(make_isotropic_preconditioner(op.scheme, LAM0, MU0))
-    gen = nbytes(make_generic_preconditioner(K, space, d=dim))
+    iso = nbytes(make_isotropic_preconditioner(op.scheme, LAM0, MU0, V))
+    gen = nbytes(make_generic_preconditioner(K, V))
     assert iso < gen, f"isotropic stored {iso} B, generic {gen} B"
 
 
 def test_isotropic_survives_a_jit_boundary():
-    op, _ = _operator(Quad1RScheme, 2)
-    M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0)
+    op, space = _operator(Quad1RScheme, 2)
+    V = _solution_space(space, 2)
+    M_inv = make_isotropic_preconditioner(op.scheme, LAM0, MU0, V)
 
     r = jax.random.normal(jax.random.PRNGKey(3), (N**2 * 2,))
     out = jax.jit(lambda m, x: m(x))(M_inv, r)
@@ -393,7 +403,10 @@ def test_adapt_preconditioner_validation():
     wrong_space = SpectralSpace(
         lengths=(1.0, 1.0), shape=(16, 16), transform=FFTTransform(dim=2)
     )
-    G_wrong = make_isotropic_preconditioner(QuadFullScheme(space=wrong_space), 1.0, 1.0)
+    V_wrong = SolutionSpace(wrong_space, u=Field(shape=(2,)))
+    G_wrong = make_isotropic_preconditioner(
+        QuadFullScheme(space=wrong_space), 1.0, 1.0, V_wrong
+    )
     with pytest.raises(ValueError, match="does not match"):
         adapt_green_preconditioner(G_wrong, V)
 
@@ -405,7 +418,7 @@ def test_adapt_preconditioner_periodic_matches_green():
     scheme = Quad1RScheme(space=space)
     V = SolutionSpace(space, u=Field(shape=(2,)))
 
-    G = make_isotropic_preconditioner(scheme, 1.0, 2.0)
+    G = make_isotropic_preconditioner(scheme, 1.0, 2.0, V)
     M = G.adapt(V)
 
     key = jax.random.PRNGKey(123)
@@ -487,8 +500,7 @@ def test_adapt_preconditioner_quadfull_roller_converges_in_one_step():
         psi = 0.5 * lam0 * tr**2 + mu0 * linalg.contract("...ij,...ji->...", eps, eps)
         return space.cell_volume * psi.mean(axis=-1).sum()
 
-    G = make_generic_preconditioner(jax.grad(energy_ext), space=space, d=2)
-    M = G.adapt(V)
+    M = make_generic_preconditioner(jax.grad(energy_ext), V)
 
     # Force vector in the range of K
     key = jax.random.PRNGKey(42)

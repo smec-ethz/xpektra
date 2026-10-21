@@ -18,7 +18,6 @@
 
 import math
 from dataclasses import dataclass
-from functools import cached_property
 from typing import Literal, cast, get_args
 
 import jax
@@ -27,15 +26,14 @@ from jax import Array
 from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
-from xpektra.space import SpectralSpace
 from xpektra.extension import (
-    ExtensionKind,
     extend_1d,
     get_extension_kind,
     mask_1d,
     restrict_1d,
     weights_1d,
 )
+from xpektra.space import SpectralSpace
 
 type BCType = Literal["periodic", "dirichlet", "neumann"]
 type FacetPair = tuple[BCType, BCType]
@@ -328,7 +326,7 @@ class SolutionSpace:
     Handles storage layout, constraint masking, extension, dual restriction,
     and preconditioning for spectral solvers.
 
-    Attributes:
+    Args:
         space (SpectralSpace): The underlying domain resolution and mirrored axes.
         fields (dict[str, Field]): Declared fields.
         node_shape (tuple[int, ...]): Spatial node grid shape (N+1 on mirrored axes, N on periodic).
@@ -336,29 +334,26 @@ class SolutionSpace:
         n_free (int): Number of unconstrained degrees of freedom.
     """
 
-    _RESERVED = {
-        "space",
-        "fields",
-        "node_shape",
-        "shape",
-        "mask",
-        "n_free",
-        "zeros",
-        "apply_mask",
-        "primal_to_extended",
-        "dual_to_physical",
-        "primal_to_physical",
-        "preconditioner",
-        "_field_views",
-        "_field_slices",
-        "_axis_masks",
-    }
+    space: SpectralSpace
+    fields: dict[str, Field]
+    node_shape: tuple[int, ...]
+    shape: tuple[int, ...]
+    n_free: int
+
+    @classmethod
+    def _is_reserved(cls, name: str) -> bool:
+        """Check if a field name collides with class methods, properties, or attributes."""
+        return (
+            name.startswith("_")
+            or hasattr(cls, name)
+            or name in getattr(cls, "__annotations__", {})
+        )
 
     def __init__(self, space: SpectralSpace, **fields: Field):
         if not fields:
             raise ValueError("SolutionSpace requires at least one Field.")
 
-        if bad := self._RESERVED & fields.keys():
+        if bad := {name for name in fields if self._is_reserved(name)}:
             raise ValueError(
                 f"Field names {bad} are reserved and cannot be used in SolutionSpace."
             )
@@ -366,7 +361,7 @@ class SolutionSpace:
         ndim = space.dim
         axis_names = ("x", "y", "z")
 
-        # Validation Rule 1 (§6.5): Field non-periodic BCs must belong to space.non_periodic_axes
+        # Field non-periodic BCs must belong to space.non_periodic_axes
         for name, field in fields.items():
             for ax_name in field.non_periodic_axes:
                 if ax_name not in space.non_periodic_axes:
@@ -375,7 +370,7 @@ class SolutionSpace:
                         f"but '{ax_name}' is not in space.non_periodic_axes ({space.non_periodic_axes})."
                     )
 
-        # Validation Rule 5 (§6.5): Sharded axes cannot be non-periodic in v1
+        # Sharded axes cannot be non-periodic
         if space.transform.device_mesh is not None:
             phys_spec = getattr(space.transform, "physical_spec", None)
             if phys_spec is not None:
@@ -464,6 +459,14 @@ class SolutionSpace:
         self._axis_masks = axis_masks
         self._axis_inv_weights = axis_inv_weights
 
+    def __getattr__(self, name: str) -> FieldView:
+        try:
+            return self._field_views[name]
+        except KeyError:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'."
+            )
+
     def apply_mask(self, u: Array) -> Array:
         """Apply constraint mask to solution array u with zero communication."""
         for ax_mask in self._axis_masks.values():
@@ -504,6 +507,30 @@ class SolutionSpace:
 
     def __iter__(self):
         return iter(self._field_views.values())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SolutionSpace):
+            return False
+        return self.space == other.space and self.fields == other.fields
+
+    def __hash__(self) -> int:
+        return hash((self.space, tuple(sorted(self.fields.items()))))
+
+    @property
+    def canonical_shape(self) -> tuple[int, ...]:
+        """Canonical shape of the solution array (*node_shape, total_channels)."""
+        d = self.nb_components
+        canonical_shape = (
+            self.shape
+            if not self.space.non_periodic_axes
+            else self.space.extended_shape + (d,)
+        )
+        return canonical_shape
+
+    @property
+    def nb_components(self) -> int:
+        """Total number of components across all fields."""
+        return sum(field.n_components for field in self.fields.values())
 
     def zeros(self, sharding: NamedSharding | None = None) -> Array:
         """Return a solution array initialized to zero of shape V.shape, optionally sharded."""
@@ -547,7 +574,9 @@ class SolutionSpace:
             else:
                 field_ext = jnp.stack(comp_arrays, axis=-1)
                 if len(field.shape) > 1:
-                    field_ext = field_ext.reshape(self.space.extended_shape + field.shape)
+                    field_ext = field_ext.reshape(
+                        self.space.extended_shape + field.shape
+                    )
 
             ext_fields[name] = field_ext
 
@@ -601,7 +630,9 @@ class SolutionSpace:
                 elif field.rank == 1:
                     comp_f = f_ext[..., comp_idx]
                 else:
-                    comp_f = f_ext.reshape(self.space.extended_shape + (-1,))[..., comp_idx]
+                    comp_f = f_ext.reshape(self.space.extended_shape + (-1,))[
+                        ..., comp_idx
+                    ]
 
                 for ax_idx in reversed(self.space.non_periodic_axes):
                     ax_name = axis_names[ax_idx]
@@ -645,7 +676,9 @@ class SolutionSpace:
                         sl_last[ax_idx] = slice(-1, None)
                         sl_first = [slice(None)] * comp_arr.ndim
                         sl_first[ax_idx] = slice(0, 1)
-                        comp_arr = comp_arr.at[tuple(sl_last)].set(comp_arr[tuple(sl_first)])
+                        comp_arr = comp_arr.at[tuple(sl_last)].set(
+                            comp_arr[tuple(sl_first)]
+                        )
                 comp_arrays.append(comp_arr)
 
             if field.shape == ():

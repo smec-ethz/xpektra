@@ -19,7 +19,6 @@ classifiers = [
 dependencies = [
     "jax>=0.11.0",
     "numpy",
-    "scipy",
     "sympy>=1.14.0",
 ]
 
@@ -37,6 +36,7 @@ docs = [
     "mkdocs-material>=9.6.23",
     "mkdocstrings-python>=1.18.2",
     "mkdocs-section-index>=0.3.11",
+    "scipy",
 ]
 
 [tool.pytest.ini_options]

@@ -209,6 +209,15 @@ def test_spectral_space_non_periodic_axes():
     assert "x" not in space.non_periodic_axes
     assert space.physical_slices == (slice(None), slice(0, 32))
 
+    # Reject integer axis inputs
+    with pytest.raises(TypeError, match="Axis must be a string"):
+        SpectralSpace(
+            lengths=(1.0, 1.0),
+            shape=(16, 16),
+            transform=FFTTransform(dim=2),
+            non_periodic_axes=(1,),
+        )
+
     # Cell field extension directly via space
     lam = jnp.arange(32 * 32, dtype=float).reshape(32, 32)
     lam_ext = space.extend_cell_field(lam, rank=0)

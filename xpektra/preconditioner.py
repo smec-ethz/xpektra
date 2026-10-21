@@ -18,7 +18,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
@@ -26,10 +25,8 @@ from jax import Array
 from jax.sharding import NamedSharding
 
 from xpektra import linalg
+from xpektra.solution_space import SolutionSpace
 from xpektra.space import SpectralSpace
-
-if TYPE_CHECKING:
-    from xpektra.solution_space import SolutionSpace
 
 __all__ = [
     "GenericGreenPreconditioner",
@@ -54,12 +51,20 @@ class GreenPreconditioner(ABC):
     and its own ``@register_dataclass``, since registration is not inherited.
 
     Args:
-        space: the spectral space, supplying the transform.
-        d: components per node -- 1 for a scalar field, ``ndim`` for a vector.
+        solution_space: the physical or computational SolutionSpace.
     """
 
-    space: SpectralSpace
-    d: int
+    solution_space: SolutionSpace
+
+    @property
+    def space(self) -> SpectralSpace:
+        """The underlying SpectralSpace."""
+        return self.solution_space.space
+
+    @property
+    def d(self) -> int:
+        """Total components per node."""
+        return self.solution_space.nb_components
 
     @abstractmethod
     def apply_hat(self, r_hat: Array) -> Array:
@@ -78,20 +83,32 @@ class GreenPreconditioner(ABC):
         """
 
     @jax.jit
-    def __call__(self, r_flat: Array) -> Array:
-        """Applies ``M^-1`` to a flattened residual, returning a flat vector in real space.
+    def __call__(self, r_in: Array) -> Array:
+        """Applies ``M^-1`` to a residual, returning a preconditioned residual.
 
         Args:
-            r_flat: Flattened residual, shape ``(n,)``, real.
+            r_in: Flat or shaped residual array, real.
         Returns:
-            Flattened preconditioned residual, shape ``(n,)``, real.
+            Preconditioned residual, matching input shape, real.
         """
-        canonical_shape = self.space.extended_shape + (self.d,)
-        r = r_flat.reshape(canonical_shape)
+        is_flat = r_in.ndim == 1
+        canonical_shape = self.solution_space.canonical_shape
+        r = r_in.reshape(canonical_shape)
         if getattr(self, "sharding", None) is not None:
             r = jax.reshard(r, self.sharding)
-        r_hat = self.space.transform.forward(r)
-        return self.space.transform.inverse(self.apply_hat(r_hat)).real.reshape(-1)
+        r_hat = self.solution_space.space.transform.forward(r)
+        out = self.solution_space.space.transform.inverse(
+            self.apply_hat(r_hat)
+        ).real
+        if is_flat:
+            return out.reshape(-1)
+        if (
+            len(self.solution_space.fields) == 1
+            and next(iter(self.solution_space.fields.values())).shape == ()
+            and r_in.shape == self.solution_space.node_shape
+        ):
+            return out[..., 0]
+        return out
 
     def in_fourier(self) -> "SpectralView":
         """This preconditioner as a *callable* on Fourier coefficients.
@@ -101,7 +118,7 @@ class GreenPreconditioner(ABC):
         """
         return SpectralView(inner=self)
 
-    def adapt(self, solution_space: "SolutionSpace") -> Callable[[Array], Array]:
+    def adapt(self, solution_space: SolutionSpace) -> Callable[[Array], Array]:
         """Adapt this extended Green preconditioner to a physical SolutionSpace with boundary conditions.
 
         Args:
@@ -155,13 +172,11 @@ class GenericGreenPreconditioner(GreenPreconditioner):
 
     Attributes:
         G_hat: ``inv(K_hat)``, shape ``(*spatial, d, d)``, complex.
-        space: the spectral space, supplying the transform.
-        d: components per node -- 1 for a scalar field, ``ndim`` for a vector.
+        solution_space: the SolutionSpace supplying grid shape and channels.
     """
 
     G_hat: Array
-    space: SpectralSpace = field(metadata={"static": True})
-    d: int = field(metadata={"static": True})
+    solution_space: SolutionSpace = field(metadata={"static": True})
     sharding: NamedSharding | None = field(default=None, metadata={"static": True})
 
     @jax.jit
@@ -172,11 +187,9 @@ class GenericGreenPreconditioner(GreenPreconditioner):
 
 def make_generic_preconditioner(
     residual_ref_fn: ResidualFn,
-    space: SpectralSpace,
-    d: int,
+    solution_space: SolutionSpace,
     rtol: float = 1e-12,
     sharding: NamedSharding | None = None,
-    solution_space: "SolutionSpace | None" = None,
 ) -> GenericGreenPreconditioner | Callable[[Array], Array]:
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
 
@@ -195,7 +208,10 @@ def make_generic_preconditioner(
     Returns:
         The preconditioner (or adapted physical preconditioner if solution_space is provided).
     """
-    canonical_shape = space.extended_shape + (d,)
+
+    nb_comp = solution_space.nb_components
+    space = solution_space.space
+    canonical_shape = solution_space.canonical_shape
     zero_node = (0,) * len(space.extended_shape)
 
     def _init_field(arr: Array) -> Array:
@@ -206,7 +222,7 @@ def make_generic_preconditioner(
     u_ref = _init_field(jnp.zeros(canonical_shape)).reshape(-1)
 
     columns = []
-    for i in range(d):
+    for i in range(nb_comp):
         seed_i = _init_field(jnp.zeros(canonical_shape).at[zero_node + (i,)].set(1.0))
         K_ref_i = jax.jvp(residual_ref_fn, (u_ref,), (seed_i.reshape(-1),))[1]
         K_ref_i_field = K_ref_i.reshape(canonical_shape)
@@ -223,14 +239,14 @@ def make_generic_preconditioner(
     scale = jnp.sqrt(jnp.sum(jnp.abs(K_hat) ** 2, axis=(-2, -1)))
     ok = scale > rtol * jnp.max(scale)
 
-    eye = jnp.eye(d, dtype=K_hat.dtype)
+    eye = jnp.eye(nb_comp, dtype=K_hat.dtype)
     K_safe = jnp.where(ok[..., None, None], K_hat, eye)
     G_hat = jnp.where(ok[..., None, None], linalg.inv(K_safe), 0.0)
 
-    precond = GenericGreenPreconditioner(G_hat=G_hat, space=space, d=d, sharding=sharding)
-    if solution_space is not None:
-        return precond.adapt(solution_space)
-    return precond
+    precond = GenericGreenPreconditioner(
+        G_hat=G_hat, solution_space=solution_space, sharding=sharding
+    )
+    return precond.adapt(solution_space)
 
 
 @jax.tree_util.register_dataclass
@@ -251,8 +267,7 @@ class IsotropicGreenPreconditioner(GreenPreconditioner):
         lam0: first Lame parameter of the reference material, times the voxel
             volume.
         mu0: shear modulus of the reference material, times the voxel volume.
-        space: the spectral space, supplying the transform.
-        d: components per node.
+        solution_space: the SolutionSpace supplying grid shape and channels.
         rtol: relative threshold below which a mode is treated as null.
     """
 
@@ -262,8 +277,7 @@ class IsotropicGreenPreconditioner(GreenPreconditioner):
     ok: Array
     lam0: Array
     mu0: Array
-    space: SpectralSpace = field(metadata={"static": True})
-    d: int = field(metadata={"static": True})
+    solution_space: SolutionSpace = field(metadata={"static": True})
     rtol: float = field(default=1e-12, metadata={"static": True})
 
     @jax.jit
@@ -292,8 +306,8 @@ def make_isotropic_preconditioner(
     scheme,
     lam0: Array,
     mu0: Array,
+    solution_space: SolutionSpace,
     rtol: float = 1e-12,
-    solution_space: "SolutionSpace | None" = None,
 ) -> IsotropicGreenPreconditioner | Callable[[Array], Array]:
     """Builds the isotropic Green preconditioner from a scheme's gradient symbol.
 
@@ -334,18 +348,15 @@ def make_isotropic_preconditioner(
         ok=ok,
         lam0=lam0,
         mu0=mu0,
-        space=scheme.space,
-        d=scheme.dim,
+        solution_space=solution_space,
         rtol=rtol,
     )
-    if solution_space is not None:
-        return precond.adapt(solution_space)
-    return precond
+    return precond.adapt(solution_space)
 
 
 def adapt_green_preconditioner(
     G: GreenPreconditioner | dict[str, GreenPreconditioner],
-    solution_space: "SolutionSpace",
+    solution_space: SolutionSpace,
 ) -> Callable[[Array], Array]:
     """Adapt extended-grid GreenPreconditioner(s) to a physical SolutionSpace with boundary conditions.
 
@@ -360,6 +371,9 @@ def adapt_green_preconditioner(
     Returns:
         Callable[[Array], Array]: Physical-domain preconditioner function mapping residual to search direction.
     """
+    if not solution_space.space.non_periodic_axes:
+        return G  # No adaptation needed for fully periodic spaces
+
     if isinstance(G, dict):
         g_dict = G
     elif isinstance(G, GreenPreconditioner):
@@ -383,9 +397,9 @@ def adapt_green_preconditioner(
             raise TypeError(
                 f"Field '{name}' has preconditioner of type {type(g).__name__}, expected GreenPreconditioner."
             )
-        if g.space.extended_shape != solution_space.space.extended_shape:
+        if g.solution_space.space.extended_shape != solution_space.space.extended_shape:
             raise ValueError(
-                f"Preconditioner grid shape {g.space.extended_shape} for field '{name}' does not match "
+                f"Preconditioner grid shape {g.solution_space.space.extended_shape} for field '{name}' does not match "
                 f"SolutionSpace extended grid shape {solution_space.space.extended_shape}."
             )
 
@@ -397,7 +411,7 @@ def adapt_green_preconditioner(
 
     @jax.jit
     def M(r: Array) -> Array:
-        is_flat = (r.ndim == 1)
+        is_flat = r.ndim == 1
         if is_flat:
             r_arr = r.reshape(solution_space.shape)
         elif is_single_scalar and r.shape == solution_space.node_shape:
