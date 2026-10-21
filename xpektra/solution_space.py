@@ -18,13 +18,24 @@
 
 import math
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Literal, cast, get_args
 
 import jax
+import jax.numpy as jnp
 from jax import Array
 from jax.sharding import NamedSharding
+from jax.sharding import PartitionSpec as P
 
-from xpektra import SpectralSpace
+from xpektra.space import SpectralSpace
+from xpektra.extension import (
+    ExtensionKind,
+    extend_1d,
+    get_extension_kind,
+    mask_1d,
+    restrict_1d,
+    weights_1d,
+)
 
 type BCType = Literal["periodic", "dirichlet", "neumann"]
 type FacetPair = tuple[BCType, BCType]
@@ -261,129 +272,389 @@ class Field:
 
 @jax.tree_util.register_pytree_node_class
 class State:
-    _RESERVED = {"_fields"}
+    _RESERVED = {"_dofs"}
 
-    def __init__(self, **fields: Field):
+    def __init__(self, **dofs: Array):
         """Initialize the state with fields.
 
         Args:
-            **fields (Field): The fields associated with the state.
+            **dofs (Array): The dofs associated with the state.
         """
-        if bad := self._RESERVED & fields.keys():
+        if bad := self._RESERVED & dofs.keys():
             raise ValueError(
                 f"Field names {bad} are reserved and cannot be used as field names."
             )
-        object.__setattr__(self, "_fields", fields)
+        object.__setattr__(self, "_dofs", dofs)
 
-    def __getattr__(self, name: str) -> Field:
-        """Get a field by name.
-
-        Args:
-            name (str): The name of the field.
-
-        Returns:
-            Field: The field associated with the name.
-        """
+    def __getattr__(self, name: str) -> Array:
         try:
-            return self._fields[name]
+            return self._dofs[name]
         except KeyError:
-            raise AttributeError(f"Field '{name}' not found in state.")
+            raise AttributeError(f"Dof '{name}' not found in state.")
 
     def __iter__(self):
-        """Iterate over the fields in the state.
-
-        Yields:
-            tuple[str, Field]: The name and field of each field in the state.
-        """
-        yield from self._fields.items()
+        return iter(self._dofs.values())
 
     def __len__(self):
-        """Return the number of fields in the state.
-
-        Returns:
-            int: The number of fields in the state.
-        """
-        return len(self._fields)
+        return len(self._dofs)
 
     def tree_flatten(self):
-        """Flatten the state for JAX transformations.
-
-        Returns:
-            tuple: A tuple containing the flattened fields and auxiliary data.
-        """
-        return tuple(self._fields.values()), tuple(self._fields.keys())
+        return tuple(self._dofs.values()), tuple(self._dofs.keys())
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
-        """Unflatten the state for JAX transformations.
-
-        Args:
-            aux_data (tuple): Auxiliary data containing field names.
-            children (tuple): Flattened fields.
-
-        Returns:
-            State: The unflattened state.
-        """
         return cls(**dict(zip(aux_data, children)))
 
 
+@dataclass(frozen=True)
+class FieldView:
+    """View of a single field within the solution space."""
+
+    name: str
+    field: Field
+    channel_slice: slice
+    node_shape: tuple[int, ...]
+    n_free: int
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """Physical shape of this field: (*node_shape, *field.shape)."""
+        return self.node_shape + self.field.shape
+
+
 class SolutionSpace:
-    """A solution space for a field or multiple fields.
+    """A solution space for one or multiple fields.
+
+    Handles storage layout, constraint masking, extension, dual restriction,
+    and preconditioning for spectral solvers.
 
     Attributes:
-        field (Field): The field associated with the solution space.
+        space (SpectralSpace): The underlying domain resolution and mirrored axes.
+        fields (dict[str, Field]): Declared fields.
+        node_shape (tuple[int, ...]): Spatial node grid shape (N+1 on mirrored axes, N on periodic).
+        shape (tuple[int, ...]): Solution array shape (*node_shape, C).
+        n_free (int): Number of unconstrained degrees of freedom.
     """
 
+    _RESERVED = {
+        "space",
+        "fields",
+        "node_shape",
+        "shape",
+        "mask",
+        "n_free",
+        "zeros",
+        "apply_mask",
+        "primal_to_extended",
+        "dual_to_physical",
+        "primal_to_physical",
+        "preconditioner",
+        "_field_views",
+        "_field_slices",
+        "_axis_masks",
+    }
+
     def __init__(self, space: SpectralSpace, **fields: Field):
-        """Initialize the solution space.
+        if not fields:
+            raise ValueError("SolutionSpace requires at least one Field.")
 
-        Args:
-            space (SpectralSpace): The spectral space associated with the solution space.
-            **fields (Field): The fields associated with the solution space.
-        """
-        self.space = space
+        if bad := self._RESERVED & fields.keys():
+            raise ValueError(
+                f"Field names {bad} are reserved and cannot be used in SolutionSpace."
+            )
+
+        ndim = space.dim
+        axis_names = ("x", "y", "z")
+
+        # Validation Rule 1 (§6.5): Field non-periodic BCs must belong to space.non_periodic_axes
         for name, field in fields.items():
-            setattr(self, name, field)
+            for ax_name in field.non_periodic_axes:
+                if ax_name not in space.non_periodic_axes:
+                    raise ValueError(
+                        f"Field '{name}' specifies non-periodic BCs along axis '{ax_name}', "
+                        f"but '{ax_name}' is not in space.non_periodic_axes ({space.non_periodic_axes})."
+                    )
 
-    def to_extended(self, dofs: Array) -> State:
-        """Convert flattened degrees of freedom to an extended state.
+        # Validation Rule 5 (§6.5): Sharded axes cannot be non-periodic in v1
+        if space.transform.device_mesh is not None:
+            phys_spec = getattr(space.transform, "physical_spec", None)
+            if phys_spec is not None:
+                for i, spec in enumerate(phys_spec):
+                    if spec is not None and i in space.non_periodic_axes:
+                        raise ValueError(
+                            f"Sharding a non-periodic axis ({i}) is not supported in v1."
+                        )
 
-        Args:
-            dofs_flat (Array): The flattened degrees of freedom.
+        # Compute node_shape: N+1 for non-periodic axes, N for periodic axes
+        node_shape = tuple(
+            space.shape[i] + 1 if i in space.non_periodic_axes else space.shape[i]
+            for i in range(ndim)
+        )
 
-        Returns:
-            State: The extended state.
-        """
-        # Implementation needed
+        # Channel layout & slices
+        field_slices: dict[str, slice] = {}
+        curr_channel = 0
+        for name, field in fields.items():
+            n_c = field.n_components
+            field_slices[name] = slice(curr_channel, curr_channel + n_c)
+            curr_channel += n_c
 
-    def to_physical(self, dofs: Array) -> State:
-        """Convert flattened degrees of freedom to a physical state.
+        total_channels = curr_channel
+        full_shape = node_shape + (total_channels,)
 
-        Args:
-            dofs_flat (Array): The flattened degrees of freedom.
+        # Build lightweight broadcastable 1D masks and inv_weights per non-periodic axis
+        axis_masks: dict[int, Array] = {}
+        axis_inv_weights: dict[int, Array] = {}
+        for ax_idx in space.non_periodic_axes:
+            ax_name = axis_names[ax_idx]
+            n_nodes = node_shape[ax_idx]
+            comp_masks_1d = []
+            comp_inv_w_1d = []
+            for name, field in fields.items():
+                for comp_idx in range(field.n_components):
+                    bc = field.get_bc(ax_name, comp_idx)
+                    comp_masks_1d.append(mask_1d(n_nodes, bc))
+                    w = weights_1d(n_nodes, bc)
+                    inv_w = jnp.where(w > 0, 1.0 / w, 0.0)
+                    comp_inv_w_1d.append(inv_w)
+            stacked_m = jnp.stack(comp_masks_1d, axis=-1)
+            stacked_w = jnp.stack(comp_inv_w_1d, axis=-1)
+            unsqueeze_shape = [1] * (ndim + 1)
+            unsqueeze_shape[ax_idx] = n_nodes
+            unsqueeze_shape[-1] = total_channels
+            axis_masks[ax_idx] = stacked_m.reshape(tuple(unsqueeze_shape))
+            axis_inv_weights[ax_idx] = stacked_w.reshape(tuple(unsqueeze_shape))
 
-        Returns:
-            State: The physical state.
-        """
-        # Implementation needed
-        #
+        # Compute n_free via separability without materializing full 3D mask
+        field_views: dict[str, FieldView] = {}
+        total_n_free = 0
 
-    def zeros(self, sharding: NamedSharding | None = None) -> Array:
-        """Return a state with all fields initialized to zero.
+        for name, field in fields.items():
+            field_n_free = 0
+            for comp_idx in range(field.n_components):
+                comp_free = 1
+                for i in range(ndim):
+                    if i in space.non_periodic_axes:
+                        bc = field.get_bc(axis_names[i], comp_idx)
+                        m_1d = mask_1d(node_shape[i], bc)
+                        comp_free *= int(jnp.sum(m_1d))
+                    else:
+                        comp_free *= space.shape[i]
+                field_n_free += comp_free
 
-        Args:
-            sharding (NamedSharding | None): Optional sharding for the arrays.
+            sl = field_slices[name]
+            view = FieldView(
+                name=name,
+                field=field,
+                channel_slice=sl,
+                node_shape=node_shape,
+                n_free=field_n_free,
+            )
+            field_views[name] = view
+            setattr(self, name, view)
+            total_n_free += field_n_free
 
-        Returns:
-            State: A state with all fields initialized to zero.
-        """
-        # Implementation needed
+        self.space = space
+        self.fields = fields
+        self.node_shape = node_shape
+        self.shape = full_shape
+        self.n_free = total_n_free
+        self._field_slices = field_slices
+        self._field_views = field_views
+        self._axis_masks = axis_masks
+        self._axis_inv_weights = axis_inv_weights
+
+    def apply_mask(self, u: Array) -> Array:
+        """Apply constraint mask to solution array u with zero communication."""
+        for ax_mask in self._axis_masks.values():
+            u = u * ax_mask
+        return u
+
+    def apply_inv_weights(self, u: Array) -> Array:
+        """Apply W⁻¹ = diag(Eᵀ E)⁻¹ to solution array u with zero communication."""
+        for ax_inv_w in self._axis_inv_weights.values():
+            u = u * ax_inv_w
+        return u
 
     @property
     def mask(self) -> Array:
-        """Return a mask for the solution space.
+        """On-demand construction of the mask array (shape V.shape)."""
+        sharding = getattr(self.space.transform, "physical_spec", None)
+        mesh = getattr(self.space.transform, "device_mesh", None)
+
+        if mesh is not None and sharding is not None:
+            full_spec = NamedSharding(mesh, P(*sharding, None))
+            full_mask = jnp.ones(self.shape, dtype=bool)
+            full_mask = jax.device_put(full_mask, full_spec)
+        else:
+            full_mask = jnp.ones(self.shape, dtype=bool)
+
+        for ax_mask in self._axis_masks.values():
+            full_mask = full_mask & ax_mask
+        return full_mask
+
+    def __getitem__(self, name: str) -> FieldView:
+        return self._field_views[name]
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._field_views
+
+    def __len__(self) -> int:
+        return len(self.fields)
+
+    def __iter__(self):
+        return iter(self._field_views.values())
+
+    def zeros(self, sharding: NamedSharding | None = None) -> Array:
+        """Return a solution array initialized to zero of shape V.shape, optionally sharded."""
+        arr = jnp.zeros(self.shape, dtype=float)
+        if sharding is not None:
+            arr = jax.device_put(arr, sharding)
+        return arr
+
+    def primal_to_extended(self, u: Array) -> State:
+        """Convert primal solution degrees of freedom to extended state (E).
+
+        Applies mask, then extends along non-periodic axes with boundary reflection.
+
+        Args:
+            u (Array): Primal solution array of shape (*node_shape, total_channels).
 
         Returns:
-            Array: A mask for the solution space.
+            State: Extended state where each field has shape (*extended_shape, *field.shape).
         """
-        # Implementation needed
+        u_masked = self.apply_mask(u)
+        axis_names = ("x", "y", "z")
+        ext_fields: dict[str, Array] = {}
+
+        for name, field in self.fields.items():
+            sl = self._field_slices[name]
+            field_arr = u_masked[..., sl]
+
+            comp_arrays = []
+            for comp_idx in range(field.n_components):
+                comp_arr = field_arr[..., comp_idx]
+                for ax_idx in self.space.non_periodic_axes:
+                    ax_name = axis_names[ax_idx]
+                    bc = field.get_bc(ax_name, comp_idx)
+                    kind = get_extension_kind(bc)
+                    comp_arr = extend_1d(comp_arr, kind=kind, axis=ax_idx)
+                comp_arrays.append(comp_arr)
+
+            if field.shape == ():
+                # Scalar field: (*extended_shape,) with no trailing 1
+                field_ext = comp_arrays[0]
+            else:
+                field_ext = jnp.stack(comp_arrays, axis=-1)
+                if len(field.shape) > 1:
+                    field_ext = field_ext.reshape(self.space.extended_shape + field.shape)
+
+            ext_fields[name] = field_ext
+
+        return State(**ext_fields)
+
+    def dual_to_physical(self, *fields: Array | State, **kwargs: Array) -> Array:
+        """Convert extended dual forces back to physical solution array (Eᵀ).
+
+        Restricts extended dual fields along non-periodic axes, stacks them into
+        V.shape, and applies the constraint mask.
+
+        Args:
+            *fields: A State instance, or positional extended arrays matching field order.
+            **kwargs: Extended arrays passed by field name.
+
+        Returns:
+            Array: Physical dual force array of shape (*node_shape, total_channels).
+        """
+        if len(fields) == 1 and isinstance(fields[0], State):
+            ext_dict = dict(fields[0]._dofs)
+        elif len(fields) == 1 and isinstance(fields[0], dict):
+            ext_dict = fields[0]
+        elif fields:
+            ext_dict = dict(zip(self.fields.keys(), fields))
+        elif kwargs:
+            ext_dict = kwargs
+        else:
+            raise ValueError("dual_to_physical requires dual fields to be passed.")
+
+        missing = set(self.fields.keys()) - set(ext_dict.keys())
+        if missing:
+            raise ValueError(f"Missing dual fields: {missing}")
+
+        ndim = self.space.dim
+        axis_names = ("x", "y", "z")
+        all_restricted_comps: list[Array] = []
+
+        for name, field in self.fields.items():
+            f_ext = ext_dict[name]
+
+            if f_ext.ndim == 1:
+                f_ext = f_ext.reshape(self.space.extended_shape + field.shape)
+
+            if field.shape == ():
+                if f_ext.ndim == ndim + 1 and f_ext.shape[-1] == 1:
+                    f_ext = f_ext[..., 0]
+
+            for comp_idx in range(field.n_components):
+                if field.shape == ():
+                    comp_f = f_ext
+                elif field.rank == 1:
+                    comp_f = f_ext[..., comp_idx]
+                else:
+                    comp_f = f_ext.reshape(self.space.extended_shape + (-1,))[..., comp_idx]
+
+                for ax_idx in reversed(self.space.non_periodic_axes):
+                    ax_name = axis_names[ax_idx]
+                    bc = field.get_bc(ax_name, comp_idx)
+                    kind = get_extension_kind(bc)
+                    comp_f = restrict_1d(comp_f, kind=kind, axis=ax_idx)
+
+                all_restricted_comps.append(comp_f)
+
+        f_stacked = jnp.stack(all_restricted_comps, axis=-1)
+        return self.apply_mask(f_stacked)
+
+    def primal_to_physical(self, u: Array) -> State:
+        """Convert primal solution array to physical fields (State).
+
+        Fills periodic wrap nodes (u_N := u_0) along doubled axes and splits into fields.
+
+        Args:
+            u (Array): Primal solution array of shape (*node_shape, total_channels).
+
+        Returns:
+            State: Physical state where each field has shape (*node_shape, *field.shape).
+        """
+        u_masked = self.apply_mask(u)
+        axis_names = ("x", "y", "z")
+        phys_fields: dict[str, Array] = {}
+
+        for name, field in self.fields.items():
+            sl = self._field_slices[name]
+            field_arr = u_masked[..., sl]
+
+            comp_arrays = []
+            for comp_idx in range(field.n_components):
+                comp_arr = field_arr[..., comp_idx]
+                for ax_idx in self.space.non_periodic_axes:
+                    ax_name = axis_names[ax_idx]
+                    bc = field.get_bc(ax_name, comp_idx)
+                    if bc == ("periodic", "periodic"):
+                        # Fill periodic wrap duplicate: u_N := u_0
+                        sl_last = [slice(None)] * comp_arr.ndim
+                        sl_last[ax_idx] = slice(-1, None)
+                        sl_first = [slice(None)] * comp_arr.ndim
+                        sl_first[ax_idx] = slice(0, 1)
+                        comp_arr = comp_arr.at[tuple(sl_last)].set(comp_arr[tuple(sl_first)])
+                comp_arrays.append(comp_arr)
+
+            if field.shape == ():
+                phys_field = comp_arrays[0]
+            else:
+                phys_field = jnp.stack(comp_arrays, axis=-1)
+                if len(field.shape) > 1:
+                    phys_field = phys_field.reshape(self.node_shape + field.shape)
+
+            phys_fields[name] = phys_field
+
+        return State(**phys_fields)

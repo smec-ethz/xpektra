@@ -83,7 +83,7 @@ class SpectralOperator:
                 raise ValueError(
                     f"Input '{name}' has physical shape {field_spatial}, but the operator "
                     f"expects extended shape {self.space.extended_shape}. "
-                    f"Did you forget to call `space.extend_primal({name})`?"
+                    f"Did you forget to extend the field (e.g. via V.to_extended)?"
                 )
             raise ValueError(
                 f"Input '{name}' spatial shape {field_spatial} does not match "
@@ -285,7 +285,7 @@ class SpectralOperator:
                                 f"Argument '{name}' passed to {fn.__name__} has spatial shape "
                                 f"{value.shape[:space_dim]}, but operator requires extended shape "
                                 f"{self.space.extended_shape}. For material fields (e.g. lam, mu), "
-                                f"did you forget to call `space.extend_material_field({name})`?"
+                                f"did you forget to call `space.extend_cell_field({name})`?"
                             )
                         in_axes.append(None)
                     elif extra < 0:
