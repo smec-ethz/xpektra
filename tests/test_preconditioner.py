@@ -14,7 +14,13 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from xpektra import SpectralSpace, linalg
+from xpektra import (
+    Field,
+    SolutionSpace,
+    SpectralSpace,
+    adapt_green_preconditioner,
+    linalg,
+)
 from xpektra.preconditioner import (
     make_generic_preconditioner,
     make_isotropic_preconditioner,
@@ -23,6 +29,7 @@ from xpektra.scheme import (
     FourierScheme,
     Hex1RScheme,
     Quad1RScheme,
+    QuadFullScheme,
     Tetra2Scheme,
 )
 from xpektra.spectral_operator import SpectralOperator
@@ -362,3 +369,147 @@ def test_isotropic_symbol_is_the_exact_acoustic_tensor(cls, dim):
 
     scale = float(jnp.max(jnp.abs(exact)))
     np.testing.assert_allclose(closed, exact, atol=1e-12 * scale)
+
+
+# ---------------------------------------------------------------------------
+# adapt_green_preconditioner tests
+# ---------------------------------------------------------------------------
+
+
+def test_adapt_preconditioner_validation():
+    space = SpectralSpace(
+        lengths=(1.0, 1.0),
+        shape=(8, 8),
+        non_periodic_axes=("y",),
+        transform=FFTTransform(dim=2),
+    )
+    V = SolutionSpace(space, u=Field(shape=(2,), y={0: "neumann", 1: "dirichlet"}))
+
+    # Incompatible object: not a GreenPreconditioner
+    with pytest.raises(TypeError, match="Expected a GreenPreconditioner"):
+        adapt_green_preconditioner(lambda x: x, V)  # type: ignore[arg-type]
+
+    # Incompatible grid: wrong extended_shape
+    wrong_space = SpectralSpace(
+        lengths=(1.0, 1.0), shape=(16, 16), transform=FFTTransform(dim=2)
+    )
+    G_wrong = make_isotropic_preconditioner(QuadFullScheme(space=wrong_space), 1.0, 1.0)
+    with pytest.raises(ValueError, match="does not match"):
+        adapt_green_preconditioner(G_wrong, V)
+
+
+def test_adapt_preconditioner_periodic_matches_green():
+    space = SpectralSpace(
+        lengths=(1.0, 1.0), shape=(9, 9), transform=FFTTransform(dim=2)
+    )
+    scheme = Quad1RScheme(space=space)
+    V = SolutionSpace(space, u=Field(shape=(2,)))
+
+    G = make_isotropic_preconditioner(scheme, 1.0, 2.0)
+    M = G.adapt(V)
+
+    key = jax.random.PRNGKey(123)
+    r = jax.random.normal(key, V.shape)
+
+    # Calling M with shaped array returns shaped array matching G(r.reshape(-1))
+    z_m = M(r)
+    z_g = G(r.reshape(-1)).reshape(V.shape)
+    np.testing.assert_allclose(z_m, z_g, atol=1e-14)
+
+
+def test_adapt_preconditioner_isotropic_is_left_inverse_on_range():
+    """M K M == M on the physical domain with roller boundary conditions."""
+    space = SpectralSpace(
+        lengths=(1.0, 1.0),
+        shape=(8, 8),
+        non_periodic_axes=("y",),
+        transform=FFTTransform(dim=2),
+    )
+    scheme = Quad1RScheme(space=space, allow_even_grid=True)
+    op = SpectralOperator(scheme=scheme, space=space)
+
+    lam0, mu0 = 1.5, 2.5
+    V = SolutionSpace(space, u=Field(shape=(2,), y={0: "neumann", 1: "dirichlet"}))
+
+    def K_ext_fn(u_ext):
+        eps = op.sym_grad(u_ext)
+        tr = linalg.trace(eps)
+        sig = lam0 * tr[..., None, None] * jnp.eye(2) + 2.0 * mu0 * eps
+        return -op.div(sig) * space.cell_volume
+
+    def K_phys(u):
+        u_ext = V.primal_to_extended(u).u
+        force_ext = K_ext_fn(u_ext)
+        return 0.5 * V.dual_to_physical(u=force_ext)
+
+    M = make_isotropic_preconditioner(scheme, lam0, mu0, solution_space=V)
+
+    key = jax.random.PRNGKey(42)
+    r = V.apply_mask(jax.random.normal(key, V.shape))
+
+    # Range test: M(K(M(r))) == M(r)
+    z = M(r)
+    MKz = M(K_phys(z))
+
+    np.testing.assert_allclose(MKz, z, atol=1e-12)
+
+
+def test_adapt_preconditioner_quadfull_roller_converges_in_one_step():
+    """QuadFullScheme with roller BC converges to machine precision in 1 PCG step."""
+    space = SpectralSpace(
+        lengths=(1.0, 1.0),
+        shape=(8, 8),
+        non_periodic_axes=("y",),
+        transform=FFTTransform(dim=2),
+    )
+    scheme = QuadFullScheme(space=space)
+    op = SpectralOperator(scheme=scheme, space=space)
+
+    lam0, mu0 = 1.5, 2.5
+    V = SolutionSpace(space, u=Field(shape=(2,), y={0: "neumann", 1: "dirichlet"}))
+
+    def energy_phys(u):
+        u_ext = V.primal_to_extended(u).u
+        eps = op.sym_grad(u_ext)
+        tr = linalg.trace(eps)
+        psi = 0.5 * lam0 * tr**2 + mu0 * linalg.contract("...ij,...ji->...", eps, eps)
+        return op.integrate(psi)
+
+    res_fn = jax.grad(energy_phys)
+
+    def K_phys(v):
+        return jax.jvp(res_fn, (V.zeros(),), (v,))[1]
+
+    def energy_ext(u_ext_flat):
+        u_ext = u_ext_flat.reshape(space.extended_shape + (2,))
+        eps = op.sym_grad(u_ext)
+        tr = linalg.trace(eps)
+        psi = 0.5 * lam0 * tr**2 + mu0 * linalg.contract("...ij,...ji->...", eps, eps)
+        return space.cell_volume * psi.mean(axis=-1).sum()
+
+    G = make_generic_preconditioner(jax.grad(energy_ext), space=space, d=2)
+    M = G.adapt(V)
+
+    # Force vector in the range of K
+    key = jax.random.PRNGKey(42)
+    b = V.apply_mask(jax.random.normal(key, V.shape))
+    b = b.at[:, :, 0].set(0.0)  # zero net lateral force
+    b = V.apply_mask(b)
+
+    # Wrap for 1D CG arithmetic
+    def K_flat(v_flat):
+        return K_phys(v_flat.reshape(V.shape)).reshape(-1)
+
+    def M_flat(r_flat):
+        return M(r_flat.reshape(V.shape)).reshape(-1)
+
+    # Perform 1 iteration of PCG from u0 = 0
+    r0 = b.reshape(-1)
+    z0 = M_flat(r0)
+    p0 = z0
+    alpha0 = jnp.dot(r0, z0) / jnp.dot(p0, K_flat(p0))
+    r1 = r0 - alpha0 * K_flat(p0)
+
+    rel_res = float(jnp.linalg.norm(r1) / jnp.linalg.norm(r0))
+    assert rel_res < 1e-12, f"Expected 1-step convergence, got relative residual {rel_res}"
+
