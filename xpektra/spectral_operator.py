@@ -66,30 +66,6 @@ class SpectralOperator:
     scheme: Scheme
     space: SpectralSpace = field(metadata={"static": True})
 
-    def _check_spatial_shape(self, field: Array, name: str = "field") -> None:
-        """Validate that the field's leading dimensions match the computational domain."""
-        space_dim = len(self.space.lengths)
-        if field.ndim < space_dim:
-            raise ValueError(
-                f"{name} has {field.ndim} dimensions, but space requires at least "
-                f"{space_dim} spatial dimensions."
-            )
-        field_spatial = field.shape[:space_dim]
-        if field_spatial != self.space.extended_shape:
-            if (
-                self.space.shape != self.space.extended_shape
-                and field_spatial == self.space.shape
-            ):
-                raise ValueError(
-                    f"Input '{name}' has physical shape {field_spatial}, but the operator "
-                    f"expects extended shape {self.space.extended_shape}. "
-                    f"Did you forget to extend the field (e.g. via V.to_extended)?"
-                )
-            raise ValueError(
-                f"Input '{name}' spatial shape {field_spatial} does not match "
-                f"space.extended_shape {self.space.extended_shape}."
-            )
-
     @jax.jit
     def grad(self, u: Array) -> Array:
         """Applies the gradient operator to the input real-valued array u.
@@ -107,7 +83,6 @@ class SpectralOperator:
         continuum-mechanics ``grad u``, so a deformation gradient is
         ``I + grad(u)``.
         """
-        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         grad_u_hat = self.scheme.apply_gradient(u_hat)
         grad_u = self.space.transform.inverse(grad_u_hat)
@@ -122,7 +97,6 @@ class SpectralOperator:
         ***Returns***
         - The divergence of v, a real-valued array of shape (N,)*dim + (dim,).
         """
-        self._check_spatial_shape(v, "v")
         v_hat = self.space.transform.forward(v)
         div_v_hat = self.scheme.apply_divergence(v_hat)
         div_v = self.space.transform.inverse(div_v_hat)
@@ -140,7 +114,6 @@ class SpectralOperator:
           (N,)*dim + (n_quads,) + (dim, dim).  The quadrature axis is always
           present, length 1 for a single-support scheme.
         """
-        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         sym_grad_u_hat = self.scheme.apply_symmetric_gradient(u_hat)
         # the quadrature axis is trailing, so the
@@ -160,7 +133,6 @@ class SpectralOperator:
           ``sym_grad`` evaluate at, so the result can go straight into an
           ``auto_vmap``-ed law or ``integrate``.
         """
-        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         u_q_hat = self.scheme.apply_interpolation(u_hat)
         return self.space.transform.inverse(u_q_hat).real
@@ -174,7 +146,6 @@ class SpectralOperator:
         ***Returns***
         - The Laplacian of u, a real-valued array of shape (N,)*dim.
         """
-        self._check_spatial_shape(u, "u")
         u_hat = self.space.transform.forward(u)
         lap_u_hat = self.scheme.apply_laplacian(u_hat)
         lap_u = self.space.transform.inverse(lap_u_hat)
@@ -189,7 +160,6 @@ class SpectralOperator:
         ***Returns***
         - The transformed array u_hat, a complex-valued array of shape (N,)*dim.
         """
-        self._check_spatial_shape(u, "u")
         return self.space.transform.forward(u)
 
     @jax.jit
