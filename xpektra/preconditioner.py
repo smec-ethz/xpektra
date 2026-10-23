@@ -29,6 +29,7 @@ from xpektra.solution_space import SolutionSpace
 from xpektra.space import SpectralSpace
 
 __all__ = [
+    "AdaptedGreenPreconditioner",
     "GenericGreenPreconditioner",
     "GreenPreconditioner",
     "IsotropicGreenPreconditioner",
@@ -118,14 +119,16 @@ class GreenPreconditioner(ABC):
         """
         return SpectralView(inner=self)
 
-    def adapt(self, solution_space: SolutionSpace) -> Callable[[Array], Array]:
+    def adapt(
+        self, solution_space: SolutionSpace
+    ) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
         """Adapt this extended Green preconditioner to a physical SolutionSpace with boundary conditions.
 
         Args:
             solution_space: Physical SolutionSpace with boundary conditions.
 
         Returns:
-            Callable[[Array], Array]: Physical-domain preconditioner M(r).
+            GreenPreconditioner | AdaptedGreenPreconditioner: Physical-domain preconditioner.
         """
         return adapt_green_preconditioner(self, solution_space)
 
@@ -190,7 +193,7 @@ def make_generic_preconditioner(
     solution_space: SolutionSpace,
     rtol: float = 1e-12,
     sharding: NamedSharding | None = None,
-) -> GenericGreenPreconditioner | Callable[[Array], Array]:
+) -> "GenericGreenPreconditioner | AdaptedGreenPreconditioner":
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
 
     Args:
@@ -308,7 +311,7 @@ def make_isotropic_preconditioner(
     mu0: Array,
     solution_space: SolutionSpace,
     rtol: float = 1e-12,
-) -> IsotropicGreenPreconditioner | Callable[[Array], Array]:
+) -> "IsotropicGreenPreconditioner | AdaptedGreenPreconditioner":
     """Builds the isotropic Green preconditioner from a scheme's gradient symbol.
 
     Args:
@@ -354,54 +357,103 @@ def make_isotropic_preconditioner(
     return precond.adapt(solution_space)
 
 
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class AdaptedGreenPreconditioner:
+    """Adapted physical preconditioner for a SolutionSpace with non-periodic boundary conditions.
+
+    Wraps an extended periodic GreenPreconditioner with boundary masks,
+    weights, extension E, and transpose restriction Eᵀ.
+    """
+
+    G: GreenPreconditioner
+    solution_space: SolutionSpace = field(metadata={"static": True})
+    scale: float = field(metadata={"static": True})
+    is_single_scalar: bool = field(metadata={"static": True})
+
+    @jax.jit
+    def __call__(self, r: Array) -> Array:
+        is_flat = r.ndim == 1
+        if is_flat:
+            r_arr = r.reshape(self.solution_space.shape)
+        elif self.is_single_scalar and r.shape == self.solution_space.node_shape:
+            r_arr = r[..., None]
+        else:
+            r_arr = r
+
+        # 1. Mask residual
+        r_masked = self.solution_space.apply_mask(r_arr)
+
+        # 2. Scale by W⁻¹
+        r_scaled = self.solution_space.apply_inv_weights(r_masked)
+
+        # 3. Extend to extended grid (E)
+        r_ext_state = self.solution_space.primal_to_extended(r_scaled)
+
+        # 4. Apply Green preconditioner
+        if len(self.solution_space.fields) == 1:
+            (r_ext,) = r_ext_state
+            z_ext = self.G(r_ext)
+            z_phys = self.solution_space.dual_to_physical(z_ext)
+        else:
+            r_ext_stacked = jnp.concatenate(
+                [
+                    getattr(r_ext_state, name).reshape(
+                        self.solution_space.space.extended_shape + (-1,)
+                    )
+                    for name in self.solution_space.fields
+                ],
+                axis=-1,
+            )
+            z_ext_stacked = self.G(r_ext_stacked)
+            z_phys = self.solution_space.dual_to_physical(z_ext_stacked)
+
+        # 5. Scale by 2^{n_d} W⁻¹
+        z_scaled = self.scale * self.solution_space.apply_inv_weights(z_phys)
+
+        # 6. Mask
+        z_out = self.solution_space.apply_mask(z_scaled)
+
+        if is_flat:
+            return z_out.reshape(-1)
+        if self.is_single_scalar and r.shape == self.solution_space.node_shape:
+            return z_out[..., 0]
+        return z_out
+
+
 def adapt_green_preconditioner(
-    G: GreenPreconditioner | dict[str, GreenPreconditioner],
+    G: GreenPreconditioner,
     solution_space: SolutionSpace,
-) -> Callable[[Array], Array]:
-    """Adapt extended-grid GreenPreconditioner(s) to a physical SolutionSpace with boundary conditions.
+) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
+    """Adapt extended-grid GreenPreconditioner to a physical SolutionSpace with boundary conditions.
 
     Applies the exact symmetric projection:
         M(r) = mask · 2^{n_d} W⁻¹ Eᵀ G(E W⁻¹ mask · r)
 
     Args:
-        G (GreenPreconditioner | dict[str, GreenPreconditioner]):
-            Preconditioner on the extended periodic grid, or a dict of preconditioners per field.
+        G (GreenPreconditioner):
+            Preconditioner on the extended periodic grid.
         solution_space (SolutionSpace): Physical solution space with boundary conditions.
 
     Returns:
-        Callable[[Array], Array]: Physical-domain preconditioner function mapping residual to search direction.
+        GreenPreconditioner | AdaptedGreenPreconditioner:
+            Physical-domain preconditioner mapping residual to search direction.
     """
     if not solution_space.space.non_periodic_axes:
         return G  # No adaptation needed for fully periodic spaces
 
-    if isinstance(G, dict):
-        g_dict = G
-    elif isinstance(G, GreenPreconditioner):
-        if len(solution_space.fields) == 1:
-            field_name = next(iter(solution_space.fields.keys()))
-            g_dict = {field_name: G}
-        else:
-            raise ValueError(
-                f"SolutionSpace has multiple fields {list(solution_space.fields.keys())}. "
-                "Please provide a dictionary mapping field names to GreenPreconditioner instances."
-            )
-    else:
+    if not isinstance(G, GreenPreconditioner):
         raise TypeError(
-            f"Expected a GreenPreconditioner instance or dict of GreenPreconditioners, got {type(G).__name__}. "
+            f"Expected a GreenPreconditioner instance, got {type(G).__name__}. "
             "Only Fourier-space Green preconditioners on the extended grid can be adapted "
             "to a SolutionSpace."
         )
 
-    for name, g in g_dict.items():
-        if not isinstance(g, GreenPreconditioner):
-            raise TypeError(
-                f"Field '{name}' has preconditioner of type {type(g).__name__}, expected GreenPreconditioner."
-            )
-        if g.solution_space.space.extended_shape != solution_space.space.extended_shape:
-            raise ValueError(
-                f"Preconditioner grid shape {g.solution_space.space.extended_shape} for field '{name}' does not match "
-                f"SolutionSpace extended grid shape {solution_space.space.extended_shape}."
-            )
+    if G.solution_space.space.extended_shape != solution_space.space.extended_shape:
+        raise ValueError(
+            f"Preconditioner grid shape {G.solution_space.space.extended_shape} does not match "
+            f"SolutionSpace extended grid shape {solution_space.space.extended_shape}."
+        )
 
     scale = float(2 ** len(solution_space.space.non_periodic_axes))
     is_single_scalar = (
@@ -409,49 +461,9 @@ def adapt_green_preconditioner(
         and next(iter(solution_space.fields.values())).shape == ()
     )
 
-    @jax.jit
-    def M(r: Array) -> Array:
-        is_flat = r.ndim == 1
-        if is_flat:
-            r_arr = r.reshape(solution_space.shape)
-        elif is_single_scalar and r.shape == solution_space.node_shape:
-            r_arr = r[..., None]
-        else:
-            r_arr = r
-
-        # 1. Mask residual
-        r_masked = solution_space.apply_mask(r_arr)
-
-        # 2. Scale by W⁻¹
-        r_scaled = solution_space.apply_inv_weights(r_masked)
-
-        # 3. Extend to extended grid (E)
-        r_ext_state = solution_space.primal_to_extended(r_scaled)
-
-        # 4. Apply Green preconditioner(s)
-        z_ext_dict = {}
-        for name, g in g_dict.items():
-            field = solution_space.fields[name]
-            field_r_ext = getattr(r_ext_state, name)
-            z = g(field_r_ext)
-            expected_shape = solution_space.space.extended_shape + field.shape
-            if z.shape != expected_shape:
-                z = z.reshape(expected_shape)
-            z_ext_dict[name] = z
-
-        # 5. Restrict to physical domain (Eᵀ)
-        z_phys = solution_space.dual_to_physical(**z_ext_dict)
-
-        # 6. Scale by 2^{n_d} W⁻¹
-        z_scaled = scale * solution_space.apply_inv_weights(z_phys)
-
-        # 7. Mask
-        z_out = solution_space.apply_mask(z_scaled)
-
-        if is_flat:
-            return z_out.reshape(-1)
-        if is_single_scalar and r.shape == solution_space.node_shape:
-            return z_out[..., 0]
-        return z_out
-
-    return M
+    return AdaptedGreenPreconditioner(
+        G=G,
+        solution_space=solution_space,
+        scale=scale,
+        is_single_scalar=is_single_scalar,
+    )

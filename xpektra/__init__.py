@@ -1,4 +1,5 @@
 from xpektra.preconditioner import (
+    AdaptedGreenPreconditioner,
     GenericGreenPreconditioner,
     IsotropicGreenPreconditioner,
     adapt_green_preconditioner,
@@ -65,6 +66,7 @@ __all__ = [
     "SpectralSpace",
     "Tetra2Scheme",
     # helpers
+    "AdaptedGreenPreconditioner",
     "adapt_green_preconditioner",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
