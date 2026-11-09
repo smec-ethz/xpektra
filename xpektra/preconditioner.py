@@ -98,9 +98,7 @@ class GreenPreconditioner(ABC):
         if getattr(self, "sharding", None) is not None:
             r = jax.reshard(r, self.sharding)
         r_hat = self.solution_space.space.transform.forward(r)
-        out = self.solution_space.space.transform.inverse(
-            self.apply_hat(r_hat)
-        ).real
+        out = self.solution_space.space.transform.inverse(self.apply_hat(r_hat)).real
         if is_flat:
             return out.reshape(-1)
         if (
@@ -193,7 +191,7 @@ def make_generic_preconditioner(
     solution_space: SolutionSpace,
     rtol: float = 1e-12,
     sharding: NamedSharding | None = None,
-) -> "GenericGreenPreconditioner | AdaptedGreenPreconditioner":
+) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
 
     Args:
@@ -307,11 +305,11 @@ class IsotropicGreenPreconditioner(GreenPreconditioner):
 
 def make_isotropic_preconditioner(
     scheme,
-    lam0: Array,
-    mu0: Array,
+    lam0: Array | float,
+    mu0: Array | float,
     solution_space: SolutionSpace,
     rtol: float = 1e-12,
-) -> "IsotropicGreenPreconditioner | AdaptedGreenPreconditioner":
+) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
     """Builds the isotropic Green preconditioner from a scheme's gradient symbol.
 
     Args:
