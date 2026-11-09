@@ -35,15 +35,15 @@ from xpektra.transform import (
 )
 
 __all__ = [
+    # helpers
+    "AdaptedGreenPreconditioner",
     # scheme
     "BackwardScheme",
     "CentralScheme",
-    # solution_space
-    "Field",
-    "SolutionSpace",
-    "State",
     # transform
     "FFTTransform",
+    # solution_space
+    "Field",
     "ForwardScheme",
     "FourierScheme",
     # projection_operator
@@ -61,12 +61,12 @@ __all__ = [
     "SlabFFTTransform3D",
     "SlabRFFTTransform2D",
     "SlabRFFTTransform3D",
+    "SolutionSpace",
     "SpectralOperator",
     # space / operators
     "SpectralSpace",
+    "State",
     "Tetra2Scheme",
-    # helpers
-    "AdaptedGreenPreconditioner",
     "adapt_green_preconditioner",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",

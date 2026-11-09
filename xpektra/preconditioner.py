@@ -43,6 +43,7 @@ __all__ = [
 type ResidualFn = Callable[[Array], Array]
 
 
+@dataclass(frozen=True, kw_only=True)
 class GreenPreconditioner(ABC):
     """``M^-1`` as a Fourier symbol, plus the real-space wrapper around it.
 
@@ -55,7 +56,8 @@ class GreenPreconditioner(ABC):
         solution_space: the physical or computational SolutionSpace.
     """
 
-    solution_space: SolutionSpace
+    solution_space: SolutionSpace = field(metadata={"static": True})
+    sharding: NamedSharding | None = field(default=None, metadata={"static": True})
 
     @property
     def space(self) -> SpectralSpace:
@@ -117,19 +119,6 @@ class GreenPreconditioner(ABC):
         """
         return SpectralView(inner=self)
 
-    def adapt(
-        self, solution_space: SolutionSpace
-    ) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
-        """Adapt this extended Green preconditioner to a physical SolutionSpace with boundary conditions.
-
-        Args:
-            solution_space: Physical SolutionSpace with boundary conditions.
-
-        Returns:
-            GreenPreconditioner | AdaptedGreenPreconditioner: Physical-domain preconditioner.
-        """
-        return adapt_green_preconditioner(self, solution_space)
-
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
@@ -177,13 +166,126 @@ class GenericGreenPreconditioner(GreenPreconditioner):
     """
 
     G_hat: Array
-    solution_space: SolutionSpace = field(metadata={"static": True})
-    sharding: NamedSharding | None = field(default=None, metadata={"static": True})
 
     @jax.jit
     def apply_hat(self, r_hat: Array) -> Array:
         """One contraction per mode: the symbol is stored inverted already."""
         return linalg.contract("...ij,...j->...i", self.G_hat, r_hat)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class IsotropicGreenPreconditioner(GreenPreconditioner):
+    """``z = M^-1 r`` with ``M = D^T C0 D`` for an *isotropic* reference material.
+
+    Matrix free: where :class:`GenericGreenPreconditioner` stores a full
+    ``(d, d)`` complex block per mode, this stores the two real vectors ``g`` and
+    ``h``
+
+    Args:
+        g: ``Re(D_1)``, shape ``(*spatial, d)``.
+        h: ``Im(D_1)``, shape ``(*spatial, d)``.
+        alpha: ``mu0 (|g|^2 + |h|^2)``, already floored at the null modes so
+            ``1/alpha`` stays finite there.
+        ok: ``False`` at the null modes, where the result is zeroed.
+        lam0: first Lame parameter of the reference material, times the voxel
+            volume.
+        mu0: shear modulus of the reference material, times the voxel volume.
+        solution_space: the SolutionSpace supplying grid shape and channels.
+        rtol: relative threshold below which a mode is treated as null.
+    """
+
+    g: Array
+    h: Array
+    alpha: Array
+    ok: Array
+    lam0: Array
+    mu0: Array
+    rtol: float = field(default=1e-12, metadata={"static": True})
+
+    @jax.jit
+    def apply_hat(self, r_hat: Array) -> Array:
+        """``z_hat = (I - G S^-1 G^T) r_hat / alpha`` -- the Woodbury apply."""
+        g, h = self.g, self.h
+        gg = linalg.contract("...i,...i->...", g, g)
+        hh = linalg.contract("...i,...i->...", h, h)
+        gh = linalg.contract("...i,...i->...", g, h)
+
+        # ( alpha/beta I2 + G^T G )^-1 with G = [g, h]
+        a = self.alpha / (self.lam0 + self.mu0)
+        s11, s22, s12 = a + gg, a + hh, gh
+        det = s11 * s22 - s12 * s12
+
+        p = linalg.contract("...i,...i->...", g, r_hat)  # G^T r_hat
+        q = linalg.contract("...i,...i->...", h, r_hat)
+        c1 = (s22 * p - s12 * q) / det
+        c2 = (s11 * q - s12 * p) / det
+
+        z_hat = (r_hat - c1[..., None] * g - c2[..., None] * h) / self.alpha[..., None]
+        return jnp.where(self.ok[..., None], z_hat, 0.0)
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class AdaptedGreenPreconditioner:
+    """Adapted physical preconditioner for a SolutionSpace with non-periodic boundary conditions.
+
+    Wraps an extended periodic GreenPreconditioner with boundary masks,
+    weights, extension E, and transpose restriction Eᵀ.
+    """
+
+    G: GreenPreconditioner
+    scale: float = field(metadata={"static": True})
+    is_single_scalar: bool = field(metadata={"static": True})
+
+    @jax.jit
+    def __call__(self, r: Array) -> Array:
+        is_flat = r.ndim == 1
+        if is_flat:
+            r_arr = r.reshape(self.G.solution_space.shape)
+        elif self.is_single_scalar and r.shape == self.G.solution_space.node_shape:
+            r_arr = r[..., None]
+        else:
+            r_arr = r
+
+        # 1. Mask residual
+        r_masked = self.G.solution_space.apply_mask(r_arr)
+
+        # 2. Scale by W⁻¹
+        r_scaled = self.G.solution_space.apply_inv_weights(r_masked)
+
+        # 3. Extend to extended grid (E)
+        r_ext_state = self.G.solution_space.primal_to_extended(r_scaled)
+
+        # 4. Apply Green preconditioner
+        if len(self.G.solution_space.fields) == 1:
+            (r_ext,) = r_ext_state
+            z_ext = self.G(r_ext)
+            z_phys = self.G.solution_space.dual_to_physical(z_ext)
+        else:
+            r_ext_stacked = jnp.concatenate(
+                [
+                    getattr(r_ext_state, name).reshape(
+                        self.G.solution_space.space.extended_shape + (-1,)
+                    )
+                    for name in self.G.solution_space.fields
+                ],
+                axis=-1,
+            )
+            z_ext_stacked = self.G(r_ext_stacked)
+            z_phys = self.G.solution_space.dual_to_physical(z_ext_stacked)
+
+        # 5. Scale by 2^{n_d} W⁻¹
+        z_scaled = self.scale * self.G.solution_space.apply_inv_weights(z_phys)
+
+        # 6. Mask
+        z_out = self.G.solution_space.apply_mask(z_scaled)
+
+        if is_flat:
+            return z_out.reshape(-1)
+        if self.is_single_scalar and r.shape == self.G.solution_space.node_shape:
+            return z_out[..., 0]
+        return z_out
 
 
 def make_generic_preconditioner(
@@ -247,60 +349,7 @@ def make_generic_preconditioner(
     precond = GenericGreenPreconditioner(
         G_hat=G_hat, solution_space=solution_space, sharding=sharding
     )
-    return precond.adapt(solution_space)
-
-
-@jax.tree_util.register_dataclass
-@dataclass(frozen=True)
-class IsotropicGreenPreconditioner(GreenPreconditioner):
-    """``z = M^-1 r`` with ``M = D^T C0 D`` for an *isotropic* reference material.
-
-    Matrix free: where :class:`GenericGreenPreconditioner` stores a full
-    ``(d, d)`` complex block per mode, this stores the two real vectors ``g`` and
-    ``h``
-
-    Args:
-        g: ``Re(D_1)``, shape ``(*spatial, d)``.
-        h: ``Im(D_1)``, shape ``(*spatial, d)``.
-        alpha: ``mu0 (|g|^2 + |h|^2)``, already floored at the null modes so
-            ``1/alpha`` stays finite there.
-        ok: ``False`` at the null modes, where the result is zeroed.
-        lam0: first Lame parameter of the reference material, times the voxel
-            volume.
-        mu0: shear modulus of the reference material, times the voxel volume.
-        solution_space: the SolutionSpace supplying grid shape and channels.
-        rtol: relative threshold below which a mode is treated as null.
-    """
-
-    g: Array
-    h: Array
-    alpha: Array
-    ok: Array
-    lam0: Array
-    mu0: Array
-    solution_space: SolutionSpace = field(metadata={"static": True})
-    rtol: float = field(default=1e-12, metadata={"static": True})
-
-    @jax.jit
-    def apply_hat(self, r_hat: Array) -> Array:
-        """``z_hat = (I - G S^-1 G^T) r_hat / alpha`` -- the Woodbury apply."""
-        g, h = self.g, self.h
-        gg = linalg.contract("...i,...i->...", g, g)
-        hh = linalg.contract("...i,...i->...", h, h)
-        gh = linalg.contract("...i,...i->...", g, h)
-
-        # ( alpha/beta I2 + G^T G )^-1 with G = [g, h]
-        a = self.alpha / (self.lam0 + self.mu0)
-        s11, s22, s12 = a + gg, a + hh, gh
-        det = s11 * s22 - s12 * s12
-
-        p = linalg.contract("...i,...i->...", g, r_hat)  # G^T r_hat
-        q = linalg.contract("...i,...i->...", h, r_hat)
-        c1 = (s22 * p - s12 * q) / det
-        c2 = (s11 * q - s12 * p) / det
-
-        z_hat = (r_hat - c1[..., None] * g - c2[..., None] * h) / self.alpha[..., None]
-        return jnp.where(self.ok[..., None], z_hat, 0.0)
+    return adapt_green_preconditioner(precond)
 
 
 def make_isotropic_preconditioner(
@@ -352,76 +401,11 @@ def make_isotropic_preconditioner(
         solution_space=solution_space,
         rtol=rtol,
     )
-    return precond.adapt(solution_space)
-
-
-@jax.tree_util.register_dataclass
-@dataclass(frozen=True)
-class AdaptedGreenPreconditioner:
-    """Adapted physical preconditioner for a SolutionSpace with non-periodic boundary conditions.
-
-    Wraps an extended periodic GreenPreconditioner with boundary masks,
-    weights, extension E, and transpose restriction Eᵀ.
-    """
-
-    G: GreenPreconditioner
-    solution_space: SolutionSpace = field(metadata={"static": True})
-    scale: float = field(metadata={"static": True})
-    is_single_scalar: bool = field(metadata={"static": True})
-
-    @jax.jit
-    def __call__(self, r: Array) -> Array:
-        is_flat = r.ndim == 1
-        if is_flat:
-            r_arr = r.reshape(self.solution_space.shape)
-        elif self.is_single_scalar and r.shape == self.solution_space.node_shape:
-            r_arr = r[..., None]
-        else:
-            r_arr = r
-
-        # 1. Mask residual
-        r_masked = self.solution_space.apply_mask(r_arr)
-
-        # 2. Scale by W⁻¹
-        r_scaled = self.solution_space.apply_inv_weights(r_masked)
-
-        # 3. Extend to extended grid (E)
-        r_ext_state = self.solution_space.primal_to_extended(r_scaled)
-
-        # 4. Apply Green preconditioner
-        if len(self.solution_space.fields) == 1:
-            (r_ext,) = r_ext_state
-            z_ext = self.G(r_ext)
-            z_phys = self.solution_space.dual_to_physical(z_ext)
-        else:
-            r_ext_stacked = jnp.concatenate(
-                [
-                    getattr(r_ext_state, name).reshape(
-                        self.solution_space.space.extended_shape + (-1,)
-                    )
-                    for name in self.solution_space.fields
-                ],
-                axis=-1,
-            )
-            z_ext_stacked = self.G(r_ext_stacked)
-            z_phys = self.solution_space.dual_to_physical(z_ext_stacked)
-
-        # 5. Scale by 2^{n_d} W⁻¹
-        z_scaled = self.scale * self.solution_space.apply_inv_weights(z_phys)
-
-        # 6. Mask
-        z_out = self.solution_space.apply_mask(z_scaled)
-
-        if is_flat:
-            return z_out.reshape(-1)
-        if self.is_single_scalar and r.shape == self.solution_space.node_shape:
-            return z_out[..., 0]
-        return z_out
+    return adapt_green_preconditioner(precond)
 
 
 def adapt_green_preconditioner(
     G: GreenPreconditioner,
-    solution_space: SolutionSpace,
 ) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
     """Adapt extended-grid GreenPreconditioner to a physical SolutionSpace with boundary conditions.
 
@@ -437,9 +421,6 @@ def adapt_green_preconditioner(
         GreenPreconditioner | AdaptedGreenPreconditioner:
             Physical-domain preconditioner mapping residual to search direction.
     """
-    if not solution_space.space.non_periodic_axes:
-        return G  # No adaptation needed for fully periodic spaces
-
     if not isinstance(G, GreenPreconditioner):
         raise TypeError(
             f"Expected a GreenPreconditioner instance, got {type(G).__name__}. "
@@ -447,9 +428,14 @@ def adapt_green_preconditioner(
             "to a SolutionSpace."
         )
 
-    if G.solution_space.space.extended_shape != solution_space.space.extended_shape:
+    solution_space = G.solution_space
+
+    if not solution_space.space.non_periodic_axes:
+        return G  # No adaptation needed for fully periodic spaces
+
+    if solution_space.space.extended_shape != solution_space.space.extended_shape:
         raise ValueError(
-            f"Preconditioner grid shape {G.solution_space.space.extended_shape} does not match "
+            f"Preconditioner grid shape {solution_space.space.extended_shape} does not match "
             f"SolutionSpace extended grid shape {solution_space.space.extended_shape}."
         )
 
@@ -461,7 +447,6 @@ def adapt_green_preconditioner(
 
     return AdaptedGreenPreconditioner(
         G=G,
-        solution_space=solution_space,
         scale=scale,
         is_single_scalar=is_single_scalar,
     )

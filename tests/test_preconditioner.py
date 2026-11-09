@@ -13,14 +13,6 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 import pytest
-
-from xpektra import (
-    Field,
-    SolutionSpace,
-    SpectralSpace,
-    adapt_green_preconditioner,
-    linalg,
-)
 from xpektra.preconditioner import (
     make_generic_preconditioner,
     make_isotropic_preconditioner,
@@ -34,6 +26,14 @@ from xpektra.scheme import (
 )
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
+
+from xpektra import (
+    Field,
+    SolutionSpace,
+    SpectralSpace,
+    adapt_green_preconditioner,
+    linalg,
+)
 
 N = 9
 
@@ -269,9 +269,7 @@ def test_null_modes_are_gated_on_magnitude_not_determinant(cls, dim):
     )
     op = SpectralOperator(scheme=cls(space=space), space=space)
     V = _solution_space(space, dim)
-    M_gen = make_generic_preconditioner(
-        _isotropic_reference(op, space, dim), V
-    )
+    M_gen = make_generic_preconditioner(_isotropic_reference(op, space, dim), V)
 
     zeroed = int(jnp.sum(jnp.all(jnp.abs(M_gen.G_hat) == 0.0, axis=(-2, -1))))
     assert zeroed == 1, f"expected only the xi=0 mode to be gated, got {zeroed}"
@@ -387,28 +385,9 @@ def test_isotropic_symbol_is_the_exact_acoustic_tensor(cls, dim):
 
 
 def test_adapt_preconditioner_validation():
-    space = SpectralSpace(
-        lengths=(1.0, 1.0),
-        shape=(8, 8),
-        non_periodic_axes=("y",),
-        transform=FFTTransform(dim=2),
-    )
-    V = SolutionSpace(space, u=Field(shape=(2,), y={0: "neumann", 1: "dirichlet"}))
-
     # Incompatible object: not a GreenPreconditioner
     with pytest.raises(TypeError, match="Expected a GreenPreconditioner"):
-        adapt_green_preconditioner(lambda x: x, V)  # type: ignore[arg-type]
-
-    # Incompatible grid: wrong extended_shape
-    wrong_space = SpectralSpace(
-        lengths=(1.0, 1.0), shape=(16, 16), transform=FFTTransform(dim=2)
-    )
-    V_wrong = SolutionSpace(wrong_space, u=Field(shape=(2,)))
-    G_wrong = make_isotropic_preconditioner(
-        QuadFullScheme(space=wrong_space), 1.0, 1.0, V_wrong
-    )
-    with pytest.raises(ValueError, match="does not match"):
-        adapt_green_preconditioner(G_wrong, V)
+        adapt_green_preconditioner(lambda x: x)  # type: ignore[arg-type]
 
 
 def test_adapt_preconditioner_periodic_matches_green():
@@ -419,7 +398,7 @@ def test_adapt_preconditioner_periodic_matches_green():
     V = SolutionSpace(space, u=Field(shape=(2,)))
 
     G = make_isotropic_preconditioner(scheme, 1.0, 2.0, V)
-    M = G.adapt(V)
+    M = adapt_green_preconditioner(G)
 
     key = jax.random.PRNGKey(123)
     r = jax.random.normal(key, V.shape)
@@ -523,5 +502,6 @@ def test_adapt_preconditioner_quadfull_roller_converges_in_one_step():
     r1 = r0 - alpha0 * K_flat(p0)
 
     rel_res = float(jnp.linalg.norm(r1) / jnp.linalg.norm(r0))
-    assert rel_res < 1e-12, f"Expected 1-step convergence, got relative residual {rel_res}"
-
+    assert rel_res < 1e-12, (
+        f"Expected 1-step convergence, got relative residual {rel_res}"
+    )
