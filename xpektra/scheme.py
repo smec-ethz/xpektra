@@ -24,6 +24,7 @@ import jax.numpy as jnp
 import numpy as np
 import sympy as sp
 from jax import Array
+from jax.sharding import PartitionSpec as P
 
 from xpektra.linalg import contract
 from xpektra.space import SpectralSpace
@@ -615,23 +616,77 @@ class FiniteDifferenceScheme(Scheme):
     ) -> Array:
         """Applies periodic wrap padding and ``lax.conv_general_dilated``.
 
-        ``lhs`` has shape ``(batch, *spatial, c_in)``.
+        ``lhs`` has shape ``(batch, *spatial, c_in)``.  When any spatial axis is
+        sharded under explicit JAX sharding, halo exchange is performed via
+        ``shard_map`` + ``lax.ppermute`` so no slicing on sharded axes escapes.
         """
-        full_pad = ((0, 0),) + pad_width + ((0, 0),)
-        lhs_pad = jnp.pad(lhs, full_pad, mode="wrap")
         rhs = jnp.asarray(kernel, dtype=lhs.dtype)
         dnums = jax.lax.ConvDimensionNumbers(
             lhs_spec=(0, self.dim + 1, *range(1, self.dim + 1)),
             rhs_spec=(self.dim + 1, self.dim, *range(self.dim)),
             out_spec=(0, self.dim + 1, *range(1, self.dim + 1)),
         )
-        return jax.lax.conv_general_dilated(
-            lhs_pad,
-            rhs,
-            window_strides=(1,) * self.dim,
-            padding="VALID",
-            dimension_numbers=dnums,
-        )
+        sharding = getattr(jax.typeof(lhs), "sharding", None)
+        spec = getattr(sharding, "spec", None)
+        mesh = getattr(sharding, "mesh", None)
+        if (
+            spec is None
+            or mesh is None
+            or all(spec[1 + d] is None for d in range(self.dim))
+        ):
+            full_pad = ((0, 0),) + pad_width + ((0, 0),)
+            lhs_pad = jnp.pad(lhs, full_pad, mode="wrap")
+            return jax.lax.conv_general_dilated(
+                lhs_pad,
+                rhs,
+                window_strides=(1,) * self.dim,
+                padding="VALID",
+                dimension_numbers=dnums,
+            )
+
+        def _local_conv(arr: Array, w: Array) -> Array:
+            for d, (pb, pa) in enumerate(pad_width):
+                if pb == 0 and pa == 0:
+                    continue
+                ax = 1 + d
+                maxis = spec[ax]
+                if maxis is None:
+                    pw = [(0, 0)] * arr.ndim
+                    pw[ax] = (pb, pa)
+                    arr = jnp.pad(arr, pw, mode="wrap")
+                else:
+                    n_dev = mesh.shape[maxis]
+                    parts = []
+                    if pb > 0:
+                        ls = jax.lax.slice_in_dim(
+                            arr, arr.shape[ax] - pb, arr.shape[ax], axis=ax
+                        )
+                        lh = jax.lax.ppermute(
+                            ls, maxis, [(i, (i + 1) % n_dev) for i in range(n_dev)]
+                        )
+                        parts.append(lh)
+                    parts.append(arr)
+                    if pa > 0:
+                        rs = jax.lax.slice_in_dim(arr, 0, pa, axis=ax)
+                        rh = jax.lax.ppermute(
+                            rs, maxis, [(i, (i - 1) % n_dev) for i in range(n_dev)]
+                        )
+                        parts.append(rh)
+                    arr = jnp.concatenate(parts, axis=ax)
+            return jax.lax.conv_general_dilated(
+                arr,
+                w,
+                window_strides=(1,) * self.dim,
+                padding="VALID",
+                dimension_numbers=dnums,
+            )
+
+        return jax.shard_map(
+            _local_conv,
+            mesh=mesh,
+            in_specs=(spec, P()),
+            out_specs=spec,
+        )(lhs, rhs)
 
     @jax.jit
     def apply_gradient_real(self, u: Array) -> Array:
