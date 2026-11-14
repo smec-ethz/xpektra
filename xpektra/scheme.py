@@ -16,10 +16,12 @@
 # along with xpektra.  If not, see <https://www.gnu.org/licenses/>.
 
 import itertools
+import math
 from abc import ABC, abstractmethod
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import sympy as sp
 from jax import Array
 
@@ -333,6 +335,36 @@ class Scheme(ABC):
             * u_hat
         )
 
+    @jax.jit
+    def apply_gradient_real(self, u: Array) -> Array:
+        """Applies the gradient operator to a real-space node field."""
+        u_hat = self.space.transform.forward(u)
+        return self.space.transform.inverse(self.apply_gradient(u_hat)).real
+
+    @jax.jit
+    def apply_symmetric_gradient_real(self, u: Array) -> Array:
+        """Applies the symmetric gradient operator to a real-space node field."""
+        u_hat = self.space.transform.forward(u)
+        return self.space.transform.inverse(self.apply_symmetric_gradient(u_hat)).real
+
+    @jax.jit
+    def apply_divergence_real(self, v: Array) -> Array:
+        """Applies the divergence operator to a real-space centre field."""
+        v_hat = self.space.transform.forward(v)
+        return self.space.transform.inverse(self.apply_divergence(v_hat)).real
+
+    @jax.jit
+    def apply_interpolation_real(self, u: Array) -> Array:
+        """Evaluates a real-space node field at the quadrature points."""
+        u_hat = self.space.transform.forward(u)
+        return self.space.transform.inverse(self.apply_interpolation(u_hat)).real
+
+    @jax.jit
+    def apply_laplacian_real(self, u: Array) -> Array:
+        """Applies the Laplacian operator to a real-space node field."""
+        u_hat = self.space.transform.forward(u)
+        return self.space.transform.inverse(self.apply_laplacian(u_hat)).real
+
 
 def _unit_offset(axis: int, dim: int, offset: int) -> tuple[int, ...]:
     """Helper function to create a unit offset tuple for a given axis."""
@@ -509,6 +541,205 @@ class FiniteDifferenceScheme(Scheme):
             for s in supports
         ]
         return jnp.stack(ops, axis=-1)
+
+    def _numeric_stencil(
+        self, stencil: list
+    ) -> tuple[tuple[tuple[int, ...], float], ...]:
+        """Evaluates symbolic stencil weights to floats and merges duplicate offsets."""
+        spacings = [
+            self.space.extended_lengths[i] / self.space.extended_shape[i]
+            for i in range(self.dim)
+        ]
+        h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
+        subs = dict(zip(h_syms, spacings))
+        combined: dict[tuple[int, ...], float] = {}
+        for offset, weight in stencil:
+            if len(offset) != self.dim:
+                raise ValueError(
+                    f"Stencil offset {offset} does not match the specified dimension {self.dim}."
+                )
+            w = float(sp.N(sp.sympify(weight).subs(subs)))
+            if w != 0.0:
+                key = tuple(int(o) for o in offset)
+                combined[key] = combined.get(key, 0.0) + w
+        return tuple((k, v) for k, v in combined.items() if v != 0.0)
+
+    def _build_conv_kernel(
+        self,
+        stencils: tuple[list, ...],
+        *,
+        adjoint: bool = False,
+    ) -> tuple[np.ndarray, tuple[tuple[int, int], ...]]:
+        """Builds a dense spatial convolution kernel and periodic wrap padding.
+
+        For forward stencils ``sum_a w_a u(x + a h)``, the kernel has shape
+        ``(*k_shape, 1, len(stencils))``.  For adjoint (divergence) stencils
+        ``sum_a (-w_a) v(x - a h)``, it has shape ``(*k_shape, len(stencils), 1)``.
+        """
+        numeric = [self._numeric_stencil(s) for s in stencils]
+        all_offsets = [off for st in numeric for off, _ in st]
+        if not all_offsets:
+            all_offsets = [(0,) * self.dim]
+
+        if adjoint:
+            o_min = [min(0, min(-off[d] for off in all_offsets)) for d in range(self.dim)]
+            o_max = [max(0, max(-off[d] for off in all_offsets)) for d in range(self.dim)]
+        else:
+            o_min = [min(0, min(off[d] for off in all_offsets)) for d in range(self.dim)]
+            o_max = [max(0, max(off[d] for off in all_offsets)) for d in range(self.dim)]
+
+        k_shape = tuple(o_max[d] - o_min[d] + 1 for d in range(self.dim))
+        pad_width = tuple((-o_min[d], o_max[d]) for d in range(self.dim))
+        n_stencils = len(numeric)
+
+        if adjoint:
+            kernel = np.zeros(k_shape + (n_stencils, 1), dtype=np.float64)
+            for c, st in enumerate(numeric):
+                for off, w in st:
+                    idx = tuple(-off[d] - o_min[d] for d in range(self.dim))
+                    kernel[idx + (c, 0)] += -w
+        else:
+            kernel = np.zeros(k_shape + (1, n_stencils), dtype=np.float64)
+            for c, st in enumerate(numeric):
+                for off, w in st:
+                    idx = tuple(off[d] - o_min[d] for d in range(self.dim))
+                    kernel[idx + (0, c)] += w
+
+        return kernel, pad_width
+
+    def _conv_periodic(
+        self,
+        lhs: Array,
+        kernel: np.ndarray,
+        pad_width: tuple[tuple[int, int], ...],
+    ) -> Array:
+        """Applies periodic wrap padding and ``lax.conv_general_dilated``.
+
+        ``lhs`` has shape ``(batch, *spatial, c_in)``.
+        """
+        full_pad = ((0, 0),) + pad_width + ((0, 0),)
+        lhs_pad = jnp.pad(lhs, full_pad, mode="wrap")
+        rhs = jnp.asarray(kernel, dtype=lhs.dtype)
+        dnums = jax.lax.ConvDimensionNumbers(
+            lhs_spec=(0, self.dim + 1, *range(1, self.dim + 1)),
+            rhs_spec=(self.dim + 1, self.dim, *range(self.dim)),
+            out_spec=(0, self.dim + 1, *range(1, self.dim + 1)),
+        )
+        return jax.lax.conv_general_dilated(
+            lhs_pad,
+            rhs,
+            window_strides=(1,) * self.dim,
+            padding="VALID",
+            dimension_numbers=dnums,
+        )
+
+    @jax.jit
+    def apply_gradient_real(self, u: Array) -> Array:
+        rank = u.ndim - self.dim
+        if rank < 0:
+            raise ValueError(
+                f"field has {u.ndim} axes, fewer than the {self.dim} spatial "
+                f"dimensions; got shape {u.shape}"
+            )
+        if rank > len(_TENSOR_SUBSCRIPTS):
+            raise ValueError(
+                f"gradient of a rank-{rank} field is not supported "
+                f"(maximum {len(_TENSOR_SUBSCRIPTS)})"
+            )
+        spatial_shape = u.shape[: self.dim]
+        tensor_shape = u.shape[self.dim :]
+        flat_stencils = tuple(
+            st for support in self.support_stencils for st in support
+        )
+        kernel, pad_width = self._build_conv_kernel(flat_stencils, adjoint=False)
+        if rank == 0:
+            lhs = u[None, ..., None]
+            out = self._conv_periodic(lhs, kernel, pad_width)[0]
+            return out.reshape(spatial_shape + (self.n_quads, self.dim))
+
+        c_total = math.prod(tensor_shape)
+        u_flat = u.reshape(spatial_shape + (c_total,))
+        lhs = jnp.moveaxis(u_flat, -1, 0)[..., None]
+        out = self._conv_periodic(lhs, kernel, pad_width)
+        # out: (c_total, *spatial, n_quads * dim) -> (*spatial, n_quads, *tensor, dim)
+        out = jnp.moveaxis(out, 0, -1).reshape(
+            spatial_shape + (self.n_quads, self.dim) + tensor_shape
+        )
+        return jnp.moveaxis(out, self.dim + 1, -1)
+
+    @jax.jit
+    def apply_symmetric_gradient_real(self, u: Array) -> Array:
+        g = self.apply_gradient_real(u)
+        return 0.5 * (g + jnp.swapaxes(g, -1, -2))
+
+    @jax.jit
+    def apply_divergence_real(self, v: Array) -> Array:
+        if v.ndim < 3 or v.shape[-3] != self.n_quads:
+            raise ValueError(
+                f"expected {self.n_quads} quadrature points on axis -3, "
+                f"got shape {v.shape}"
+            )
+        spatial_shape = v.shape[: self.dim]
+        flat_stencils = tuple(
+            st for support in self.support_stencils for st in support
+        )
+        kernel, pad_width = self._build_conv_kernel(flat_stencils, adjoint=True)
+        # v: (*spatial, n_quads, dim_i, dim_d) -> (dim_i, *spatial, n_quads * dim_d)
+        lhs = jnp.moveaxis(v, -2, 0).reshape(
+            (v.shape[-2],) + spatial_shape + (self.n_quads * self.dim,)
+        )
+        out = self._conv_periodic(lhs, kernel, pad_width)[..., 0]
+        return jnp.moveaxis(out, 0, -1) / self.n_quads
+
+    @jax.jit
+    def apply_interpolation_real(self, u: Array) -> Array:
+        supports = self.support_value_stencils
+        if len(supports) != self._n_supports():
+            raise NotImplementedError(
+                f"{type(self).__name__} has {self.n_quads} derivative supports but "
+                "declares no matching `support_value_stencils`."
+            )
+        rank = u.ndim - self.dim
+        if rank < 0:
+            raise ValueError(
+                f"field has {u.ndim} axes, fewer than the {self.dim} spatial "
+                f"dimensions; got shape {u.shape}"
+            )
+        spatial_shape = u.shape[: self.dim]
+        tensor_shape = u.shape[self.dim :]
+        kernel, pad_width = self._build_conv_kernel(tuple(supports), adjoint=False)
+        if rank == 0:
+            lhs = u[None, ..., None]
+            return self._conv_periodic(lhs, kernel, pad_width)[0]
+
+        c_total = math.prod(tensor_shape)
+        u_flat = u.reshape(spatial_shape + (c_total,))
+        lhs = jnp.moveaxis(u_flat, -1, 0)[..., None]
+        out = self._conv_periodic(lhs, kernel, pad_width)
+        return jnp.moveaxis(out, 0, -1).reshape(
+            spatial_shape + (self.n_quads,) + tensor_shape
+        )
+
+    @jax.jit
+    def apply_laplacian_real(self, u: Array) -> Array:
+        spatial_shape = u.shape[: self.dim]
+        tensor_shape = u.shape[self.dim :]
+        flat_stencils = tuple(
+            st for support in self.support_stencils for st in support
+        )
+        k_grad, pad_grad = self._build_conv_kernel(flat_stencils, adjoint=False)
+        k_div, pad_div = self._build_conv_kernel(flat_stencils, adjoint=True)
+        if u.ndim == self.dim:
+            lhs = u[None, ..., None]
+            g = self._conv_periodic(lhs, k_grad, pad_grad)
+            return self._conv_periodic(g, k_div, pad_div)[0, ..., 0] / self.n_quads
+
+        c_total = math.prod(tensor_shape)
+        u_flat = u.reshape(spatial_shape + (c_total,))
+        lhs = jnp.moveaxis(u_flat, -1, 0)[..., None]
+        g = self._conv_periodic(lhs, k_grad, pad_grad)
+        out = self._conv_periodic(g, k_div, pad_div)[..., 0]
+        return jnp.moveaxis(out, 0, -1).reshape(u.shape) / self.n_quads
 
 
 class ForwardScheme(FiniteDifferenceScheme):

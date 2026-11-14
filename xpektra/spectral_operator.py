@@ -83,10 +83,7 @@ class SpectralOperator:
         continuum-mechanics ``grad u``, so a deformation gradient is
         ``I + grad(u)``.
         """
-        u_hat = self.space.transform.forward(u)
-        grad_u_hat = self.scheme.apply_gradient(u_hat)
-        grad_u = self.space.transform.inverse(grad_u_hat)
-        return grad_u.real
+        return self.scheme.apply_gradient_real(u)
 
     @jax.jit
     def div(self, v: Array) -> Array:
@@ -97,10 +94,7 @@ class SpectralOperator:
         ***Returns***
         - The divergence of v, a real-valued array of shape (N,)*dim + (dim,).
         """
-        v_hat = self.space.transform.forward(v)
-        div_v_hat = self.scheme.apply_divergence(v_hat)
-        div_v = self.space.transform.inverse(div_v_hat)
-        return div_v.real
+        return self.scheme.apply_divergence_real(v)
 
     @jax.jit
     def sym_grad(self, u: Array) -> Array:
@@ -114,11 +108,7 @@ class SpectralOperator:
           (N,)*dim + (n_quads,) + (dim, dim).  The quadrature axis is always
           present, length 1 for a single-support scheme.
         """
-        u_hat = self.space.transform.forward(u)
-        sym_grad_u_hat = self.scheme.apply_symmetric_gradient(u_hat)
-        # the quadrature axis is trailing, so the
-        # transform's ``axes=range(dim)`` batches over it in a single call.
-        return self.space.transform.inverse(sym_grad_u_hat).real
+        return self.scheme.apply_symmetric_gradient_real(u)
 
     @jax.jit
     def eval(self, u: Array) -> Array:
@@ -133,9 +123,7 @@ class SpectralOperator:
           ``sym_grad`` evaluate at, so the result can go straight into an
           ``auto_vmap``-ed law or ``integrate``.
         """
-        u_hat = self.space.transform.forward(u)
-        u_q_hat = self.scheme.apply_interpolation(u_hat)
-        return self.space.transform.inverse(u_q_hat).real
+        return self.scheme.apply_interpolation_real(u)
 
     @jax.jit
     def laplacian(self, u: Array) -> Array:
@@ -146,10 +134,7 @@ class SpectralOperator:
         ***Returns***
         - The Laplacian of u, a real-valued array of shape (N,)*dim.
         """
-        u_hat = self.space.transform.forward(u)
-        lap_u_hat = self.scheme.apply_laplacian(u_hat)
-        lap_u = self.space.transform.inverse(lap_u_hat)
-        return lap_u.real
+        return self.scheme.apply_laplacian_real(u)
 
     @jax.jit
     def forward(self, u: Array) -> Array:
