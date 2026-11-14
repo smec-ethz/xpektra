@@ -23,6 +23,7 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 from jax.sharding import NamedSharding
+from jax.typing import DTypeLike
 
 from xpektra import linalg
 from xpektra.solution_space import SolutionSpace
@@ -58,6 +59,7 @@ class GreenPreconditioner(ABC):
 
     solution_space: SolutionSpace = field(metadata={"static": True})
     sharding: NamedSharding | None = field(default=None, metadata={"static": True})
+    dtype: DTypeLike | None = field(default=None, metadata={"static": True})
 
     @property
     def space(self) -> SpectralSpace:
@@ -99,8 +101,12 @@ class GreenPreconditioner(ABC):
         r = r_in.reshape(canonical_shape)
         if getattr(self, "sharding", None) is not None:
             r = jax.reshard(r, self.sharding)
+        if self.dtype is not None:
+            r = r.astype(self.dtype)
         r_hat = self.solution_space.space.transform.forward(r)
         out = self.solution_space.space.transform.inverse(self.apply_hat(r_hat)).real
+        if self.dtype is not None:
+            out = out.astype(r_in.dtype)
         if is_flat:
             return out.reshape(-1)
         if (
@@ -293,6 +299,7 @@ def make_generic_preconditioner(
     solution_space: SolutionSpace,
     rtol: float = 1e-12,
     sharding: NamedSharding | None = None,
+    dtype: DTypeLike | None = None,
 ) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
     """Builds ``inv(K_hat)`` from ``d`` impulse responses of the reference tangent.
 
@@ -346,8 +353,16 @@ def make_generic_preconditioner(
     K_safe = jnp.where(ok[..., None, None], K_hat, eye)
     G_hat = jnp.where(ok[..., None, None], linalg.inv(K_safe), 0.0)
 
+    if dtype is not None:
+        real_dtype = jnp.dtype(dtype)
+        complex_dtype = jnp.result_type(real_dtype, 1j)
+        G_hat = G_hat.astype(complex_dtype)
+
     precond = GenericGreenPreconditioner(
-        G_hat=G_hat, solution_space=solution_space, sharding=sharding
+        G_hat=G_hat,
+        solution_space=solution_space,
+        sharding=sharding,
+        dtype=dtype,
     )
     return adapt_green_preconditioner(precond)
 
@@ -358,6 +373,7 @@ def make_isotropic_preconditioner(
     mu0: Array | float,
     solution_space: SolutionSpace,
     rtol: float = 1e-12,
+    dtype: DTypeLike | None = None,
 ) -> "GreenPreconditioner | AdaptedGreenPreconditioner":
     """Builds the isotropic Green preconditioner from a scheme's gradient symbol.
 
@@ -391,15 +407,26 @@ def make_isotropic_preconditioner(
     # cleanly.
     ok = alpha > rtol * jnp.max(alpha)
 
+    alpha = jnp.where(ok, alpha, 1.0)  # keep 1/alpha finite at the null modes
+
+    if dtype is not None:
+        real_dtype = jnp.dtype(dtype)
+        g = g.astype(real_dtype)
+        h = h.astype(real_dtype)
+        alpha = alpha.astype(real_dtype)
+        lam0 = lam0.astype(real_dtype)
+        mu0 = mu0.astype(real_dtype)
+
     precond = IsotropicGreenPreconditioner(
         g=g,
         h=h,
-        alpha=jnp.where(ok, alpha, 1.0),  # keep 1/alpha finite at the null modes
+        alpha=alpha,
         ok=ok,
         lam0=lam0,
         mu0=mu0,
         solution_space=solution_space,
         rtol=rtol,
+        dtype=dtype,
     )
     return adapt_green_preconditioner(precond)
 
