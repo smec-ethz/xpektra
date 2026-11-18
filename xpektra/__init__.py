@@ -1,3 +1,4 @@
+from xpektra.boundary import make_boundary_projection
 from xpektra.preconditioner import (
     AdaptedGreenPreconditioner,
     GenericGreenPreconditioner,
@@ -68,6 +69,7 @@ __all__ = [
     "State",
     "Tetra2Scheme",
     "adapt_green_preconditioner",
+    "make_boundary_projection",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
 ]

@@ -381,10 +381,7 @@ class SolutionSpace:
                         )
 
         # Compute node_shape: N+1 for non-periodic axes, N for periodic axes
-        node_shape = tuple(
-            space.shape[i] + 1 if i in space.non_periodic_axes else space.shape[i]
-            for i in range(ndim)
-        )
+        node_shape = space.node_shape
 
         # Channel layout & slices
         field_slices: dict[str, slice] = {}

@@ -17,8 +17,10 @@
 
 import math
 from dataclasses import dataclass, field, replace
+from typing import Literal
 
 import jax
+import jax.numpy as jnp
 from jax import Array
 
 from xpektra.transform import RFFTTransform, Transform
@@ -139,6 +141,37 @@ class SpectralSpace:
     def dim(self) -> int:
         """Spatial dimension of the domain."""
         return len(self.shape)
+
+    @property
+    def node_shape(self) -> Shape:
+        """Physical nodal grid shape (N + 1 on non-periodic axes, N on periodic axes)."""
+        return tuple(
+            self.shape[i] + 1 if i in self.non_periodic_axes else self.shape[i]
+            for i in range(self.dim)
+        )
+
+    def node_coords(self, axis: Literal["x", "y", "z"]) -> Array:
+        """Return 1D nodal coordinates along ``axis``.
+
+        Includes both endpoints ``[0, L]`` (``N + 1`` nodes) on non-periodic axes,
+        and ``[0, L)`` (``N`` nodes) on periodic axes.
+        """
+        if not isinstance(axis, str):
+            raise TypeError(
+                f"axis must be one of {_AXIS_NAMES[:self.dim]}, got {type(axis).__name__}."
+            )
+        ax_l = axis.strip().lower()
+        if ax_l not in _AXIS_NAMES[: self.dim]:
+            raise ValueError(
+                f"Invalid axis {axis!r} for {self.dim}D space; expected one of {_AXIS_NAMES[:self.dim]}."
+            )
+        ax_idx = _AXIS_NAMES.index(ax_l)
+        return jnp.linspace(
+            0.0,
+            self.lengths[ax_idx],
+            self.node_shape[ax_idx],
+            endpoint=ax_idx in self.non_periodic_axes,
+        )
 
     def extend_cell_field(self, field: Array, rank: int = 0) -> Array:
         """Extend a cell field (material property, eigenstrain, stiffness) using DCT-2
