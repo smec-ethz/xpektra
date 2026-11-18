@@ -34,10 +34,12 @@ __all__ = [
     "GenericGreenPreconditioner",
     "GreenPreconditioner",
     "IsotropicGreenPreconditioner",
+    "LMPPreconditioner",
     "SpectralView",
     "adapt_green_preconditioner",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
+    "make_lmp_preconditioner",
 ]
 
 
@@ -477,3 +479,210 @@ def adapt_green_preconditioner(
         scale=scale,
         is_single_scalar=is_single_scalar,
     )
+
+
+_LMP_SENTINEL = 1e6
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True, kw_only=True)
+class LMPPreconditioner:
+    """Spectral limited-memory preconditioner ``M^-1 r = G(r) + Z diag(d) Z^T r``.
+
+    Stores ``Z_ritz`` in field shape ``(m, *field_shape)`` so spatial sharding
+    is preserved without host gathers.
+    """
+
+    base: Callable[[Array], Array]
+    Z_ritz: Array
+    d: Array
+    dtype: DTypeLike | None = field(default=None, metadata={"static": True})
+
+    @jax.jit
+    def __call__(self, r_arr: Array) -> Array:
+        is_flat = r_arr.ndim == 1 and self.Z_ritz.ndim > 2
+        field_shape = self.Z_ritz.shape[1:]
+        r_shaped = r_arr.reshape(field_shape) if is_flat else r_arr
+        in_dtype = r_shaped.dtype
+        r_p = r_shaped if self.dtype is None else r_shaped.astype(self.dtype)
+        g_out = self.base(r_shaped)
+        if self.dtype is not None:
+            g_out = g_out.astype(self.dtype)
+        coeffs = jnp.einsum("m...,...->m", self.Z_ritz, r_p)
+        corr = jnp.einsum("m,m...->...", self.d * coeffs, self.Z_ritz)
+        out = g_out + corr
+        if self.dtype is not None:
+            out = out.astype(in_dtype)
+        return out.reshape(-1) if is_flat else out
+
+
+def make_lmp_preconditioner(
+    K_fn: Callable[[Array], Array],
+    G_fn: Callable[[Array], Array],
+    b0: Array,
+    *,
+    m: int = 35,
+    m_w: int | None = None,
+    tol: float = 1e-6,
+    maxiter: int = 500,
+    null_rtol: float = 1e-10,
+    dtype: DTypeLike | None = None,
+) -> LMPPreconditioner:
+    """Harvest Ritz modes from one thick-restarted CG solve and build an LMP.
+
+    Uses ``Z_j = G r_j / sqrt(r_j^T G r_j)`` directly in the ``G^-1`` inner
+    product, so ``G^{1/2}`` is never needed and it works with any SPD
+    preconditioner (periodic ``GreenPreconditioner``, non-periodic
+    ``AdaptedGreenPreconditioner``, or composite preconditioners). Memory is
+    bounded to ``m_w`` field-shaped vectors on device, preserving spatial sharding.
+
+    Args:
+        K_fn: Tangent operator ``v -> K v`` on arrays of shape ``b0.shape``.
+        G_fn: Base SPD preconditioner ``r -> G r`` on arrays of shape ``b0.shape``.
+        b0: Initial right-hand side used for the harvest solve.
+        m: Number of lowest Ritz modes to deflate (and keep across restarts).
+        m_w: Restart window size (default ``2 * m``; must satisfy ``m_w > m``).
+        tol: Relative preconditioned residual tolerance for the harvest CG solve.
+        maxiter: Maximum CG iterations for the harvest solve.
+        null_rtol: Modes with ``lam <= null_rtol * lam_max`` are treated as null
+            and excluded from deflation.
+        dtype: Optional storage/apply dtype for ``Z_ritz`` and ``d`` (e.g.
+            ``jnp.float32``).
+
+    Returns:
+        An :class:`LMPPreconditioner` ``r -> G(r) + Z diag(d) Z^T r``.
+    """
+    m_w = 2 * m if m_w is None else m_w
+    if m_w <= m:
+        raise ValueError(f"Window size m_w={m_w} must exceed m={m}.")
+
+    prec_dtype = b0.dtype if dtype is None else jnp.dtype(dtype)
+
+    @jax.jit
+    def _harvest(b: Array):
+        x = jnp.zeros_like(b)
+        r = b
+        z = G_fn(r)
+        p = z
+        rz = jnp.sum(r * z)
+        stop = tol * jnp.sqrt(jnp.abs(rz))
+
+        Z = jnp.zeros((m_w, *b.shape), dtype=b.dtype)
+        H = jnp.diag(jnp.full(m_w, _LMP_SENTINEL, dtype=b.dtype))
+        arrow = jnp.zeros(m_w, dtype=b.dtype)
+
+        def restart(state):
+            Z_s, H_s, arrow_s, lmax_s = state
+            w, Sf = jnp.linalg.eigh(H_s)
+            lmax_s = jnp.maximum(lmax_s, jnp.max(w))
+            Sk = Sf[:, :m]
+            Z_kept = jnp.einsum("km,k...->m...", Sk, Z_s)
+            Z_s = jnp.zeros_like(Z_s).at[:m].set(Z_kept)
+            H_s = jnp.diag(
+                jnp.concatenate([w[:m], jnp.full(m_w - m, _LMP_SENTINEL, dtype=b.dtype)])
+            )
+            arrow_s = jnp.zeros_like(arrow_s).at[:m].set(Sk.T @ arrow_s)
+            return Z_s, H_s, arrow_s, lmax_s
+
+        def cond_fn(s):
+            return jnp.logical_and(
+                jnp.sqrt(jnp.abs(s[4])) > stop, s[-1] < maxiter
+            )
+
+        def body_fn(s):
+            x_s, r_s, z_s, p_s, rz_s, Z_s, H_s, arrow_s, lmax_s, j, pa, pb, it = s
+            zl = z_s / jnp.sqrt(jnp.abs(rz_s))
+
+            Kp = K_fn(p_s)
+            alpha = rz_s / jnp.sum(p_s * Kp)
+            x_s = x_s + alpha * p_s
+            r_s = r_s - alpha * Kp
+            z_new = G_fn(r_s)
+            rz_new = jnp.sum(r_s * z_new)
+            beta = rz_new / rz_s
+            p_s = z_new + beta * p_s
+
+            a = 1.0 / alpha + jnp.where(it > 0, pb / pa, 0.0)
+            bcoef = -jnp.sqrt(jnp.abs(beta)) / alpha
+
+            Z_s, H_s, arrow_s, lmax_s = jax.lax.cond(
+                j == m_w, restart, lambda t: t, (Z_s, H_s, arrow_s, lmax_s)
+            )
+            j = jnp.where(j == m_w, m, j)
+
+            e = (jnp.arange(m_w) == j).astype(b.dtype)
+            Z_s = Z_s.at[j].set(zl)
+            H_s = H_s.at[j, j].set(a)
+            H_s = H_s + jnp.outer(arrow_s, e) + jnp.outer(e, arrow_s)
+            arrow_s = bcoef * e
+            return (
+                x_s,
+                r_s,
+                z_new,
+                p_s,
+                rz_new,
+                Z_s,
+                H_s,
+                arrow_s,
+                lmax_s,
+                j + 1,
+                alpha,
+                beta,
+                it + 1,
+            )
+
+        init = (
+            x,
+            r,
+            z,
+            p,
+            rz,
+            Z,
+            H,
+            arrow,
+            jnp.asarray(-jnp.inf, dtype=b.dtype),
+            jnp.asarray(0),
+            jnp.asarray(1.0, dtype=b.dtype),
+            jnp.asarray(0.0, dtype=b.dtype),
+            jnp.asarray(0),
+        )
+        x_f, _, _, _, _, Z_f, H_f, _, lmax_f, j_f, _, _, it_f = jax.lax.while_loop(
+            cond_fn, body_fn, init
+        )
+        filled = jnp.arange(m_w) < j_f
+        H_filled = jnp.where(filled[:, None] & filled[None, :], H_f, 0.0)
+        sent = jnp.maximum(
+            jnp.asarray(_LMP_SENTINEL, dtype=b.dtype),
+            1e3 * jnp.max(jnp.abs(jnp.diag(H_filled))),
+        )
+        H_final = H_filled + jnp.diag(jnp.where(filled, 0.0, sent))
+        w, Sf = jnp.linalg.eigh(H_final)
+        lmax_f = jnp.maximum(
+            lmax_f, jnp.max(jnp.where(w < 0.5 * sent, w, -jnp.inf))
+        )
+        return x_f, Z_f, w, Sf, lmax_f, sent, it_f
+
+    x, Z_win, w, Sf, lmax, sent, iters = _harvest(b0)
+
+    valid = (w < 0.5 * sent) & (w > null_rtol * lmax)
+    n_valid = int(jnp.sum(valid))
+    if n_valid == 0:
+        raise ValueError("LMP harvest found no non-null Ritz modes.")
+
+    valid_idx = jnp.where(valid)[0]
+    m_use = min(m, max(n_valid - 1, 1))
+    keep_idx = valid_idx[:m_use]
+    vals = w[keep_idx].astype(prec_dtype)
+    evecs = Sf[:, keep_idx].astype(prec_dtype)
+
+    Z_ritz = jnp.einsum("km,k...->m...", evecs, Z_win.astype(prec_dtype))
+    next_val = w[valid_idx[min(m_use, n_valid - 1)]].astype(prec_dtype)
+    theta = 0.5 * (next_val + lmax.astype(prec_dtype))
+    d = theta / vals - jnp.asarray(1.0, dtype=prec_dtype)
+
+    base = (
+        G_fn
+        if not jax.tree_util.treedef_is_leaf(jax.tree_util.tree_structure(G_fn))
+        else jax.tree_util.Partial(G_fn)
+    )
+    return LMPPreconditioner(base=base, Z_ritz=Z_ritz, d=d, dtype=dtype)

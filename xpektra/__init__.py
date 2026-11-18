@@ -1,11 +1,13 @@
-from xpektra.boundary import make_boundary_projection
+from xpektra.boundary import make_boundary_mesh, make_boundary_projection
 from xpektra.preconditioner import (
     AdaptedGreenPreconditioner,
     GenericGreenPreconditioner,
     IsotropicGreenPreconditioner,
+    LMPPreconditioner,
     adapt_green_preconditioner,
     make_generic_preconditioner,
     make_isotropic_preconditioner,
+    make_lmp_preconditioner,
 )
 from xpektra.projection_operator import (
     GalerkinProjection,
@@ -52,6 +54,7 @@ __all__ = [
     "GenericGreenPreconditioner",
     "Hex1RScheme",
     "IsotropicGreenPreconditioner",
+    "LMPPreconditioner",
     "MoulinecSuquetProjection",
     "PencilFFTTransform",
     "ProjectionOperator",
@@ -69,7 +72,9 @@ __all__ = [
     "State",
     "Tetra2Scheme",
     "adapt_green_preconditioner",
+    "make_boundary_mesh",
     "make_boundary_projection",
     "make_generic_preconditioner",
     "make_isotropic_preconditioner",
+    "make_lmp_preconditioner",
 ]
