@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 
 from xpektra import SpectralSpace
-from xpektra.scheme import FourierScheme
+from xpektra.scheme import FourierScheme, QuadFullScheme
 from xpektra.spectral_operator import SpectralOperator
-from xpektra.transform import FFTTransform
+from xpektra.transform import FFTTransform, RFFTTransform
 
 
 def make_operator(dim, N=32, length=1.0):
@@ -186,3 +186,37 @@ def test_grad_vector_1d():
     g = op.grad(u)
     assert g.shape == (N, 1, 1, 1)
     np.testing.assert_allclose(g[:, 0, 0, 0], k * np.cos(k * x), atol=1e-11)
+
+
+@pytest.mark.parametrize(
+    "SchemeClass, lap_tol, biharm_tol",
+    [
+        (FourierScheme, 1e-12, 1e-10),
+        (QuadFullScheme, 5e-3, 1e-2),
+    ],
+)
+def test_laplacian_and_biharmonic_accuracy(SchemeClass, lap_tol, biharm_tol):
+    """Checks accuracy of op.laplacian(u) and composed op.laplacian(op.laplacian(u))."""
+    N = 64
+    L = 1.0
+    space = SpectralSpace(lengths=(L, L), shape=(N, N), transform=RFFTTransform(dim=2))
+    op = SpectralOperator(scheme=SchemeClass(space=space), space=space)
+
+    x = np.asarray(space.node_coords("x"))
+    y = np.asarray(space.node_coords("y"))
+    X, Y = np.meshgrid(x, y, indexing="ij")
+
+    k = 2.0 * np.pi
+    u = jnp.asarray(np.sin(k * X) * np.cos(k * Y))
+    lap_exact = -(2.0 * k**2) * u
+    biharm_exact = (2.0 * k**2) ** 2 * u
+
+    lap_num = op.laplacian(u)
+    biharm_num = op.laplacian(lap_num)
+
+    rel_lap = float(jnp.linalg.norm(lap_num - lap_exact) / jnp.linalg.norm(lap_exact))
+    rel_biharm = float(
+        jnp.linalg.norm(biharm_num - biharm_exact) / jnp.linalg.norm(biharm_exact)
+    )
+    assert rel_lap < lap_tol
+    assert rel_biharm < biharm_tol

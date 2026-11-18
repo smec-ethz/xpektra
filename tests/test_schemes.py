@@ -7,11 +7,16 @@ jax.config.update("jax_enable_x64", True)  # use double-precision
 import jax.numpy as jnp
 import numpy as np
 import pytest
+import sympy as sp
 
 from xpektra import SpectralSpace
 from xpektra.scheme import (
+    BackwardScheme,
     CentralScheme,
+    FiniteDifferenceScheme,
+    ForwardScheme,
     FourierScheme,
+    _unit_offset,
 )
 from xpektra.spectral_operator import SpectralOperator
 from xpektra.transform import FFTTransform
@@ -57,10 +62,30 @@ def compute_relative_error(N, SchemeClass):
     return error
 
 
+class _Central4Scheme(FiniteDifferenceScheme):
+    """Custom 4th-order central finite-difference stencil for testing."""
+
+    @property
+    def stencils(self):
+        h_syms = sp.symbols(f"h_1:{self.dim + 1}", real=True)
+        return [
+            [
+                (_unit_offset(i, self.dim, -2), 1 / (12 * h_syms[i])),
+                (_unit_offset(i, self.dim, -1), -8 / (12 * h_syms[i])),
+                (_unit_offset(i, self.dim, 1), 8 / (12 * h_syms[i])),
+                (_unit_offset(i, self.dim, 2), -1 / (12 * h_syms[i])),
+            ]
+            for i in range(self.dim)
+        ]
+
+
 @pytest.mark.parametrize(
     "SchemeClass, expected_order",
     [
+        (ForwardScheme, 1),
+        (BackwardScheme, 1),
         (CentralScheme, 2),
+        (_Central4Scheme, 4),
     ],
 )
 def test_finite_difference_convergence(SchemeClass, expected_order):
