@@ -105,3 +105,13 @@ def test_lumped_mass_from_the_mass_functional(cls):
     ) / 4
     np.testing.assert_allclose(mass, expected, atol=1e-13)
     np.testing.assert_allclose(mass.sum(), op.integrate(rho_q), rtol=1e-13)
+
+
+def test_fourier_eval_is_exact_identity():
+    op = _op(FourierScheme, 2)
+    u_scalar = jax.random.normal(jax.random.PRNGKey(2), (N, N))
+    u_vec = jax.random.normal(jax.random.PRNGKey(3), (N, N, 2))
+    np.testing.assert_array_equal(op.eval(u_scalar), u_scalar[..., None])
+    np.testing.assert_array_equal(op.eval(u_vec), u_vec[:, :, None, :])
+    with pytest.raises(ValueError, match="fewer than"):
+        op.eval(jnp.ones((N,)))

@@ -1124,3 +1124,13 @@ class FourierScheme(Scheme):
         """
         Ds = jnp.stack([iota * xi for xi in wavenumbers_mesh], axis=-1)
         return Ds[..., None, :]
+
+    @jax.jit
+    def apply_interpolation_real(self, u: Array) -> Array:
+        """Collocated identity: inserts the length-1 quadrature axis without FFTs."""
+        if u.ndim < self.dim:
+            raise ValueError(
+                f"field has {u.ndim} axes, fewer than the {self.dim} spatial "
+                f"dimensions; got shape {u.shape}"
+            )
+        return jnp.expand_dims(u, self.dim)
